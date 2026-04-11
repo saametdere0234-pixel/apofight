@@ -16,7 +16,7 @@ export interface GamePlayer extends PlayerProfile {
   facing: 'left' | 'right';
   isJumping: boolean;
   dashCharges: number;
-  dashCooldown: number;
+  dashRechargeProgress: number; // 0 to DASH_COOLDOWN_TIME
   lastAttackTime: number;
   roundsWon: number;
 }
@@ -60,6 +60,6 @@ export const PLAYER_HEIGHT = 2.2;
 export const GRAVITY = 25;
 export const JUMP_FORCE = -11.2; // Calculated for ~2.5m height given GRAVITY=25
 export const MOVE_SPEED = 8;
-export const DASH_DISTANCE = 3.5;
+export const DASH_DISTANCE = 2.0; // Updated to 2 meters as requested
 export const DASH_COOLDOWN_TIME = 4.0;
 export const FAST_FALL_SPEED = 40;

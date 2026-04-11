@@ -59,7 +59,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       facing: 'right',
       isJumping: false,
       dashCharges: getMaxDashCharges(profile.weaponClass),
-      dashCooldown: 0,
+      dashRechargeProgress: 0,
       lastAttackTime: 0,
       roundsWon: 0
     };
@@ -86,12 +86,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (!profile || !currentRoom || !currentRoom.players?.[profile.id] || !db) return;
     
     const p = currentRoom.players[profile.id];
+    const maxCharges = getMaxDashCharges(p.weaponClass as WeaponClass);
+    
     let nextX = p.x;
     let nextY = p.y;
     let nextVy = p.vy;
     let nextFacing = p.facing;
-    let nextDashCooldown = p.dashCooldown || 0;
     let nextDashCharges = p.dashCharges;
+    let nextDashRechargeProgress = p.dashRechargeProgress || 0;
 
     // Gravity
     nextVy += GRAVITY * dt;
@@ -129,13 +131,15 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     // Boundaries
     nextX = Math.max(0, Math.min(ARENA_WIDTH - PLAYER_WIDTH, nextX));
 
-    // Dash Cooldown Handling
-    if (nextDashCooldown > 0) {
-      nextDashCooldown -= dt;
-      if (nextDashCooldown <= 0) {
-        nextDashCooldown = 0;
-        nextDashCharges = getMaxDashCharges(p.weaponClass as WeaponClass);
+    // Dash Recharge Logic
+    if (nextDashCharges < maxCharges) {
+      nextDashRechargeProgress += dt;
+      if (nextDashRechargeProgress >= DASH_COOLDOWN_TIME) {
+        nextDashCharges++;
+        nextDashRechargeProgress = 0;
       }
+    } else {
+      nextDashRechargeProgress = 0;
     }
 
     const myPlayerRef = ref(db, `rooms/${roomId}/players/${profile.id}`);
@@ -146,7 +150,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       facing: nextFacing,
       isJumping,
       dashCharges: nextDashCharges,
-      dashCooldown: nextDashCooldown
+      dashRechargeProgress: nextDashRechargeProgress
     });
   }, [profile, roomId, keys]);
 
@@ -159,7 +163,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         if (profile && currentRoom?.players?.[profile.id] && currentRoom.status === 'playing') {
           const p = currentRoom.players[profile.id];
           
-          if (p.dashCharges > 0 && (p.dashCooldown || 0) <= 0) {
+          if (p.dashCharges > 0) {
             const dx = mouseRef.current.x - (p.x + PLAYER_WIDTH/2);
             const dy = mouseRef.current.y - (p.y + PLAYER_HEIGHT/2);
             const dist = Math.sqrt(dx * dx + dy * dy);
@@ -171,14 +175,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
               const newX = Math.max(0, Math.min(ARENA_WIDTH - PLAYER_WIDTH, p.x + dashX));
               const newY = Math.max(0, Math.min(GROUND_Y - PLAYER_HEIGHT, p.y + dashY));
               
-              const newCharges = p.dashCharges - 1;
-              const newCooldown = newCharges === 0 ? DASH_COOLDOWN_TIME : 0;
-              
               update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
                 x: newX,
                 y: newY,
-                dashCharges: newCharges,
-                dashCooldown: newCooldown
+                dashCharges: p.dashCharges - 1
               });
             }
           }
@@ -311,7 +311,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             y: GROUND_Y - PLAYER_HEIGHT,
             vy: 0,
             dashCharges: getMaxDashCharges(p.weaponClass as WeaponClass),
-            dashCooldown: 0
+            dashRechargeProgress: 0
           });
         });
         update(roomRef, { status: 'playing' });
@@ -421,6 +421,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   if (profileLoading || !profile) return null;
 
   const myP = room?.players?.[profile.id];
+  const maxDash = getMaxDashCharges(myP?.weaponClass as WeaponClass || 'Sword');
 
   return (
     <div className="min-h-screen bg-background overflow-hidden flex flex-col items-center select-none">
@@ -506,21 +507,29 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
              <Progress value={(myP?.hp || 0) / 10} className="h-3 bg-white/5" />
           </div>
 
-          <div className="space-y-2 pt-2">
+          <div className="space-y-3 pt-2">
              <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase">
-                <div className="flex items-center gap-2">
-                  <span>Phase Dash</span>
-                  <div className="flex gap-1">
-                    {[...Array(getMaxDashCharges(myP?.weaponClass as WeaponClass))].map((_, i) => (
-                      <div key={i} className={`w-2 h-2 rounded-full ${i < (myP?.dashCharges || 0) ? 'bg-accent' : 'bg-white/10'}`} />
-                    ))}
-                  </div>
-                </div>
-                <span className={myP?.dashCooldown && myP.dashCooldown > 0 ? 'text-destructive' : 'text-accent'}>
-                  {myP?.dashCooldown && myP.dashCooldown > 0 ? `${myP.dashCooldown.toFixed(1)}s` : 'READY'}
+                <span>Phase Dash</span>
+                <span className={myP?.dashCharges === maxDash ? 'text-accent' : 'text-muted-foreground'}>
+                  {myP?.dashCharges} / {maxDash}
                 </span>
              </div>
-             <Progress value={myP?.dashCooldown && myP.dashCooldown > 0 ? 100 - (myP.dashCooldown / DASH_COOLDOWN_TIME * 100) : 100} className="h-1 bg-white/5" />
+             <div className="flex gap-2 h-2">
+                {[...Array(maxDash)].map((_, i) => {
+                  const isFull = i < (myP?.dashCharges || 0);
+                  const isCharging = i === (myP?.dashCharges || 0);
+                  const progress = isCharging ? ((myP?.dashRechargeProgress || 0) / DASH_COOLDOWN_TIME) * 100 : isFull ? 100 : 0;
+                  
+                  return (
+                    <div key={i} className="flex-1 bg-white/5 rounded-full overflow-hidden border border-white/5 relative">
+                      <div 
+                        className={`h-full transition-all duration-300 ease-linear ${isFull ? 'bg-accent' : 'bg-accent/40'}`} 
+                        style={{ width: `${progress}%` }} 
+                      />
+                    </div>
+                  );
+                })}
+             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
