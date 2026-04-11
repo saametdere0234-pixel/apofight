@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -25,7 +24,7 @@ import {
 } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
 import { Progress } from '@/components/ui/progress';
-import { Trophy, Shield, Sword, Wand2, ArrowLeft, Zap, AlertTriangle, Play, MousePointer2 } from 'lucide-react';
+import { Trophy, Shield, Sword, Wand2, ArrowLeft, Zap, AlertTriangle, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function GamePage({ params }: { params: Promise<{ roomId: string }> }) {
@@ -202,8 +201,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / PIXELS_PER_METER;
-    const y = (e.clientY - rect.top) / PIXELS_PER_METER;
+    const x = (e.clientX - rect.left) / (rect.width / (ARENA_WIDTH * PIXELS_PER_METER)) / PIXELS_PER_METER;
+    const y = (e.clientY - rect.top) / (rect.height / (ARENA_HEIGHT * PIXELS_PER_METER)) / PIXELS_PER_METER;
     mouseRef.current = { x, y };
   };
 
@@ -212,16 +211,19 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (!profile || !currentRoom || !currentRoom.players?.[profile.id] || !db || currentRoom.status !== 'playing') return;
     
     const p = currentRoom.players[profile.id];
-    const stats = WEAPON_STATS[p.weaponClass as WeaponClass];
+    const weapon = p.weaponClass as WeaponClass;
+    const stats = WEAPON_STATS[weapon];
     
     const now = Date.now();
     if (now - (p.lastAttackTime || 0) < stats.delay * 1000) return;
 
-    // Directed attack towards cursor
-    const mx = mouseRef.current.x;
-    const my = mouseRef.current.y;
     const px = p.x + PLAYER_WIDTH / 2;
     const py = p.y + PLAYER_HEIGHT / 2;
+    const mx = mouseRef.current.x;
+    const my = mouseRef.current.y;
+
+    // Calculate attack angle towards cursor
+    const attackAngle = Math.atan2(my - py, mx - px);
 
     Object.entries(currentRoom.players).forEach(([id, enemy]) => {
       if (id === profile.id || enemy.hp <= 0) return;
@@ -229,17 +231,24 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const ex = enemy.x + PLAYER_WIDTH / 2;
       const ey = enemy.y + PLAYER_HEIGHT / 2;
       
-      const distToEnemy = Math.sqrt(Math.pow(px - ex, 2) + Math.pow(py - ey, 2));
-      const distCursorToEnemy = Math.sqrt(Math.pow(mx - ex, 2) + Math.pow(my - ey, 2));
+      const dx = ex - px;
+      const dy = ey - py;
+      const distToEnemy = Math.sqrt(dx * dx + dy * dy);
 
-      // Hit if enemy is within weapon range and cursor is close to the enemy
-      if (distToEnemy <= stats.range && distCursorToEnemy < 2.0) {
-        const enemyRef = ref(db, `rooms/${roomId}/players/${id}`);
-        const newHp = Math.max(0, enemy.hp - stats.damage);
-        update(enemyRef, { hp: newHp });
-
-        if (newHp === 0) {
-          handleKill(id);
+      if (distToEnemy <= stats.range) {
+        if (weapon === 'Dagger') {
+          // Dagger is circular AoE, any enemy within range is hit
+          thisHit(id, enemy);
+        } else {
+          // Sword and Bow use cone checks
+          const enemyAngle = Math.atan2(dy, dx);
+          let diff = Math.abs(enemyAngle - attackAngle);
+          if (diff > Math.PI) diff = 2 * Math.PI - diff;
+          
+          const angleInDegrees = diff * (180 / Math.PI);
+          if (angleInDegrees <= stats.angle / 2) {
+            thisHit(id, enemy);
+          }
         }
       }
     });
@@ -247,6 +256,18 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
       lastAttackTime: now
     });
+  };
+
+  const thisHit = (id: string, enemy: GamePlayer) => {
+    if (!db || !roomId) return;
+    const stats = WEAPON_STATS[roomRefState.current?.players?.[profile.id]?.weaponClass as WeaponClass];
+    const enemyRef = ref(db, `rooms/${roomId}/players/${id}`);
+    const newHp = Math.max(0, enemy.hp - stats.damage);
+    update(enemyRef, { hp: newHp });
+
+    if (newHp === 0) {
+      handleKill(id);
+    }
   };
 
   const handleKill = (victimId: string) => {
@@ -323,16 +344,40 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const eyeX = p.facing === 'right' ? px + pw - 8 : px + 4;
       ctx.fillRect(eyeX, py + 10, 4, 4);
 
-      const stats = WEAPON_STATS[p.weaponClass as WeaponClass];
+      const weapon = p.weaponClass as WeaponClass;
+      const stats = WEAPON_STATS[weapon];
       const now = Date.now();
-      const isAttacking = now - (p.lastAttackTime || 0) < 150;
+      const attackDuration = 150;
+      const timeSinceAttack = now - (p.lastAttackTime || 0);
+      const isAttacking = timeSinceAttack < attackDuration;
       
       if (isAttacking) {
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        const opacity = 1 - (timeSinceAttack / attackDuration);
+        ctx.fillStyle = `rgba(255, 255, 255, ${opacity * 0.3})`;
+        ctx.strokeStyle = `rgba(255, 255, 255, ${opacity * 0.5})`;
         ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(px + pw/2, py + ph/2, stats.range * PIXELS_PER_METER, 0, Math.PI * 2);
-        ctx.stroke();
+
+        const centerX = px + pw / 2;
+        const centerY = py + ph / 2;
+
+        if (weapon === 'Dagger') {
+          // Draw Circle AoE
+          ctx.beginPath();
+          ctx.arc(centerX, centerY, stats.range * PIXELS_PER_METER, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        } else {
+          // Draw Cone (Sword / Bow)
+          const targetAngle = Math.atan2(mouseRef.current.y - (p.y + PLAYER_HEIGHT/2), mouseRef.current.x - (p.x + PLAYER_WIDTH/2));
+          const halfAngle = (stats.angle / 2) * (Math.PI / 180);
+          
+          ctx.beginPath();
+          ctx.moveTo(centerX, centerY);
+          ctx.arc(centerX, centerY, stats.range * PIXELS_PER_METER, targetAngle - halfAngle, targetAngle + halfAngle);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        }
       }
 
       if (currentRoom.status !== 'lobby') {
@@ -357,17 +402,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   };
 
   if (profileLoading || !profile) return null;
-
-  if (!db) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8 text-center space-y-6">
-        <AlertTriangle className="w-16 h-16 text-destructive animate-pulse" />
-        <h1 className="text-3xl font-headline font-bold text-white">COMMUNICATIONS OFFLINE</h1>
-        <p className="max-w-md text-muted-foreground">Database required for combat. Return to HQ.</p>
-        <Button onClick={() => router.push('/lobby')} variant="outline">RETURN TO HQ</Button>
-      </div>
-    );
-  }
 
   const myP = room?.players?.[profile.id];
 
@@ -477,10 +511,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                 </div>
              </div>
              <div className="space-y-1">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase block">System</span>
+                <span className="text-[10px] font-bold text-muted-foreground uppercase block">Combat Type</span>
                 <div className="flex items-center gap-1 text-white">
                   <Zap className="w-3 h-3 text-yellow-500" />
-                  <span className="text-xs font-bold uppercase">Space Dash</span>
+                  <span className="text-xs font-bold uppercase">{myP?.weaponClass === 'Dagger' ? 'AoE' : 'Cone'}</span>
                 </div>
              </div>
           </div>

@@ -31,21 +31,21 @@ export interface GameRoom {
 
 export const WEAPON_STATS = {
   Sword: {
-    damage: 150,
-    range: 3.5,
-    width: 2.0,
-    delay: 0.4,
+    damage: 200,
+    range: 5.5,
+    angle: 60, // degrees
+    delay: 0.6,
   },
   Dagger: {
-    damage: 100,
-    range: 2.5,
-    width: 1.5,
-    delay: 0.2,
+    damage: 120,
+    range: 3.0,
+    angle: 360, // 360 for circular AoE
+    delay: 0.25,
   },
   Bow: {
-    damage: 120,
+    damage: 150,
     range: 12.0,
-    width: 0.8,
+    angle: 15,
     delay: 0.8,
   },
 };
