@@ -5,11 +5,12 @@ import { db } from '@/lib/firebase';
 import { ref, onValue, push, set } from 'firebase/database';
 import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Plus, Users, ArrowRight, Home, LayoutGrid } from 'lucide-react';
+import { Plus, Users, ArrowRight, Home, LayoutGrid, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { GameRoom } from '@/lib/game-types';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function LobbyScreen() {
   const { profile, loading: profileLoading } = useLocalPlayer();
@@ -18,6 +19,7 @@ export default function LobbyScreen() {
   const router = useRouter();
 
   useEffect(() => {
+    if (!db) return;
     const roomsRef = ref(db, 'rooms');
     const unsubscribe = onValue(roomsRef, (snapshot) => {
       setRooms(snapshot.val() || {});
@@ -26,7 +28,7 @@ export default function LobbyScreen() {
   }, []);
 
   const createRoom = async () => {
-    if (!newRoomName.trim() || !profile) return;
+    if (!newRoomName.trim() || !profile || !db) return;
     const roomsRef = ref(db, 'rooms');
     const newRoomRef = push(roomsRef);
     const room: Partial<GameRoom> = {
@@ -51,6 +53,16 @@ export default function LobbyScreen() {
   return (
     <div className="min-h-screen bg-background p-4 md:p-8 flex flex-col items-center">
       <div className="w-full max-w-4xl space-y-8">
+        {!db && (
+          <Alert variant="destructive" className="mb-6 bg-destructive/10 border-destructive/20 text-destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle className="font-headline font-bold uppercase tracking-tight">Firebase Offline</AlertTitle>
+            <AlertDescription className="text-sm">
+              Real-time database configuration is missing. Please check your .env file to enable multiplayer features.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <div className="flex justify-between items-center">
           <div className="space-y-1">
             <h2 className="text-3xl font-headline font-bold text-primary">COMMAND CENTER</h2>
@@ -89,10 +101,11 @@ export default function LobbyScreen() {
                   value={newRoomName}
                   onChange={(e) => setNewRoomName(e.target.value)}
                   className="bg-background/40"
+                  disabled={!db}
                 />
               </div>
-              <Button className="w-full font-headline font-bold" onClick={createRoom} disabled={!newRoomName.trim()}>
-                CREATE ROOM
+              <Button className="w-full font-headline font-bold" onClick={createRoom} disabled={!newRoomName.trim() || !db}>
+                {db ? 'CREATE ROOM' : 'CONFIG MISSING'}
               </Button>
             </CardContent>
           </Card>
@@ -111,7 +124,9 @@ export default function LobbyScreen() {
             {Object.keys(rooms).length === 0 ? (
               <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed rounded-2xl border-muted bg-card/20 text-center">
                 <Users className="w-12 h-12 text-muted-foreground mb-4 opacity-20" />
-                <p className="text-muted-foreground">No active combat zones found. Start one above.</p>
+                <p className="text-muted-foreground">
+                  {db ? "No active combat zones found. Start one above." : "Database connection required to view active zones."}
+                </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4">

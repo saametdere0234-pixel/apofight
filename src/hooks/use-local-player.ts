@@ -29,9 +29,15 @@ export function useLocalPlayer() {
       };
     }
 
+    if (!db) {
+      setProfile(initialProfile);
+      setLoading(false);
+      return;
+    }
+
     // Sync medals from Firebase if they exist
     const medalRef = ref(db, `players/${initialProfile.id}/medals`);
-    onValue(medalRef, (snapshot) => {
+    const unsubscribe = onValue(medalRef, (snapshot) => {
       const val = snapshot.val();
       if (val !== null) {
         initialProfile.medals = val;
@@ -42,6 +48,8 @@ export function useLocalPlayer() {
       }
       setLoading(false);
     });
+
+    return () => unsubscribe();
   }, []);
 
   const updateProfile = (updates: Partial<PlayerProfile>) => {
@@ -50,9 +58,11 @@ export function useLocalPlayer() {
     setProfile(newProfile);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newProfile));
     
-    // Sync to Firebase
-    set(ref(db, `players/${profile.id}/medals`), newProfile.medals);
-    set(ref(db, `players/${profile.id}/name`), newProfile.name);
+    if (db) {
+      // Sync to Firebase
+      set(ref(db, `players/${profile.id}/medals`), newProfile.medals);
+      set(ref(db, `players/${profile.id}/name`), newProfile.name);
+    }
   };
 
   const generateName = async () => {

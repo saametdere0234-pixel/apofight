@@ -7,7 +7,7 @@ import { ref, onValue, set, update, onDisconnect, remove } from 'firebase/databa
 import { GamePlayer, GameRoom, ARENA_SIZE, PIXELS_PER_METER, PLAYER_WIDTH, PLAYER_HEIGHT, WEAPON_STATS, WeaponClass } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
 import { Progress } from '@/components/ui/progress';
-import { Trophy, Shield, Sword, Wand2, ArrowLeft, Zap } from 'lucide-react';
+import { Trophy, Shield, Sword, Wand2, ArrowLeft, Zap, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function GamePage({ params }: { params: Promise<{ roomId: string }> }) {
@@ -20,13 +20,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [keys, setKeys] = useState<Set<string>>(new Set());
   
-  const roomRef = ref(db, `rooms/${roomId}`);
-  const playersRef = ref(db, `rooms/${roomId}/players`);
-
   // Handle Player Connection & Presence
   useEffect(() => {
-    if (profileLoading || !profile) return;
+    if (profileLoading || !profile || !db) return;
 
+    const roomRef = ref(db, `rooms/${roomId}`);
     const myPlayerRef = ref(db, `rooms/${roomId}/players/${profile.id}`);
     
     // Initial Join
@@ -107,9 +105,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   }, [profile, room]);
 
   const updateGameLogic = (dt: number) => {
-    if (!profile || !room || !room.players[profile.id]) return;
+    if (!profile || !room || !room.players[profile.id] || !db) return;
     const p = room.players[profile.id];
-    const stats = WEAPON_STATS[p.weaponClass as WeaponClass];
     
     let nextX = p.x;
     let nextY = p.y;
@@ -150,7 +147,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   };
 
   const handleAttack = () => {
-    if (!profile || !room || !room.players[profile.id]) return;
+    if (!profile || !room || !room.players[profile.id] || !db) return;
     const p = room.players[profile.id];
     const stats = WEAPON_STATS[p.weaponClass as WeaponClass];
     
@@ -184,7 +181,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   };
 
   const handleKill = (victimId: string) => {
-    if (!room || !profile) return;
+    if (!room || !profile || !db) return;
+    const roomRef = ref(db, `rooms/${roomId}`);
     const winnersRounds = (room.players[profile.id].roundsWon || 0) + 1;
     update(ref(db, `rooms/${roomId}/players/${profile.id}`), { roundsWon: winnersRounds });
 
@@ -271,6 +269,20 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   };
 
   if (profileLoading || !profile) return null;
+
+  if (!db) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8 text-center space-y-6">
+        <AlertTriangle className="w-16 h-16 text-destructive animate-pulse" />
+        <h1 className="text-3xl font-headline font-bold text-white">COMMUNICATIONS OFFLINE</h1>
+        <p className="max-w-md text-muted-foreground">
+          The arena combat system requires a Firebase Realtime Database connection. 
+          Please check the command center (lobby) for more details.
+        </p>
+        <Button onClick={() => router.push('/lobby')} variant="outline">RETURN TO LOBBY</Button>
+      </div>
+    );
+  }
 
   const myP = room?.players?.[profile.id];
 
