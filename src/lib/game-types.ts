@@ -47,7 +47,7 @@ export const WEAPON_STATS = {
     delay: 0.25,
   },
   Bow: {
-    damage: 50,
+    damage: 100,
     range: 12.0,
     angle: 15,
     delay: 0.8,
