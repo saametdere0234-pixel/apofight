@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useEffect, useRef, useState, use } from 'react';
+import { useEffect, useRef, useState, use, useCallback } from 'react';
 import { useLocalPlayer } from '@/hooks/use-local-player';
 import { db } from '@/lib/firebase';
 import { ref, onValue, set, update, onDisconnect, remove } from 'firebase/database';
@@ -21,7 +22,7 @@ import {
 } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
 import { Progress } from '@/components/ui/progress';
-import { Trophy, Shield, Sword, Wand2, ArrowLeft, Zap, AlertTriangle } from 'lucide-react';
+import { Trophy, Shield, Sword, Wand2, ArrowLeft, Zap, AlertTriangle, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function GamePage({ params }: { params: Promise<{ roomId: string }> }) {
@@ -31,17 +32,23 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [room, setRoom] = useState<GameRoom | null>(null);
-  const [keys, setKeys] = useState<Set<string>>(new Set());
+  const roomRefState = useRef<GameRoom | null>(null);
+  const [keys] = useState<Set<string>>(new Set());
   
+  // Sync room state to ref for physics loop to avoid dependency restarts
+  useEffect(() => {
+    roomRefState.current = room;
+  }, [room]);
+
   useEffect(() => {
     if (profileLoading || !profile || !db) return;
 
-    const roomRef = ref(db, `rooms/${roomId}`);
+    const roomPath = ref(db, `rooms/${roomId}`);
     const myPlayerRef = ref(db, `rooms/${roomId}/players/${profile.id}`);
     
     const initialPlayer: GamePlayer = {
       ...profile,
-      x: Math.random() * (ARENA_WIDTH - 10) + 5,
+      x: Math.random() * (ARENA_WIDTH - 5) + 2,
       y: GROUND_Y - PLAYER_HEIGHT,
       vy: 0,
       hp: 1000,
@@ -52,10 +59,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       roundsWon: 0
     };
 
+    // Set initial position and setup cleanup
     set(myPlayerRef, initialPlayer);
     onDisconnect(myPlayerRef).remove();
 
-    const unsubscribe = onValue(roomRef, (snapshot) => {
+    const unsubscribe = onValue(roomPath, (snapshot) => {
       if (!snapshot.exists()) {
         router.push('/lobby');
         return;
@@ -69,44 +77,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     };
   }, [profile, profileLoading, roomId, router]);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => setKeys(prev => new Set(prev).add(e.code));
-    const handleKeyUp = (e: KeyboardEvent) => setKeys(prev => {
-      const next = new Set(prev);
-      next.delete(e.code);
-      return next;
-    });
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-
-    let lastTime = performance.now();
-    let frameId: number;
-
-    const loop = (time: number) => {
-      const dt = Math.min((time - lastTime) / 1000, 0.1);
-      lastTime = time;
-
-      if (profile && room?.players?.[profile.id] && room.status === 'playing') {
-        updateGameLogic(dt);
-      }
-      render();
-      frameId = requestAnimationFrame(loop);
-    };
-
-    frameId = requestAnimationFrame(loop);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-      cancelAnimationFrame(frameId);
-    };
-  }, [profile, room]);
-
-  const updateGameLogic = (dt: number) => {
-    if (!profile || !room || !room.players[profile.id] || !db) return;
-    const p = room.players[profile.id];
+  const updateGameLogic = useCallback((dt: number) => {
+    const currentRoom = roomRefState.current;
+    if (!profile || !currentRoom || !currentRoom.players?.[profile.id] || !db) return;
     
+    const p = currentRoom.players[profile.id];
     let nextX = p.x;
     let nextY = p.y;
     let nextVy = p.vy;
@@ -117,17 +92,17 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     nextY += nextVy * dt;
 
     // Movement
-    if (keys.has('KeyA')) {
+    if (keys.has('KeyA') || keys.has('ArrowLeft')) {
       nextX -= MOVE_SPEED * dt;
       nextFacing = 'left';
     }
-    if (keys.has('KeyD')) {
+    if (keys.has('KeyD') || keys.has('ArrowRight')) {
       nextX += MOVE_SPEED * dt;
       nextFacing = 'right';
     }
 
     // Jumping
-    if (keys.has('KeyW') && !p.isJumping && p.y >= GROUND_Y - PLAYER_HEIGHT) {
+    if ((keys.has('KeyW') || keys.has('ArrowUp') || keys.has('Space')) && !p.isJumping && p.y >= GROUND_Y - PLAYER_HEIGHT - 0.1) {
       nextVy = JUMP_FORCE;
     }
 
@@ -142,7 +117,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     // Boundaries
     nextX = Math.max(0, Math.min(ARENA_WIDTH - PLAYER_WIDTH, nextX));
 
-    // Update Remote
+    // Only update if something changed significantly to save bandwidth
     const myPlayerRef = ref(db, `rooms/${roomId}/players/${profile.id}`);
     update(myPlayerRef, {
       x: nextX,
@@ -152,11 +127,44 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       isJumping,
       dashCooldown: Math.max(0, (p.dashCooldown || 0) - dt)
     });
-  };
+  }, [profile, roomId, keys]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => keys.add(e.code);
+    const handleKeyUp = (e: KeyboardEvent) => keys.delete(e.code);
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    let lastTime = performance.now();
+    let frameId: number;
+
+    const loop = (time: number) => {
+      const dt = Math.min((time - lastTime) / 1000, 0.1);
+      lastTime = time;
+
+      const currentRoom = roomRefState.current;
+      if (profile && currentRoom?.players?.[profile.id] && currentRoom.status === 'playing') {
+        updateGameLogic(dt);
+      }
+      render();
+      frameId = requestAnimationFrame(loop);
+    };
+
+    frameId = requestAnimationFrame(loop);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      cancelAnimationFrame(frameId);
+    };
+  }, [profile, updateGameLogic, keys]);
 
   const handleAttack = () => {
-    if (!profile || !room || !room.players[profile.id] || !db || room.status !== 'playing') return;
-    const p = room.players[profile.id];
+    const currentRoom = roomRefState.current;
+    if (!profile || !currentRoom || !currentRoom.players?.[profile.id] || !db || currentRoom.status !== 'playing') return;
+    
+    const p = currentRoom.players[profile.id];
     const stats = WEAPON_STATS[p.weaponClass as WeaponClass];
     
     const now = Date.now();
@@ -172,10 +180,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       h: PLAYER_HEIGHT
     };
 
-    Object.entries(room.players).forEach(([id, enemy]) => {
+    Object.entries(currentRoom.players).forEach(([id, enemy]) => {
       if (id === profile.id || enemy.hp <= 0) return;
       
-      // Simple rect collision
       if (
         enemy.x < attackRect.x + attackRect.w &&
         enemy.x + PLAYER_WIDTH > attackRect.x &&
@@ -198,9 +205,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   };
 
   const handleKill = (victimId: string) => {
-    if (!room || !profile || !db) return;
+    const currentRoom = roomRefState.current;
+    if (!currentRoom || !profile || !db) return;
     const roomRef = ref(db, `rooms/${roomId}`);
-    const winnersRounds = (room.players[profile.id].roundsWon || 0) + 1;
+    const winnersRounds = (currentRoom.players[profile.id].roundsWon || 0) + 1;
+    
     update(ref(db, `rooms/${roomId}/players/${profile.id}`), { roundsWon: winnersRounds });
 
     if (winnersRounds >= 3) {
@@ -209,10 +218,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     } else {
       update(roomRef, { status: 'round_over' });
       setTimeout(() => {
-        Object.keys(room.players).forEach(pid => {
+        Object.keys(currentRoom.players).forEach(pid => {
           update(ref(db, `rooms/${roomId}/players/${pid}`), {
             hp: 1000,
-            x: Math.random() * (ARENA_WIDTH - 10) + 5,
+            x: Math.random() * (ARENA_WIDTH - 5) + 2,
             y: GROUND_Y - PLAYER_HEIGHT,
             vy: 0
           });
@@ -222,9 +231,15 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     }
   };
 
+  const startMatch = () => {
+    if (!db || !roomId) return;
+    update(ref(db, `rooms/${roomId}`), { status: 'playing' });
+  };
+
   const render = () => {
     const canvas = canvasRef.current;
-    if (!canvas || !room) return;
+    const currentRoom = roomRefState.current;
+    if (!canvas || !currentRoom) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -247,8 +262,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     }
 
     // Render Players
-    Object.values(room.players).forEach(p => {
-      if (p.hp <= 0) return;
+    Object.values(currentRoom.players || {}).forEach(p => {
+      if (p.hp <= 0 && currentRoom.status === 'playing') return;
 
       const px = p.x * PIXELS_PER_METER;
       const py = p.y * PIXELS_PER_METER;
@@ -269,7 +284,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const eyeX = p.facing === 'right' ? px + pw - 8 : px + 4;
       ctx.fillRect(eyeX, py + 10, 4, 4);
 
-      // Weapon
+      // Weapon Visualization
       const stats = WEAPON_STATS[p.weaponClass as WeaponClass];
       const now = Date.now();
       const isAttacking = now - (p.lastAttackTime || 0) < 150;
@@ -281,10 +296,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
 
       // HP Bar overhead
-      ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      ctx.fillRect(px, py - 15, pw, 5);
-      ctx.fillStyle = '#ff4444';
-      ctx.fillRect(px, py - 15, (p.hp / 1000) * pw, 5);
+      if (currentRoom.status !== 'lobby') {
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(px, py - 15, pw, 5);
+        ctx.fillStyle = '#ff4444';
+        ctx.fillRect(px, py - 15, (p.hp / 1000) * pw, 5);
+      }
       
       // Name
       ctx.fillStyle = '#fff';
@@ -346,11 +363,34 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             className="w-full h-auto cursor-crosshair" 
             onClick={handleAttack}
           />
+          
+          {room?.status === 'lobby' && (
+             <div className="absolute inset-0 bg-black/60 backdrop-blur-md flex flex-col items-center justify-center z-50 space-y-8">
+                <div className="text-center space-y-2">
+                  <h2 className="text-4xl font-headline font-bold text-white uppercase italic tracking-tighter">WAITING FOR COMBATANTS</h2>
+                  <p className="text-muted-foreground text-sm uppercase tracking-widest">Gathering warriors in the arena...</p>
+                </div>
+                <div className="flex gap-4">
+                  {Object.values(room.players).map(p => (
+                    <div key={p.id} className="flex flex-col items-center gap-2">
+                      <div className="w-12 h-12 rounded-lg" style={{ backgroundColor: p.color }} />
+                      <span className="text-[10px] font-bold text-white uppercase">{p.name}</span>
+                    </div>
+                  ))}
+                </div>
+                <Button onClick={startMatch} size="lg" className="font-headline font-bold px-12 h-14 text-xl">
+                  <Play className="w-6 h-6 mr-2 fill-current" />
+                  INITIATE COMBAT
+                </Button>
+             </div>
+          )}
+
           {room?.status === 'round_over' && (
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
               <h2 className="text-6xl font-headline font-bold text-accent animate-bounce uppercase italic tracking-tighter">ROUND END</h2>
             </div>
           )}
+
           {room?.status === 'finished' && (
              <div className="absolute inset-0 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center z-50 p-8 text-center space-y-6">
                 <Trophy className="w-24 h-24 text-yellow-500 animate-pulse" />
