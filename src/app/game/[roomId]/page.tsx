@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -318,6 +317,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
       lastAttackTime: now,
+      lastAttackAngle: attackAngle,
       stamina: (p.stamina || 0) - STAMINA_ATTACK_COST
     });
   };
@@ -373,7 +373,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             vy: 0,
             jumpCount: 0,
             dashCharges: getMaxDashCharges(p.weaponClass as WeaponClass),
-            dashRechargeProgress: 0
+            dashRechargeProgress: 0,
+            lastAttackTime: 0
           });
         });
         update(roomRef, { status: 'playing' });
@@ -435,6 +436,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const py = p.y * PIXELS_PER_METER;
       const pw = PLAYER_WIDTH * PIXELS_PER_METER;
       const ph = PLAYER_HEIGHT * PIXELS_PER_METER;
+      const centerX = px + pw / 2;
+      const centerY = py + ph / 2;
 
       ctx.shadowBlur = 15;
       ctx.shadowColor = p.color;
@@ -446,38 +449,48 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const eyeX = p.facing === 'right' ? px + pw - 8 : px + 4;
       ctx.fillRect(eyeX, py + 10, 4, 4);
 
-      const weapon = p.weaponClass as WeaponClass;
-      const stats = WEAPON_STATS[weapon];
+      // Visual Attack Indicators (Synced)
       const now = Date.now();
-      const attackDuration = 150;
+      const attackDuration = 200;
       const timeSinceAttack = now - (p.lastAttackTime || 0);
-      const isAttacking = timeSinceAttack < attackDuration;
       
-      if (isAttacking) {
-        const opacity = 1 - (timeSinceAttack / attackDuration);
-        ctx.fillStyle = `rgba(255, 255, 255, ${opacity * 0.3})`;
-        ctx.strokeStyle = `rgba(255, 255, 255, ${opacity * 0.5})`;
+      if (timeSinceAttack < attackDuration) {
+        const opacity = (1 - (timeSinceAttack / attackDuration)) * 0.6;
+        const isLocal = p.id === profile.id;
+        const baseColor = isLocal ? '64, 156, 255' : '255, 64, 64';
+        
+        ctx.save();
+        ctx.fillStyle = `rgba(${baseColor}, ${opacity * 0.4})`;
+        ctx.strokeStyle = `rgba(${baseColor}, ${opacity})`;
         ctx.lineWidth = 2;
 
-        const centerX = px + pw / 2;
-        const centerY = py + ph / 2;
+        const weapon = p.weaponClass as WeaponClass;
+        const stats = WEAPON_STATS[weapon];
+        const angle = p.lastAttackAngle || 0;
 
         if (weapon === 'Dagger') {
           ctx.beginPath();
           ctx.arc(centerX, centerY, stats.range * PIXELS_PER_METER, 0, Math.PI * 2);
           ctx.fill();
           ctx.stroke();
-        } else {
-          const targetAngle = Math.atan2(mouseRef.current.y - (p.y + PLAYER_HEIGHT/2), mouseRef.current.x - (p.x + PLAYER_WIDTH/2));
+        } else if (weapon === 'Sword') {
           const halfAngle = (stats.angle / 2) * (Math.PI / 180);
-          
           ctx.beginPath();
           ctx.moveTo(centerX, centerY);
-          ctx.arc(centerX, centerY, stats.range * PIXELS_PER_METER, targetAngle - halfAngle, targetAngle + halfAngle);
+          ctx.arc(centerX, centerY, stats.range * PIXELS_PER_METER, angle - halfAngle, angle + halfAngle);
           ctx.closePath();
           ctx.fill();
           ctx.stroke();
+        } else if (weapon === 'Bow') {
+          ctx.beginPath();
+          ctx.moveTo(centerX, centerY);
+          ctx.lineTo(
+            centerX + Math.cos(angle) * stats.range * PIXELS_PER_METER,
+            centerY + Math.sin(angle) * stats.range * PIXELS_PER_METER
+          );
+          ctx.stroke();
         }
+        ctx.restore();
       }
 
       if (currentRoom.status !== 'lobby') {

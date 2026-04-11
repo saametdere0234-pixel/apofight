@@ -20,6 +20,7 @@ export interface GamePlayer extends PlayerProfile {
   dashCharges: number;
   dashRechargeProgress: number; // 0 to DASH_COOLDOWN_TIME
   lastAttackTime: number;
+  lastAttackAngle?: number; // Synced angle for VFX
   roundsWon: number;
 }
 
