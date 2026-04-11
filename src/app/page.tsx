@@ -5,9 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Sword, Wand2, Shield, Sparkles, User, Palette, Trophy } from 'lucide-react';
-import { WeaponClass } from '@/lib/game-types';
-import Link from 'next/link';
+import { Sword, Wand2, Shield, Sparkles, User, Trophy } from 'lucide-react';
+import { WeaponClass, WEAPON_STATS } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
 
 export default function EntryScreen() {
@@ -30,9 +29,21 @@ export default function EntryScreen() {
   };
 
   const weapons: { id: WeaponClass; icon: any; desc: string }[] = [
-    { id: 'Sword', icon: Sword, desc: 'Balanced: 200 DMG, 1.5m Range, 0.5s Delay' },
-    { id: 'Dagger', icon: Shield, desc: 'Fast: 250 DMG, 1m Range, 0.2s Delay' },
-    { id: 'Bow', icon: Wand2, desc: 'Range: 150 DMG, 8m Range, Variable Charge' },
+    { 
+      id: 'Sword', 
+      icon: Sword, 
+      desc: `Balanced: ${WEAPON_STATS.Sword.damage} DMG, ${WEAPON_STATS.Sword.range}m Cone, ${WEAPON_STATS.Sword.delay}s Delay` 
+    },
+    { 
+      id: 'Dagger', 
+      icon: Shield, 
+      desc: `Fast: ${WEAPON_STATS.Dagger.damage} DMG, ${WEAPON_STATS.Dagger.range}m AoE, ${WEAPON_STATS.Dagger.delay}s Delay` 
+    },
+    { 
+      id: 'Bow', 
+      icon: Wand2, 
+      desc: `Range: ${WEAPON_STATS.Bow.damage} DMG, ${WEAPON_STATS.Bow.range}m Range, 30% Life Steal` 
+    },
   ];
 
   return (
