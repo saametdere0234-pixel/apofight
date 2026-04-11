@@ -21,7 +21,11 @@ import {
   MOVE_SPEED,
   DASH_DISTANCE,
   DASH_COOLDOWN_TIME,
-  FAST_FALL_SPEED
+  FAST_FALL_SPEED,
+  STAMINA_MAX,
+  STAMINA_REGEN_RATE,
+  STAMINA_DASH_COST,
+  STAMINA_ATTACK_COST
 } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
 import { Progress } from '@/components/ui/progress';
@@ -57,6 +61,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       y: GROUND_Y - PLAYER_HEIGHT,
       vy: 0,
       hp: 1000,
+      stamina: STAMINA_MAX,
       facing: 'right',
       isJumping: false,
       jumpCount: 0,
@@ -97,12 +102,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     let nextDashCharges = p.dashCharges;
     let nextDashRechargeProgress = p.dashRechargeProgress || 0;
     let nextJumpCount = p.jumpCount || 0;
+    let nextStamina = Math.min(STAMINA_MAX, (p.stamina || 0) + STAMINA_REGEN_RATE * dt);
 
     // Gravity
     nextVy += GRAVITY * dt;
     
-    // Fast Fall
-    if (p.isJumping && (keys.has('KeyS') || keys.has('ArrowDown'))) {
+    // Fast Fall (Shift)
+    const isFastFallPressed = keys.has('ShiftLeft') || keys.has('ShiftRight') || keys.has('ArrowDown');
+    if (p.isJumping && isFastFallPressed) {
       nextVy = Math.max(nextVy, FAST_FALL_SPEED);
     }
 
@@ -150,7 +157,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       isJumping,
       jumpCount: nextJumpCount,
       dashCharges: nextDashCharges,
-      dashRechargeProgress: nextDashRechargeProgress
+      dashRechargeProgress: nextDashRechargeProgress,
+      stamina: nextStamina
     });
   }, [profile, roomId, keys]);
 
@@ -174,9 +182,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
       
-      // Dash Logic
+      // Dash Logic (Consumes Stamina)
       if (e.code === 'Space') {
-        if (p.dashCharges > 0) {
+        if (p.dashCharges > 0 && (p.stamina || 0) >= STAMINA_DASH_COST) {
           const dx = mouseRef.current.x - (p.x + PLAYER_WIDTH/2);
           const dy = mouseRef.current.y - (p.y + PLAYER_HEIGHT/2);
           const dist = Math.sqrt(dx * dx + dy * dy);
@@ -191,7 +199,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
               x: newX,
               y: newY,
-              dashCharges: p.dashCharges - 1
+              dashCharges: p.dashCharges - 1,
+              stamina: (p.stamina || 0) - STAMINA_DASH_COST
             });
           }
         }
@@ -246,6 +255,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     
     const now = Date.now();
     if (now - (p.lastAttackTime || 0) < stats.delay * 1000) return;
+    
+    // Check Stamina
+    if ((p.stamina || 0) < STAMINA_ATTACK_COST) return;
 
     const px = p.x + PLAYER_WIDTH / 2;
     const py = p.y + PLAYER_HEIGHT / 2;
@@ -281,7 +293,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     });
 
     update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
-      lastAttackTime: now
+      lastAttackTime: now,
+      stamina: (p.stamina || 0) - STAMINA_ATTACK_COST
     });
   };
 
@@ -319,6 +332,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           const p = currentData.players[pid];
           update(ref(db, `rooms/${roomId}/players/${pid}`), {
             hp: 1000,
+            stamina: STAMINA_MAX,
             x: Math.random() * (ARENA_WIDTH - 5) + 2,
             y: GROUND_Y - PLAYER_HEIGHT,
             vy: 0,
@@ -511,7 +525,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           )}
         </div>
 
-        <div className="absolute bottom-12 left-12 flex flex-col gap-6 w-72 p-6 rounded-3xl bg-black/60 backdrop-blur-2xl border border-white/10 shadow-2xl">
+        <div className="absolute bottom-12 left-12 flex flex-col gap-4 w-72 p-6 rounded-3xl bg-black/60 backdrop-blur-2xl border border-white/10 shadow-2xl">
+          {/* Health Section */}
           <div className="space-y-2">
              <div className="flex justify-between items-end">
                <span className="text-[10px] font-bold text-muted-foreground uppercase">Stability</span>
@@ -525,6 +540,21 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
              </div>
           </div>
 
+          {/* Stamina Section */}
+          <div className="space-y-2">
+             <div className="flex justify-between items-end">
+               <span className="text-[10px] font-bold text-muted-foreground uppercase">Energy Pool</span>
+               <span className="text-xl font-headline font-bold text-white">{Math.floor(myP?.stamina || 0)} SP</span>
+             </div>
+             <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-yellow-500 transition-all duration-300 ease-linear"
+                  style={{ width: `${myP?.stamina || 0}%` }}
+                />
+             </div>
+          </div>
+
+          {/* Dash Section */}
           <div className="space-y-3 pt-2">
              <div className="flex justify-between items-end">
                 <span className="text-[10px] font-bold text-muted-foreground uppercase">Phase Dash</span>
@@ -574,4 +604,3 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     </div>
   );
 }
-

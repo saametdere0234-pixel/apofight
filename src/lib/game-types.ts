@@ -13,6 +13,7 @@ export interface GamePlayer extends PlayerProfile {
   y: number;
   vy: number; // Vertical velocity for gravity
   hp: number;
+  stamina: number;
   facing: 'left' | 'right';
   isJumping: boolean;
   jumpCount: number;
@@ -33,13 +34,13 @@ export interface GameRoom {
 
 export const WEAPON_STATS = {
   Sword: {
-    damage: 200,
+    damage: 300,
     range: 5.5,
     angle: 60, // degrees
     delay: 0.6,
   },
   Dagger: {
-    damage: 120,
+    damage: 200,
     range: 3.0,
     angle: 360, // 360 for circular AoE
     delay: 0.25,
@@ -64,3 +65,8 @@ export const MOVE_SPEED = 8;
 export const DASH_DISTANCE = 5.0; // Increased dash distance
 export const DASH_COOLDOWN_TIME = 4.0;
 export const FAST_FALL_SPEED = 40;
+
+export const STAMINA_MAX = 100;
+export const STAMINA_REGEN_RATE = 10; // per second
+export const STAMINA_DASH_COST = 30;
+export const STAMINA_ATTACK_COST = 25;
