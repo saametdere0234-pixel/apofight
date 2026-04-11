@@ -28,8 +28,7 @@ import {
   STAMINA_ATTACK_COST
 } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
-import { Progress } from '@/components/ui/progress';
-import { Trophy, Shield, Sword, Wand2, ArrowLeft, Zap, Play } from 'lucide-react';
+import { Trophy, ArrowLeft, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function GamePage({ params }: { params: Promise<{ roomId: string }> }) {
@@ -108,7 +107,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     nextVy += GRAVITY * dt;
     
     // Fast Fall (Shift)
-    const isFastFallPressed = keys.has('ShiftLeft') || keys.has('ShiftRight') || keys.has('ArrowDown');
+    const isFastFallPressed = keys.has('ShiftLeft') || keys.has('ShiftRight');
     if (p.isJumping && isFastFallPressed) {
       nextVy = Math.max(nextVy, FAST_FALL_SPEED);
     }
@@ -131,7 +130,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       nextY = GROUND_Y - PLAYER_HEIGHT;
       nextVy = 0;
       isJumping = false;
-      nextJumpCount = 0; // Reset jump count on ground
+      nextJumpCount = 0;
     }
 
     // Boundaries
@@ -456,21 +455,21 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         <div className="flex items-center gap-6">
           <Button variant="ghost" size="sm" onClick={() => router.push('/lobby')} className="text-muted-foreground hover:text-white">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            ABANDON FIGHT
+            ABANDON
           </Button>
           <div className="flex flex-col">
-            <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Stage</span>
-            <span className="text-lg font-headline font-bold text-white uppercase">{room?.name || 'Loading...'}</span>
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Combat Zone</span>
+            <span className="text-sm font-headline font-bold text-white uppercase">{room?.name || 'Loading...'}</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-8">
+        <div className="flex items-center gap-6">
            {Object.values(room?.players || {}).map(p => (
              <div key={p.id} className="flex flex-col items-center">
                 <span className="text-[10px] font-bold text-muted-foreground uppercase mb-1">{p.name}</span>
                 <div className="flex gap-1">
                   {[1, 2, 3].map(i => (
-                    <div key={i} className={`w-3 h-3 rounded-full border border-white/20 ${i <= (p.roundsWon || 0) ? 'bg-accent shadow-[0_0_8px_hsl(var(--accent))]' : 'bg-transparent'}`} />
+                    <div key={i} className={`w-2 h-2 rounded-full border border-white/20 ${i <= (p.roundsWon || 0) ? 'bg-accent shadow-[0_0_4px_hsl(var(--accent))]' : 'bg-transparent'}`} />
                   ))}
                 </div>
              </div>
@@ -479,7 +478,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       </header>
 
       <main className="flex-1 w-full relative flex items-center justify-center p-4">
-        <div className="relative game-canvas-container border-4 border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] bg-slate-950">
+        <div className="relative game-canvas-container border border-white/10 shadow-2xl bg-slate-950">
           <canvas 
             ref={canvasRef} 
             width={ARENA_WIDTH * PIXELS_PER_METER} 
@@ -490,7 +489,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           />
           
           {room?.status === 'lobby' && (
-             <div className="absolute inset-0 bg-black/60 backdrop-blur-md flex flex-col items-center justify-center z-50 space-y-8">
+             <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center z-50 space-y-8">
                 <div className="text-center space-y-2">
                   <h2 className="text-4xl font-headline font-bold text-white uppercase italic tracking-tighter">WAITING FOR COMBATANTS</h2>
                   <p className="text-muted-foreground text-sm uppercase tracking-widest">Gathering warriors in the arena...</p>
@@ -498,7 +497,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                 <div className="flex gap-4">
                   {Object.values(room.players).map(p => (
                     <div key={p.id} className="flex flex-col items-center gap-2">
-                      <div className="w-12 h-12 rounded-lg" style={{ backgroundColor: p.color }} />
+                      <div className="w-10 h-10 rounded-lg border border-white/10" style={{ backgroundColor: p.color }} />
                       <span className="text-[10px] font-bold text-white uppercase">{p.name}</span>
                     </div>
                   ))}
@@ -518,86 +517,33 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
           {room?.status === 'finished' && (
              <div className="absolute inset-0 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center z-50 p-8 text-center space-y-6">
-                <Trophy className="w-24 h-24 text-yellow-500 animate-pulse" />
+                <Trophy className="w-20 h-20 text-yellow-500 animate-pulse" />
                 <h2 className="text-5xl font-headline font-bold text-white uppercase tracking-tighter">CHAMPION DECLARED</h2>
                 <Button onClick={() => router.push('/lobby')} size="lg" className="font-headline font-bold px-12">BACK TO LOBBY</Button>
              </div>
           )}
         </div>
 
-        <div className="absolute bottom-12 left-12 flex flex-col gap-4 w-72 p-6 rounded-3xl bg-black/60 backdrop-blur-2xl border border-white/10 shadow-2xl">
-          {/* Health Section */}
-          <div className="space-y-2">
-             <div className="flex justify-between items-end">
-               <span className="text-[10px] font-bold text-muted-foreground uppercase">Stability</span>
-               <span className="text-xl font-headline font-bold text-white">{myP?.hp || 0} HP</span>
-             </div>
-             <div className="h-3 bg-white/5 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-accent transition-all duration-500"
-                  style={{ width: `${(myP?.hp || 0) / 10}%` }}
-                />
-             </div>
+        {/* Minimalist Numeric-Only HUD */}
+        <div className="absolute bottom-6 left-6 p-4 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-white font-mono text-sm space-y-1 z-50 min-w-[180px]">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground uppercase text-[10px] font-bold">Health</span>
+            <span>HP: {myP?.hp || 0} / 1000</span>
           </div>
-
-          {/* Stamina Section */}
-          <div className="space-y-2">
-             <div className="flex justify-between items-end">
-               <span className="text-[10px] font-bold text-muted-foreground uppercase">Energy Pool</span>
-               <span className="text-xl font-headline font-bold text-white">{Math.floor(myP?.stamina || 0)} SP</span>
-             </div>
-             <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-yellow-500 transition-all duration-300 ease-linear"
-                  style={{ width: `${myP?.stamina || 0}%` }}
-                />
-             </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground uppercase text-[10px] font-bold">Energy</span>
+            <span>STAMINA: {Math.floor(myP?.stamina || 0)} / 100</span>
           </div>
-
-          {/* Dash Section */}
-          <div className="space-y-3 pt-2">
-             <div className="flex justify-between items-end">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase">Phase Dash</span>
-                <div className="flex items-baseline gap-1">
-                  <span className={`text-2xl font-headline font-bold ${myP?.dashCharges === maxDash ? 'text-accent' : 'text-white'}`}>
-                    {myP?.dashCharges}
-                  </span>
-                  <span className="text-xs font-bold text-muted-foreground">/ {maxDash}</span>
-                </div>
-             </div>
-             
-             {myP && myP.dashCharges < maxDash && (
-               <div className="flex items-center gap-2">
-                 <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
-                   <div 
-                     className="h-full bg-accent transition-all duration-300 ease-linear"
-                     style={{ width: `${(myP.dashRechargeProgress / DASH_COOLDOWN_TIME) * 100}%` }}
-                   />
-                 </div>
-                 <span className="text-[10px] font-mono text-accent w-8 text-right">
-                   {(DASH_COOLDOWN_TIME - myP.dashRechargeProgress).toFixed(1)}s
-                 </span>
-               </div>
-             )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
-             <div className="space-y-1">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase block">Arsenal</span>
-                <div className="flex items-center gap-2 text-accent">
-                   {myP?.weaponClass === 'Sword' && <Sword className="w-4 h-4" />}
-                   {myP?.weaponClass === 'Dagger' && <Shield className="w-4 h-4" />}
-                   {myP?.weaponClass === 'Bow' && <Wand2 className="w-4 h-4" />}
-                   <span className="text-xs font-bold uppercase">{myP?.weaponClass}</span>
-                </div>
-             </div>
-             <div className="space-y-1">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase block">Combat Type</span>
-                <div className="flex items-center gap-1 text-white">
-                  <Zap className="w-3 h-3 text-yellow-500" />
-                  <span className="text-xs font-bold uppercase">{myP?.weaponClass === 'Dagger' ? 'AoE' : 'Cone'}</span>
-                </div>
-             </div>
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground uppercase text-[10px] font-bold">Phase</span>
+            <div className="flex items-center gap-2">
+              <span>DASH: {myP?.dashCharges || 0} / {maxDash}</span>
+              {myP && myP.dashCharges < maxDash && (
+                <span className="text-accent text-[11px]">
+                  [{(DASH_COOLDOWN_TIME - myP.dashRechargeProgress).toFixed(1)}s]
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </main>
