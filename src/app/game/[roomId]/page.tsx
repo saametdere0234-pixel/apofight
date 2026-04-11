@@ -58,6 +58,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       hp: 1000,
       facing: 'right',
       isJumping: false,
+      jumpCount: 0,
       dashCharges: getMaxDashCharges(profile.weaponClass),
       dashRechargeProgress: 0,
       lastAttackTime: 0,
@@ -94,6 +95,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     let nextFacing = p.facing;
     let nextDashCharges = p.dashCharges;
     let nextDashRechargeProgress = p.dashRechargeProgress || 0;
+    let nextJumpCount = p.jumpCount || 0;
 
     // Gravity
     nextVy += GRAVITY * dt;
@@ -115,17 +117,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       nextFacing = 'right';
     }
 
-    // Jumping
-    if ((keys.has('KeyW') || keys.has('ArrowUp')) && !p.isJumping && p.y >= GROUND_Y - PLAYER_HEIGHT - 0.1) {
-      nextVy = JUMP_FORCE;
-    }
-
     // Ground Collision
     let isJumping = true;
     if (nextY >= GROUND_Y - PLAYER_HEIGHT) {
       nextY = GROUND_Y - PLAYER_HEIGHT;
       nextVy = 0;
       isJumping = false;
+      nextJumpCount = 0; // Reset jump count on ground
     }
 
     // Boundaries
@@ -149,6 +147,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       vy: nextVy,
       facing: nextFacing,
       isJumping,
+      jumpCount: nextJumpCount,
       dashCharges: nextDashCharges,
       dashRechargeProgress: nextDashRechargeProgress
     });
@@ -158,29 +157,41 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const handleKeyDown = (e: KeyboardEvent) => {
       keys.add(e.code);
       
+      const currentRoom = roomRefState.current;
+      if (!profile || !currentRoom || !currentRoom.players?.[profile.id] || !db || currentRoom.status !== 'playing') return;
+      const p = currentRoom.players[profile.id];
+
+      // Jump Logic (Double Jump)
+      if (e.code === 'KeyW' || e.code === 'ArrowUp') {
+        const currentJumpCount = p.jumpCount || 0;
+        if (currentJumpCount < 2) {
+          update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
+            vy: JUMP_FORCE,
+            isJumping: true,
+            jumpCount: currentJumpCount + 1
+          });
+        }
+      }
+      
+      // Dash Logic
       if (e.code === 'Space') {
-        const currentRoom = roomRefState.current;
-        if (profile && currentRoom?.players?.[profile.id] && currentRoom.status === 'playing') {
-          const p = currentRoom.players[profile.id];
+        if (p.dashCharges > 0) {
+          const dx = mouseRef.current.x - (p.x + PLAYER_WIDTH/2);
+          const dy = mouseRef.current.y - (p.y + PLAYER_HEIGHT/2);
+          const dist = Math.sqrt(dx * dx + dy * dy);
           
-          if (p.dashCharges > 0) {
-            const dx = mouseRef.current.x - (p.x + PLAYER_WIDTH/2);
-            const dy = mouseRef.current.y - (p.y + PLAYER_HEIGHT/2);
-            const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > 0.1) {
+            const dashX = (dx / dist) * DASH_DISTANCE;
+            const dashY = (dy / dist) * DASH_DISTANCE;
             
-            if (dist > 0.1) {
-              const dashX = (dx / dist) * DASH_DISTANCE;
-              const dashY = (dy / dist) * DASH_DISTANCE;
-              
-              const newX = Math.max(0, Math.min(ARENA_WIDTH - PLAYER_WIDTH, p.x + dashX));
-              const newY = Math.max(0, Math.min(GROUND_Y - PLAYER_HEIGHT, p.y + dashY));
-              
-              update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
-                x: newX,
-                y: newY,
-                dashCharges: p.dashCharges - 1
-              });
-            }
+            const newX = Math.max(0, Math.min(ARENA_WIDTH - PLAYER_WIDTH, p.x + dashX));
+            const newY = Math.max(0, Math.min(GROUND_Y - PLAYER_HEIGHT, p.y + dashY));
+            
+            update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
+              x: newX,
+              y: newY,
+              dashCharges: p.dashCharges - 1
+            });
           }
         }
       }
@@ -310,6 +321,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             x: Math.random() * (ARENA_WIDTH - 5) + 2,
             y: GROUND_Y - PLAYER_HEIGHT,
             vy: 0,
+            jumpCount: 0,
             dashCharges: getMaxDashCharges(p.weaponClass as WeaponClass),
             dashRechargeProgress: 0
           });
