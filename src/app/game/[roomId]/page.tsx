@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -516,32 +517,38 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                <span className="text-[10px] font-bold text-muted-foreground uppercase">Stability</span>
                <span className="text-xl font-headline font-bold text-white">{myP?.hp || 0} HP</span>
              </div>
-             <Progress value={(myP?.hp || 0) / 10} className="h-3 bg-white/5" />
+             <div className="h-3 bg-white/5 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-accent transition-all duration-500"
+                  style={{ width: `${(myP?.hp || 0) / 10}%` }}
+                />
+             </div>
           </div>
 
           <div className="space-y-3 pt-2">
-             <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase">
-                <span>Phase Dash</span>
-                <span className={myP?.dashCharges === maxDash ? 'text-accent' : 'text-muted-foreground'}>
-                  {myP?.dashCharges} / {maxDash}
-                </span>
+             <div className="flex justify-between items-end">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase">Phase Dash</span>
+                <div className="flex items-baseline gap-1">
+                  <span className={`text-2xl font-headline font-bold ${myP?.dashCharges === maxDash ? 'text-accent' : 'text-white'}`}>
+                    {myP?.dashCharges}
+                  </span>
+                  <span className="text-xs font-bold text-muted-foreground">/ {maxDash}</span>
+                </div>
              </div>
-             <div className="flex gap-2 h-2">
-                {[...Array(maxDash)].map((_, i) => {
-                  const isFull = i < (myP?.dashCharges || 0);
-                  const isCharging = i === (myP?.dashCharges || 0);
-                  const progress = isCharging ? ((myP?.dashRechargeProgress || 0) / DASH_COOLDOWN_TIME) * 100 : isFull ? 100 : 0;
-                  
-                  return (
-                    <div key={i} className="flex-1 bg-white/5 rounded-full overflow-hidden border border-white/5 relative">
-                      <div 
-                        className={`h-full transition-all duration-300 ease-linear ${isFull ? 'bg-accent' : 'bg-accent/40'}`} 
-                        style={{ width: `${progress}%` }} 
-                      />
-                    </div>
-                  );
-                })}
-             </div>
+             
+             {myP && myP.dashCharges < maxDash && (
+               <div className="flex items-center gap-2">
+                 <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                   <div 
+                     className="h-full bg-accent transition-all duration-300 ease-linear"
+                     style={{ width: `${(myP.dashRechargeProgress / DASH_COOLDOWN_TIME) * 100}%` }}
+                   />
+                 </div>
+                 <span className="text-[10px] font-mono text-accent w-8 text-right">
+                   {(DASH_COOLDOWN_TIME - myP.dashRechargeProgress).toFixed(1)}s
+                 </span>
+               </div>
+             )}
           </div>
 
           <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
@@ -567,3 +574,4 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     </div>
   );
 }
+
