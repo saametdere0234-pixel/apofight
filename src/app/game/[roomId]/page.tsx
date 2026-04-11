@@ -42,9 +42,24 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const roomRefState = useRef<GameRoom | null>(null);
   const [keys] = useState<Set<string>>(new Set());
   
+  // Visual FX State
+  const [flash, setFlash] = useState<{ type: 'taken' | 'dealt' | null, time: number }>({ type: null, time: 0 });
+  const [dashTrail, setDashTrail] = useState<{ x1: number, y1: number, x2: number, y2: number, color: string, time: number } | null>(null);
+  const lastHpRef = useRef<number>(1000);
+
   useEffect(() => {
     roomRefState.current = room;
   }, [room]);
+
+  // Effect to detect damage taken for screen flash
+  useEffect(() => {
+    if (!profile || !room?.players?.[profile.id]) return;
+    const currentHp = room.players[profile.id].hp;
+    if (currentHp < lastHpRef.current) {
+      setFlash({ type: 'taken', time: Date.now() });
+    }
+    lastHpRef.current = currentHp;
+  }, [room?.players, profile]);
 
   const getMaxDashCharges = (weapon: WeaponClass) => (weapon === 'Dagger' ? 2 : 1);
 
@@ -195,6 +210,16 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             const newX = Math.max(0, Math.min(ARENA_WIDTH - PLAYER_WIDTH, p.x + dashX));
             const newY = Math.max(0, Math.min(GROUND_Y - PLAYER_HEIGHT, p.y + dashY));
             
+            // Set dash trail for visuals
+            setDashTrail({
+              x1: p.x,
+              y1: p.y,
+              x2: newX,
+              y2: newY,
+              color: p.color,
+              time: Date.now()
+            });
+
             update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
               x: newX,
               y: newY,
@@ -298,13 +323,24 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   };
 
   const thisHit = (id: string, enemy: GamePlayer) => {
-    if (!db || !roomId) return;
+    if (!db || !roomId || !profile) return;
     const p = roomRefState.current?.players?.[profile.id];
     if (!p) return;
+    
     const stats = WEAPON_STATS[p.weaponClass as WeaponClass];
     const enemyRef = ref(db, `rooms/${roomId}/players/${id}`);
     const newHp = Math.max(0, enemy.hp - stats.damage);
     update(enemyRef, { hp: newHp });
+
+    // Bow Life Steal Passive
+    if (p.weaponClass === 'Bow') {
+      const healAmount = stats.damage * 0.3;
+      const newMyHp = Math.min(1000, p.hp + healAmount);
+      update(ref(db, `rooms/${roomId}/players/${profile.id}`), { hp: newMyHp });
+    }
+
+    // Trigger Blue Flash (Damage Dealt)
+    setFlash({ type: 'dealt', time: Date.now() });
 
     if (newHp === 0) {
       handleKill(id);
@@ -370,6 +406,26 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.moveTo(i * PIXELS_PER_METER, 0);
         ctx.lineTo(i * PIXELS_PER_METER, canvas.height);
         ctx.stroke();
+    }
+
+    // Render Dash Trail (Ghosts)
+    if (dashTrail && Date.now() - dashTrail.time < 300) {
+      const duration = 300;
+      const elapsed = Date.now() - dashTrail.time;
+      const alpha = 1 - (elapsed / duration);
+      
+      const ghostCount = 5;
+      for (let i = 1; i <= ghostCount; i++) {
+        const t = i / (ghostCount + 1);
+        const gx = dashTrail.x1 + (dashTrail.x2 - dashTrail.x1) * t;
+        const gy = dashTrail.y1 + (dashTrail.y2 - dashTrail.y1) * t;
+        
+        ctx.save();
+        ctx.globalAlpha = alpha * (i / ghostCount) * 0.4;
+        ctx.fillStyle = dashTrail.color;
+        ctx.fillRect(gx * PIXELS_PER_METER, gy * PIXELS_PER_METER, PLAYER_WIDTH * PIXELS_PER_METER, PLAYER_HEIGHT * PIXELS_PER_METER);
+        ctx.restore();
+      }
     }
 
     Object.values(currentRoom.players || {}).forEach(p => {
@@ -448,9 +504,17 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   const myP = room?.players?.[profile.id];
   const maxDash = getMaxDashCharges(myP?.weaponClass as WeaponClass || 'Sword');
+  const flashActive = Date.now() - flash.time < 200;
 
   return (
     <div className="min-h-screen bg-background overflow-hidden flex flex-col items-center select-none">
+      {/* Screen Flash Overlay */}
+      {flashActive && (
+        <div 
+          className={`fixed inset-0 pointer-events-none z-[100] border-[24px] ${flash.type === 'taken' ? 'border-red-500/20' : 'border-blue-500/20'} animate-in fade-in duration-200`} 
+        />
+      )}
+
       <header className="w-full p-4 flex justify-between items-center bg-black/40 backdrop-blur-md border-b border-white/5 z-50">
         <div className="flex items-center gap-6">
           <Button variant="ghost" size="sm" onClick={() => router.push('/lobby')} className="text-muted-foreground hover:text-white">
@@ -528,7 +592,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         <div className="absolute bottom-6 left-6 p-4 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-white font-mono text-sm space-y-1 z-50 min-w-[180px]">
           <div className="flex justify-between">
             <span className="text-muted-foreground uppercase text-[10px] font-bold">Health</span>
-            <span>HP: {myP?.hp || 0} / 1000</span>
+            <span>HP: {Math.floor(myP?.hp || 0)} / 1000</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground uppercase text-[10px] font-bold">Energy</span>
@@ -545,6 +609,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
               )}
             </div>
           </div>
+          {myP?.weaponClass === 'Bow' && (
+            <div className="pt-1 border-t border-white/5">
+              <span className="text-accent uppercase text-[9px] font-bold">Passive: Life Steal 30%</span>
+            </div>
+          )}
         </div>
       </main>
     </div>
