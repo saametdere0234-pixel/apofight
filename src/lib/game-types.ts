@@ -11,13 +11,12 @@ export interface PlayerProfile {
 export interface GamePlayer extends PlayerProfile {
   x: number;
   y: number;
+  vy: number; // Vertical velocity for gravity
   hp: number;
-  angle: number;
-  isDashing: boolean;
+  facing: 'left' | 'right';
+  isJumping: boolean;
   dashCooldown: number;
   lastAttackTime: number;
-  isAttacking: boolean;
-  attackProgress: number; // For charging or swing timing
   roundsWon: number;
 }
 
@@ -32,27 +31,31 @@ export interface GameRoom {
 
 export const WEAPON_STATS = {
   Sword: {
-    damage: 200,
-    range: 1.5,
-    delay: 0.5,
-    tolerance: 0.8, // Radians for arc
+    damage: 150,
+    range: 2.5,
+    width: 1.5,
+    delay: 0.4,
   },
   Dagger: {
-    damage: 250,
-    range: 1.0,
+    damage: 100,
+    range: 1.8,
+    width: 1.2,
     delay: 0.2,
-    tolerance: 0.2,
   },
   Bow: {
-    damage: 150,
-    range: 8.0,
-    delay: 0.2, // Global cooldown
-    maxCharge: 3.0,
-    tolerance: 0,
+    damage: 120,
+    range: 12.0,
+    width: 0.5,
+    delay: 0.8,
   },
 };
 
-export const ARENA_SIZE = 30; // meters
-export const PIXELS_PER_METER = 20;
-export const PLAYER_WIDTH = 1.5;
-export const PLAYER_HEIGHT = 2.0;
+export const ARENA_WIDTH = 40; // meters wide
+export const ARENA_HEIGHT = 20; // meters high
+export const GROUND_Y = 18; // Ground level from top
+export const PIXELS_PER_METER = 25;
+export const PLAYER_WIDTH = 1.2;
+export const PLAYER_HEIGHT = 2.2;
+export const GRAVITY = 25;
+export const JUMP_FORCE = -12;
+export const MOVE_SPEED = 8;

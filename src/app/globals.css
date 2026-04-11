@@ -4,26 +4,26 @@
 
 @layer base {
   :root {
-    --background: 215 20% 15%;
-    --foreground: 191 75% 95%;
-    --card: 215 20% 18%;
-    --card-foreground: 191 75% 95%;
-    --popover: 215 25% 12%;
-    --popover-foreground: 191 75% 95%;
-    --primary: 217 85% 55%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 215 20% 25%;
-    --secondary-foreground: 191 75% 95%;
-    --muted: 215 20% 25%;
-    --muted-foreground: 191 20% 65%;
-    --accent: 191 75% 70%;
-    --accent-foreground: 215 25% 12%;
-    --destructive: 0 84.2% 60.2%;
+    --background: 240 10% 4%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 6%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 4%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 263 70% 50%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 5% 15%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 5% 15%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 191 90% 60%;
+    --accent-foreground: 240 10% 4%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
-    --border: 215 20% 30%;
-    --input: 215 20% 30%;
-    --ring: 217 85% 55%;
-    --radius: 0.75rem;
+    --border: 240 5% 15%;
+    --input: 240 5% 15%;
+    --ring: 263 70% 50%;
+    --radius: 1rem;
   }
 }
 
@@ -33,23 +33,19 @@
   }
   body {
     @apply bg-background text-foreground font-body antialiased;
-    cursor: crosshair;
+    cursor: default;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-headline tracking-tight;
+    @apply font-headline tracking-tighter;
   }
 }
 
 .game-canvas-container {
   position: relative;
   width: 100%;
-  max-width: 600px;
-  aspect-ratio: 1/1;
+  max-width: 1000px;
   margin: 0 auto;
   overflow: hidden;
-  border: 2px solid hsl(var(--border));
-  border-radius: var(--radius);
-  background-color: hsl(215, 20%, 10%);
 }
 
 .scanline {
@@ -68,9 +64,11 @@
   100% { bottom: -100px; }
 }
 
-.arena-grid {
-  background-image: 
-    linear-gradient(to right, hsl(var(--border) / 0.1) 1px, transparent 1px),
-    linear-gradient(to bottom, hsl(var(--border) / 0.1) 1px, transparent 1px);
-  background-size: 20px 20px;
+@keyframes shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite;
 }
