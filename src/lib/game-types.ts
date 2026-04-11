@@ -57,7 +57,7 @@ export const PIXELS_PER_METER = 25;
 export const PLAYER_WIDTH = 1.2;
 export const PLAYER_HEIGHT = 2.2;
 export const GRAVITY = 25;
-export const JUMP_FORCE = -14;
+export const JUMP_FORCE = -11.2; // Calculated for ~2.5m height given GRAVITY=25
 export const MOVE_SPEED = 8;
 export const DASH_DISTANCE = 3.5;
 export const DASH_COOLDOWN_TIME = 4.0;
