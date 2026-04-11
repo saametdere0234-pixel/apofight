@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -429,38 +430,31 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     }
 
+    // LAYER 1: Attack Indicators (Below players)
     Object.values(currentRoom.players || {}).forEach(p => {
-      if (p.hp <= 0 && currentRoom.status === 'playing') return;
-
-      const px = p.x * PIXELS_PER_METER;
-      const py = p.y * PIXELS_PER_METER;
-      const pw = PLAYER_WIDTH * PIXELS_PER_METER;
-      const ph = PLAYER_HEIGHT * PIXELS_PER_METER;
-      const centerX = px + pw / 2;
-      const centerY = py + ph / 2;
-
-      ctx.shadowBlur = 15;
-      ctx.shadowColor = p.color;
-      ctx.fillStyle = p.color;
-      ctx.fillRect(px, py, pw, ph);
-      ctx.shadowBlur = 0;
-
-      ctx.fillStyle = 'white';
-      const eyeX = p.facing === 'right' ? px + pw - 8 : px + 4;
-      ctx.fillRect(eyeX, py + 10, 4, 4);
-
-      // Visual Attack Indicators (Synced)
       const now = Date.now();
-      const attackDuration = 200;
+      const attackDuration = 500; // Increased to 0.5s
       const timeSinceAttack = now - (p.lastAttackTime || 0);
-      
+
       if (timeSinceAttack < attackDuration) {
-        const opacity = (1 - (timeSinceAttack / attackDuration)) * 0.6;
         const isLocal = p.id === profile.id;
         const baseColor = isLocal ? '64, 156, 255' : '255, 64, 64';
         
+        // Fade-out logic: last 0.1s
+        let opacity = 0.6;
+        if (timeSinceAttack > 400) {
+          opacity = 0.6 * (1 - (timeSinceAttack - 400) / 100);
+        }
+
+        const px = p.x * PIXELS_PER_METER;
+        const py = p.y * PIXELS_PER_METER;
+        const pw = PLAYER_WIDTH * PIXELS_PER_METER;
+        const ph = PLAYER_HEIGHT * PIXELS_PER_METER;
+        const centerX = px + pw / 2;
+        const centerY = py + ph / 2;
+
         ctx.save();
-        ctx.fillStyle = `rgba(${baseColor}, ${opacity * 0.4})`;
+        ctx.fillStyle = `rgba(${baseColor}, ${opacity * 0.3})`;
         ctx.strokeStyle = `rgba(${baseColor}, ${opacity})`;
         ctx.lineWidth = 2;
 
@@ -492,6 +486,26 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
         ctx.restore();
       }
+    });
+
+    // LAYER 2: Players and UI
+    Object.values(currentRoom.players || {}).forEach(p => {
+      if (p.hp <= 0 && currentRoom.status === 'playing') return;
+
+      const px = p.x * PIXELS_PER_METER;
+      const py = p.y * PIXELS_PER_METER;
+      const pw = PLAYER_WIDTH * PIXELS_PER_METER;
+      const ph = PLAYER_HEIGHT * PIXELS_PER_METER;
+
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = p.color;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(px, py, pw, ph);
+      ctx.shadowBlur = 0;
+
+      ctx.fillStyle = 'white';
+      const eyeX = p.facing === 'right' ? px + pw - 8 : px + 4;
+      ctx.fillRect(eyeX, py + 10, 4, 4);
 
       if (currentRoom.status !== 'lobby') {
         ctx.fillStyle = 'rgba(0,0,0,0.5)';
