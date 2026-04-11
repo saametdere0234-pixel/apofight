@@ -15,6 +15,7 @@ export interface GamePlayer extends PlayerProfile {
   hp: number;
   facing: 'left' | 'right';
   isJumping: boolean;
+  dashCharges: number;
   dashCooldown: number;
   lastAttackTime: number;
   roundsWon: number;

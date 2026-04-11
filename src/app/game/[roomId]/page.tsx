@@ -24,7 +24,7 @@ import {
 } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
 import { Progress } from '@/components/ui/progress';
-import { Trophy, Shield, Sword, Wand2, ArrowLeft, Zap, AlertTriangle, Play } from 'lucide-react';
+import { Trophy, Shield, Sword, Wand2, ArrowLeft, Zap, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function GamePage({ params }: { params: Promise<{ roomId: string }> }) {
@@ -38,10 +38,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const roomRefState = useRef<GameRoom | null>(null);
   const [keys] = useState<Set<string>>(new Set());
   
-  // Sync room state to ref for physics loop
   useEffect(() => {
     roomRefState.current = room;
   }, [room]);
+
+  const getMaxDashCharges = (weapon: WeaponClass) => (weapon === 'Dagger' ? 2 : 1);
 
   useEffect(() => {
     if (profileLoading || !profile || !db) return;
@@ -57,6 +58,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       hp: 1000,
       facing: 'right',
       isJumping: false,
+      dashCharges: getMaxDashCharges(profile.weaponClass),
       dashCooldown: 0,
       lastAttackTime: 0,
       roundsWon: 0
@@ -88,6 +90,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     let nextY = p.y;
     let nextVy = p.vy;
     let nextFacing = p.facing;
+    let nextDashCooldown = p.dashCooldown || 0;
+    let nextDashCharges = p.dashCharges;
 
     // Gravity
     nextVy += GRAVITY * dt;
@@ -125,6 +129,15 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     // Boundaries
     nextX = Math.max(0, Math.min(ARENA_WIDTH - PLAYER_WIDTH, nextX));
 
+    // Dash Cooldown Handling
+    if (nextDashCooldown > 0) {
+      nextDashCooldown -= dt;
+      if (nextDashCooldown <= 0) {
+        nextDashCooldown = 0;
+        nextDashCharges = getMaxDashCharges(p.weaponClass as WeaponClass);
+      }
+    }
+
     const myPlayerRef = ref(db, `rooms/${roomId}/players/${profile.id}`);
     update(myPlayerRef, {
       x: nextX,
@@ -132,7 +145,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       vy: nextVy,
       facing: nextFacing,
       isJumping,
-      dashCooldown: Math.max(0, (p.dashCooldown || 0) - dt)
+      dashCharges: nextDashCharges,
+      dashCooldown: nextDashCooldown
     });
   }, [profile, roomId, keys]);
 
@@ -140,12 +154,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const handleKeyDown = (e: KeyboardEvent) => {
       keys.add(e.code);
       
-      // Dash Logic
       if (e.code === 'Space') {
         const currentRoom = roomRefState.current;
         if (profile && currentRoom?.players?.[profile.id] && currentRoom.status === 'playing') {
           const p = currentRoom.players[profile.id];
-          if ((p.dashCooldown || 0) <= 0) {
+          
+          if (p.dashCharges > 0 && (p.dashCooldown || 0) <= 0) {
             const dx = mouseRef.current.x - (p.x + PLAYER_WIDTH/2);
             const dy = mouseRef.current.y - (p.y + PLAYER_HEIGHT/2);
             const dist = Math.sqrt(dx * dx + dy * dy);
@@ -157,10 +171,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
               const newX = Math.max(0, Math.min(ARENA_WIDTH - PLAYER_WIDTH, p.x + dashX));
               const newY = Math.max(0, Math.min(GROUND_Y - PLAYER_HEIGHT, p.y + dashY));
               
+              const newCharges = p.dashCharges - 1;
+              const newCooldown = newCharges === 0 ? DASH_COOLDOWN_TIME : 0;
+              
               update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
                 x: newX,
                 y: newY,
-                dashCooldown: DASH_COOLDOWN_TIME
+                dashCharges: newCharges,
+                dashCooldown: newCooldown
               });
             }
           }
@@ -222,7 +240,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const mx = mouseRef.current.x;
     const my = mouseRef.current.y;
 
-    // Calculate attack angle towards cursor
     const attackAngle = Math.atan2(my - py, mx - px);
 
     Object.entries(currentRoom.players).forEach(([id, enemy]) => {
@@ -237,10 +254,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
       if (distToEnemy <= stats.range) {
         if (weapon === 'Dagger') {
-          // Dagger is circular AoE, any enemy within range is hit
           thisHit(id, enemy);
         } else {
-          // Sword and Bow use cone checks
           const enemyAngle = Math.atan2(dy, dx);
           let diff = Math.abs(enemyAngle - attackAngle);
           if (diff > Math.PI) diff = 2 * Math.PI - diff;
@@ -260,7 +275,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   const thisHit = (id: string, enemy: GamePlayer) => {
     if (!db || !roomId) return;
-    const stats = WEAPON_STATS[roomRefState.current?.players?.[profile.id]?.weaponClass as WeaponClass];
+    const p = roomRefState.current?.players?.[profile.id];
+    if (!p) return;
+    const stats = WEAPON_STATS[p.weaponClass as WeaponClass];
     const enemyRef = ref(db, `rooms/${roomId}/players/${id}`);
     const newHp = Math.max(0, enemy.hp - stats.damage);
     update(enemyRef, { hp: newHp });
@@ -287,11 +304,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         const currentData = roomRefState.current;
         if (!currentData) return;
         Object.keys(currentData.players).forEach(pid => {
+          const p = currentData.players[pid];
           update(ref(db, `rooms/${roomId}/players/${pid}`), {
             hp: 1000,
             x: Math.random() * (ARENA_WIDTH - 5) + 2,
             y: GROUND_Y - PLAYER_HEIGHT,
-            vy: 0
+            vy: 0,
+            dashCharges: getMaxDashCharges(p.weaponClass as WeaponClass),
+            dashCooldown: 0
           });
         });
         update(roomRef, { status: 'playing' });
@@ -361,13 +381,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         const centerY = py + ph / 2;
 
         if (weapon === 'Dagger') {
-          // Draw Circle AoE
           ctx.beginPath();
           ctx.arc(centerX, centerY, stats.range * PIXELS_PER_METER, 0, Math.PI * 2);
           ctx.fill();
           ctx.stroke();
         } else {
-          // Draw Cone (Sword / Bow)
           const targetAngle = Math.atan2(mouseRef.current.y - (p.y + PLAYER_HEIGHT/2), mouseRef.current.x - (p.x + PLAYER_WIDTH/2));
           const halfAngle = (stats.angle / 2) * (Math.PI / 180);
           
@@ -393,7 +411,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.fillText(p.name, px + pw/2, py - 20);
     });
 
-    // Cursor indicator
     ctx.strokeStyle = 'rgba(191, 90, 60, 0.5)';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -480,7 +497,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           )}
         </div>
 
-        {/* HUD Overlay */}
         <div className="absolute bottom-12 left-12 flex flex-col gap-6 w-72 p-6 rounded-3xl bg-black/60 backdrop-blur-2xl border border-white/10 shadow-2xl">
           <div className="space-y-2">
              <div className="flex justify-between items-end">
@@ -492,12 +508,19 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
           <div className="space-y-2 pt-2">
              <div className="flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase">
-                <span>Phase Dash</span>
+                <div className="flex items-center gap-2">
+                  <span>Phase Dash</span>
+                  <div className="flex gap-1">
+                    {[...Array(getMaxDashCharges(myP?.weaponClass as WeaponClass))].map((_, i) => (
+                      <div key={i} className={`w-2 h-2 rounded-full ${i < (myP?.dashCharges || 0) ? 'bg-accent' : 'bg-white/10'}`} />
+                    ))}
+                  </div>
+                </div>
                 <span className={myP?.dashCooldown && myP.dashCooldown > 0 ? 'text-destructive' : 'text-accent'}>
                   {myP?.dashCooldown && myP.dashCooldown > 0 ? `${myP.dashCooldown.toFixed(1)}s` : 'READY'}
                 </span>
              </div>
-             <Progress value={myP?.dashCooldown ? 100 - (myP.dashCooldown / DASH_COOLDOWN_TIME * 100) : 100} className="h-1 bg-white/5" />
+             <Progress value={myP?.dashCooldown && myP.dashCooldown > 0 ? 100 - (myP.dashCooldown / DASH_COOLDOWN_TIME * 100) : 100} className="h-1 bg-white/5" />
           </div>
 
           <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/10">
