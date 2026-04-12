@@ -49,7 +49,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const roomRefState = useRef<GameRoom | null>(null);
   const [keys] = useState<Set<string>>(new Set());
   
-  // Visual FX State
   const [flash, setFlash] = useState<{ type: 'taken' | 'dealt' | null, time: number }>({ type: null, time: 0 });
   const [dashTrail, setDashTrail] = useState<{ x1: number, y1: number, x2: number, y2: number, color: string, time: number } | null>(null);
   const [damageNumbers, setDamageNumbers] = useState<DamageNumber[]>([]);
@@ -59,8 +58,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   useEffect(() => {
     roomRefState.current = room;
-    
-    // Sync damage numbers globally by watching HP changes
     if (room?.players) {
       Object.entries(room.players).forEach(([id, p]) => {
         const prevHp = prevPlayersHpRef.current[id];
@@ -81,7 +78,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     }
   }, [room]);
 
-  // Clean up old damage numbers
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
@@ -91,7 +87,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     return () => clearInterval(interval);
   }, []);
 
-  // Effect to detect damage taken for screen flash
   useEffect(() => {
     if (!profile || !room?.players?.[profile.id]) return;
     const currentHp = room.players[profile.id].hp;
@@ -158,18 +153,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     let nextJumpCount = p.jumpCount || 0;
     let nextStamina = Math.min(STAMINA_MAX, (p.stamina || 0) + STAMINA_REGEN_RATE * dt);
 
-    // Gravity
     nextVy += GRAVITY * dt;
-    
-    // Fast Fall (Shift)
     const isFastFallPressed = keys.has('ShiftLeft') || keys.has('ShiftRight');
     if (p.isJumping && isFastFallPressed) {
       nextVy = Math.max(nextVy, FAST_FALL_SPEED);
     }
-
     nextY += nextVy * dt;
 
-    // Movement (Applying Slow Effect if active)
     const isSlowed = Date.now() < (p.slowUntil || 0);
     const speed = isSlowed ? MOVE_SPEED * 0.5 : MOVE_SPEED;
 
@@ -182,7 +172,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       nextFacing = 'right';
     }
 
-    // Ground Collision
     let isJumping = true;
     if (nextY >= GROUND_Y - PLAYER_HEIGHT) {
       nextY = GROUND_Y - PLAYER_HEIGHT;
@@ -191,10 +180,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       nextJumpCount = 0;
     }
 
-    // Boundaries
     nextX = Math.max(0, Math.min(ARENA_WIDTH - PLAYER_WIDTH, nextX));
 
-    // Dash Recharge Logic
     if (nextDashCharges < maxCharges) {
       nextDashRechargeProgress += dt;
       if (nextDashRechargeProgress >= DASH_COOLDOWN_TIME) {
@@ -222,12 +209,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       keys.add(e.code);
-      
       const currentRoom = roomRefState.current;
       if (!profile || !currentRoom || !currentRoom.players?.[profile.id] || !db || currentRoom.status !== 'playing') return;
       const p = currentRoom.players[profile.id];
 
-      // Jump Logic (Double Jump)
       if (e.code === 'KeyW' || e.code === 'ArrowUp') {
         const currentJumpCount = p.jumpCount || 0;
         if (currentJumpCount < 2) {
@@ -239,7 +224,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
       
-      // Dash Logic (Consumes Stamina)
       if (e.code === 'Space') {
         if (p.dashCharges > 0 && (p.stamina || 0) >= STAMINA_DASH_COST) {
           const dx = mouseRef.current.x - (p.x + PLAYER_WIDTH/2);
@@ -249,20 +233,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           if (dist > 0.1) {
             const dashX = (dx / dist) * DASH_DISTANCE;
             const dashY = (dy / dist) * DASH_DISTANCE;
-            
             const newX = Math.max(0, Math.min(ARENA_WIDTH - PLAYER_WIDTH, p.x + dashX));
             const newY = Math.max(0, Math.min(GROUND_Y - PLAYER_HEIGHT, p.y + dashY));
             
-            // Set dash trail for visuals
-            setDashTrail({
-              x1: p.x,
-              y1: p.y,
-              x2: newX,
-              y2: newY,
-              color: p.color,
-              time: Date.now()
-            });
-
+            setDashTrail({ x1: p.x, y1: p.y, x2: newX, y2: newY, color: p.color, time: Date.now() });
             update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
               x: newX,
               y: newY,
@@ -275,7 +249,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     };
     
     const handleKeyUp = (e: KeyboardEvent) => keys.delete(e.code);
-
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
 
@@ -285,7 +258,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const loop = (time: number) => {
       const dt = Math.min((time - lastTime) / 1000, 0.1);
       lastTime = time;
-
       const currentRoom = roomRefState.current;
       if (profile && currentRoom?.players?.[profile.id] && currentRoom.status === 'playing') {
         updateGameLogic(dt);
@@ -293,7 +265,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       render();
       frameId = requestAnimationFrame(loop);
     };
-
     frameId = requestAnimationFrame(loop);
 
     return () => {
@@ -319,51 +290,55 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const p = currentRoom.players[profile.id];
     const weapon = p.weaponClass as WeaponClass;
     const stats = WEAPON_STATS[weapon];
-    
     const now = Date.now();
-    if (now - (p.lastAttackTime || 0) < stats.delay * 1000) return;
     
-    // Check Stamina
+    if (now - (p.lastAttackTime || 0) < stats.delay * 1000) return;
     if ((p.stamina || 0) < STAMINA_ATTACK_COST) return;
 
     const px = p.x + PLAYER_WIDTH / 2;
     const py = p.y + PLAYER_HEIGHT / 2;
     const mx = mouseRef.current.x;
     const my = mouseRef.current.y;
-
     const attackAngle = Math.atan2(my - py, mx - px);
 
-    Object.entries(currentRoom.players).forEach(([id, enemy]) => {
-      if (id === profile.id || enemy.hp <= 0) return;
-      
-      const ex = enemy.x + PLAYER_WIDTH / 2;
-      const ey = enemy.y + PLAYER_HEIGHT / 2;
-      
-      const dx = ex - px;
-      const dy = ey - py;
-      const distToEnemy = Math.sqrt(dx * dx + dy * dy);
-
-      if (distToEnemy <= stats.range) {
-        if (weapon === 'Dagger') {
-          thisHit(id, enemy);
-        } else {
-          const enemyAngle = Math.atan2(dy, dx);
-          let diff = Math.abs(enemyAngle - attackAngle);
-          if (diff > Math.PI) diff = 2 * Math.PI - diff;
-          
-          const angleInDegrees = diff * (180 / Math.PI);
-          if (angleInDegrees <= stats.angle / 2) {
-            thisHit(id, enemy);
-          }
-        }
-      }
-    });
-
+    // Synchronize Visual Immediately
     update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
       lastAttackTime: now,
       lastAttackAngle: attackAngle,
       stamina: (p.stamina || 0) - STAMINA_ATTACK_COST
     });
+
+    // Peak damage application after 150ms to match animation
+    setTimeout(() => {
+      const freshRoom = roomRefState.current;
+      if (!freshRoom || !profile) return;
+      const freshP = freshRoom.players[profile.id];
+      if (!freshP) return;
+
+      Object.entries(freshRoom.players).forEach(([id, enemy]) => {
+        if (id === profile.id || enemy.hp <= 0) return;
+        
+        const ex = enemy.x + PLAYER_WIDTH / 2;
+        const ey = enemy.y + PLAYER_HEIGHT / 2;
+        const dx = ex - px;
+        const dy = ey - py;
+        const distToEnemy = Math.sqrt(dx * dx + dy * dy);
+
+        if (distToEnemy <= stats.range) {
+          if (weapon === 'Dagger') {
+            thisHit(id, enemy);
+          } else {
+            const enemyAngle = Math.atan2(dy, dx);
+            let diff = Math.abs(enemyAngle - attackAngle);
+            if (diff > Math.PI) diff = 2 * Math.PI - diff;
+            const angleInDegrees = diff * (180 / Math.PI);
+            if (angleInDegrees <= stats.angle / 2) {
+              thisHit(id, enemy);
+            }
+          }
+        }
+      });
+    }, 150);
   };
 
   const thisHit = (id: string, enemy: GamePlayer) => {
@@ -374,29 +349,21 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const stats = WEAPON_STATS[p.weaponClass as WeaponClass];
     const enemyRef = ref(db, `rooms/${roomId}/players/${id}`);
     const newHp = Math.max(0, enemy.hp - stats.damage);
-    
     const updates: any = { hp: newHp };
     
-    // Sword Slow Passive
     if (p.weaponClass === 'Sword') {
-      updates.slowUntil = Date.now() + 400; // 0.4s slow
+      updates.slowUntil = Date.now() + 400;
     }
-
     update(enemyRef, updates);
 
-    // Bow Life Steal Passive
     if (p.weaponClass === 'Bow') {
       const healAmount = stats.damage * 0.3;
       const newMyHp = Math.min(1000, p.hp + healAmount);
       update(ref(db, `rooms/${roomId}/players/${profile.id}`), { hp: newMyHp });
     }
 
-    // Trigger Blue Flash (Damage Dealt)
     setFlash({ type: 'dealt', time: Date.now() });
-
-    if (newHp === 0) {
-      handleKill(id);
-    }
+    if (newHp === 0) handleKill(id);
   };
 
   const handleKill = (victimId: string) => {
@@ -404,7 +371,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (!currentRoom || !profile || !db) return;
     const roomRef = ref(db, `rooms/${roomId}`);
     const winnersRounds = (currentRoom.players[profile.id].roundsWon || 0) + 1;
-    
     update(ref(db, `rooms/${roomId}/players/${profile.id}`), { roundsWon: winnersRounds });
 
     if (winnersRounds >= 3) {
@@ -462,18 +428,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.stroke();
     }
 
-    // Render Dash Trail (Ghosts)
     if (dashTrail && Date.now() - dashTrail.time < 300) {
-      const duration = 300;
-      const elapsed = Date.now() - dashTrail.time;
-      const alpha = 1 - (elapsed / duration);
-      
+      const alpha = 1 - ((Date.now() - dashTrail.time) / 300);
       const ghostCount = 5;
       for (let i = 1; i <= ghostCount; i++) {
         const t = i / (ghostCount + 1);
         const gx = dashTrail.x1 + (dashTrail.x2 - dashTrail.x1) * t;
         const gy = dashTrail.y1 + (dashTrail.y2 - dashTrail.y1) * t;
-        
         ctx.save();
         ctx.globalAlpha = alpha * (i / ghostCount) * 0.4;
         ctx.fillStyle = dashTrail.color;
@@ -482,7 +443,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     }
 
-    // LAYER 1: Attack Indicators (Below players)
     Object.values(currentRoom.players || {}).forEach(p => {
       const now = Date.now();
       const attackDuration = 500;
@@ -491,19 +451,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       if (timeSinceAttack < attackDuration) {
         const isLocal = p.id === profile.id;
         const baseColor = isLocal ? '64, 156, 255' : '255, 64, 64';
-        
-        // Fade-out logic: last 0.1s
         let opacity = 0.6;
-        if (timeSinceAttack > 400) {
-          opacity = 0.6 * (1 - (timeSinceAttack - 400) / 100);
-        }
+        if (timeSinceAttack > 400) opacity = 0.6 * (1 - (timeSinceAttack - 400) / 100);
 
         const px = p.x * PIXELS_PER_METER;
         const py = p.y * PIXELS_PER_METER;
-        const pw = PLAYER_WIDTH * PIXELS_PER_METER;
-        const ph = PLAYER_HEIGHT * PIXELS_PER_METER;
-        const centerX = px + pw / 2;
-        const centerY = py + ph / 2;
+        const centerX = px + (PLAYER_WIDTH * PIXELS_PER_METER) / 2;
+        const centerY = py + (PLAYER_HEIGHT * PIXELS_PER_METER) / 2;
 
         ctx.save();
         ctx.fillStyle = `rgba(${baseColor}, ${opacity * 0.3})`;
@@ -530,20 +484,15 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         } else if (weapon === 'Bow') {
           ctx.beginPath();
           ctx.moveTo(centerX, centerY);
-          ctx.lineTo(
-            centerX + Math.cos(angle) * stats.range * PIXELS_PER_METER,
-            centerY + Math.sin(angle) * stats.range * PIXELS_PER_METER
-          );
+          ctx.lineTo(centerX + Math.cos(angle) * stats.range * PIXELS_PER_METER, centerY + Math.sin(angle) * stats.range * PIXELS_PER_METER);
           ctx.stroke();
         }
         ctx.restore();
       }
     });
 
-    // LAYER 2: Players and UI
     Object.values(currentRoom.players || {}).forEach(p => {
       if (p.hp <= 0 && currentRoom.status === 'playing') return;
-
       const px = p.x * PIXELS_PER_METER;
       const py = p.y * PIXELS_PER_METER;
       const pw = PLAYER_WIDTH * PIXELS_PER_METER;
@@ -554,8 +503,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.shadowColor = p.color;
       ctx.fillStyle = p.color;
       ctx.fillRect(px, py, pw, ph);
-      
-      // If slowed, draw a slight blue overlay
       if (Date.now() < (p.slowUntil || 0)) {
         ctx.fillStyle = 'rgba(100, 100, 255, 0.4)';
         ctx.fillRect(px, py, pw, ph);
@@ -579,14 +526,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.fillText(p.name, px + pw/2, py - 20);
     });
 
-    // LAYER 3: Damage Numbers
     const now = Date.now();
     damageNumbersRef.current.forEach((dn) => {
       const elapsed = now - dn.startTime;
       if (elapsed > 800) return;
       const alpha = 1 - (elapsed / 800);
-      const dy = (elapsed / 800) * 40; // upward movement
-      
+      const dy = (elapsed / 800) * 40;
       ctx.save();
       ctx.globalAlpha = alpha;
       ctx.fillStyle = '#ff4444';
@@ -604,18 +549,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   };
 
   if (profileLoading || !profile) return null;
-
   const myP = room?.players?.[profile.id];
   const maxDash = getMaxDashCharges(myP?.weaponClass as WeaponClass || 'Sword');
   const flashActive = Date.now() - flash.time < 200;
 
   return (
     <div className="min-h-screen bg-background overflow-hidden flex flex-col items-center select-none">
-      {/* Screen Flash Overlay */}
       {flashActive && (
-        <div 
-          className={`fixed inset-0 pointer-events-none z-[100] border-[24px] ${flash.type === 'taken' ? 'border-red-500/20' : 'border-blue-500/20'} animate-in fade-in duration-200`} 
-        />
+        <div className={`fixed inset-0 pointer-events-none z-[100] border-[24px] ${flash.type === 'taken' ? 'border-red-500/20' : 'border-blue-500/20'} animate-in fade-in duration-200`} />
       )}
 
       <header className="w-full p-4 flex justify-between items-center bg-black/40 backdrop-blur-md border-b border-white/5 z-50">
@@ -629,7 +570,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             <span className="text-sm font-headline font-bold text-white uppercase">{room?.name || 'Loading...'}</span>
           </div>
         </div>
-
         <div className="flex items-center gap-6">
            {Object.values(room?.players || {}).map(p => (
              <div key={p.id} className="flex flex-col items-center">
@@ -646,21 +586,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
       <main className="flex-1 w-full relative flex items-center justify-center p-4">
         <div className="relative game-canvas-container border border-white/10 shadow-2xl bg-slate-950">
-          <canvas 
-            ref={canvasRef} 
-            width={ARENA_WIDTH * PIXELS_PER_METER} 
-            height={ARENA_HEIGHT * PIXELS_PER_METER} 
-            className="w-full h-auto cursor-crosshair" 
-            onMouseMove={handleMouseMove}
-            onClick={handleAttack}
-          />
-          
+          <canvas ref={canvasRef} width={ARENA_WIDTH * PIXELS_PER_METER} height={ARENA_HEIGHT * PIXELS_PER_METER} className="w-full h-auto cursor-crosshair" onMouseMove={handleMouseMove} onClick={handleAttack} />
           {room?.status === 'lobby' && (
              <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center z-50 space-y-8">
-                <div className="text-center space-y-2">
-                  <h2 className="text-4xl font-headline font-bold text-white uppercase italic tracking-tighter">WAITING FOR COMBATANTS</h2>
-                  <p className="text-muted-foreground text-sm uppercase tracking-widest">Gathering warriors in the arena...</p>
-                </div>
+                <h2 className="text-4xl font-headline font-bold text-white uppercase italic tracking-tighter">WAITING FOR COMBATANTS</h2>
                 <div className="flex gap-4">
                   {Object.values(room.players).map(p => (
                     <div key={p.id} className="flex flex-col items-center gap-2">
@@ -675,13 +604,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                 </Button>
              </div>
           )}
-
           {room?.status === 'round_over' && (
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
               <h2 className="text-6xl font-headline font-bold text-accent animate-bounce uppercase italic tracking-tighter">ROUND END</h2>
             </div>
           )}
-
           {room?.status === 'finished' && (
              <div className="absolute inset-0 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center z-50 p-8 text-center space-y-6">
                 <Trophy className="w-20 h-20 text-yellow-500 animate-pulse" />
@@ -690,8 +617,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
              </div>
           )}
         </div>
-
-        {/* Minimalist Numeric-Only HUD */}
         <div className="absolute bottom-6 left-6 p-4 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-white font-mono text-sm space-y-1 z-50 min-w-[180px]">
           <div className="flex justify-between">
             <span className="text-muted-foreground uppercase text-[10px] font-bold">Health</span>
