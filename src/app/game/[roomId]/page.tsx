@@ -31,7 +31,7 @@ import {
   SPAWN_POINTS
 } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
-import { Trophy, ArrowLeft, Play, Zap, Heart, Users, ShieldAlert } from 'lucide-react';
+import { Trophy, ArrowLeft, Play, Zap, Heart, Users, ShieldAlert, Crown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface GameEffectNumber {
@@ -172,9 +172,28 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const pIds = Object.keys(room.players);
       const playerCount = pIds.length;
 
-      if (playerCount === 1 && room.status !== 'lobby') {
-        handleQuit();
-        return;
+      // Handle solo player: Return to lobby and ensure they are host
+      if (playerCount === 1) {
+        const onlyPlayerId = pIds[0];
+        if (onlyPlayerId === profile?.id) {
+          const roomRef = ref(db, `rooms/${roomId}`);
+          const updates: any = {};
+          let needsUpdate = false;
+          
+          if (room.status !== 'lobby') {
+            updates.status = 'lobby';
+            needsUpdate = true;
+          }
+          
+          if (room.createdBy !== profile.id) {
+            updates.createdBy = profile.id;
+            needsUpdate = true;
+          }
+          
+          if (needsUpdate) {
+            update(roomRef, updates);
+          }
+        }
       }
 
       Object.entries(room.players).forEach(([id, p]) => {
@@ -551,7 +570,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (isStunned) return;
 
     const weapon = (p.weaponClass as WeaponClass) || 'Sword';
-    const stats = WEAPON_STATS[weapon] || WEAPON_STATS.Sword;
+    const stats = (WEAPON_STATS[weapon] || WEAPON_STATS.Sword);
     
     const reloadRemaining = (stats.delay * 1000) - (now - (p.lastAttackTime || 0));
     const onCooldown = reloadRemaining > 0;
@@ -656,7 +675,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (!p) return;
     
     const now = Date.now();
-    const stats = WEAPON_STATS[p.weaponClass as WeaponClass || 'Sword'];
+    const stats = (WEAPON_STATS[p.weaponClass as WeaponClass] || WEAPON_STATS.Sword);
     const enemyRef = ref(db, `rooms/${roomId}/players/${id}`);
     const newHp = Math.max(0, enemy.hp - stats.damage);
     const updates: any = { hp: newHp };
@@ -670,7 +689,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     if (p.weaponClass === 'Bow') {
       const healAmount = stats.damage * 0.3;
-      const myWeaponStats = WEAPON_STATS[p.weaponClass as WeaponClass || 'Sword'];
+      const myWeaponStats = (WEAPON_STATS[p.weaponClass as WeaponClass] || WEAPON_STATS.Sword);
       const newMyHp = Math.min(myWeaponStats.maxHp, p.hp + healAmount);
       update(ref(db, `rooms/${roomId}/players/${profile.id}`), { hp: newMyHp });
     }
@@ -714,7 +733,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           const bestSpawn = getBestSpawnPoint(SPAWN_POINTS, assignedSpawns);
           assignedSpawns.push(bestSpawn);
           
-          const weaponStats = WEAPON_STATS[p.weaponClass as WeaponClass || 'Sword'];
+          const weaponStats = (WEAPON_STATS[p.weaponClass as WeaponClass] || WEAPON_STATS.Sword);
           update(ref(db, `rooms/${roomId}/players/${pid}`), {
             hp: weaponStats.maxHp,
             stamina: STAMINA_MAX,
@@ -804,7 +823,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.lineWidth = 4;
 
         const weapon = (p.weaponClass as WeaponClass) || 'Sword';
-        const stats = WEAPON_STATS[weapon] || WEAPON_STATS.Sword;
+        const stats = (WEAPON_STATS[weapon] || WEAPON_STATS.Sword);
         const angle = p.lastAttackAngle || 0;
 
         if (weapon === 'Dagger') {
@@ -964,7 +983,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       if (currentRoom.status !== 'lobby') {
         const hpWidth = pw * 1.2;
         const hpX = px - (hpWidth - pw) / 2;
-        const weaponStats = WEAPON_STATS[p.weaponClass as WeaponClass || 'Sword'];
+        const weaponStats = (WEAPON_STATS[p.weaponClass as WeaponClass] || WEAPON_STATS.Sword);
         ctx.fillStyle = 'black';
         ctx.fillRect(hpX, py - 18, hpWidth, 8);
         ctx.fillStyle = '#ff4444';
@@ -1015,9 +1034,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const stunCDRemaining = myP ? Math.max(0, (myP.stunCooldownUntil || 0) - now) : 0;
 
   if (myP) {
-    const stats = WEAPON_STATS[myP.weaponClass as WeaponClass] || WEAPON_STATS.Sword;
+    const stats = (WEAPON_STATS[myP.weaponClass as WeaponClass] || WEAPON_STATS.Sword);
     const reloadRemaining = (stats.delay * 1000) - (now - (myP.lastAttackTime || 0));
-    const dashRemaining = stats.dashCooldown - myP.dashRechargeProgress;
+    const dashRemaining = stats.dashCooldown - (myP.dashRechargeProgress || 0);
 
     if (now - feedback.lastReloadFail < 500 && reloadRemaining > 0) {
       alerts.push({ 
@@ -1089,6 +1108,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ))}
       </div>
 
+      {playerCount === 1 && (
+        <div className="w-full bg-destructive/20 py-2 border-b-4 border-black text-center z-[100]">
+          <span className="font-headline text-2xl text-white tracking-widest drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]">
+            ROOM IS EMPTY
+          </span>
+        </div>
+      )}
+
       {flashActive && (
         <div className={`fixed inset-0 pointer-events-none z-[100] border-[40px] ${flash.type === 'taken' ? 'border-red-500/30' : 'border-blue-500/30'} animate-in fade-in duration-200`} />
       )}
@@ -1113,6 +1140,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                   >
                     {p.name}
                   </span>
+                  {p.id === room?.createdBy && (
+                    <Crown className="w-5 h-5 text-yellow-500 fill-yellow-500" />
+                  )}
                 </div>
                 <div className="flex gap-1.5 mt-1">
                   {[1, 2, 3].map(i => (
@@ -1146,7 +1176,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                 <div className="flex gap-8">
                   {Object.values(room.players).map(p => (
                     <div key={p.id} className="flex flex-col items-center gap-3">
-                      <div className="w-16 h-16 rounded-2xl border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]" style={{ backgroundColor: p.color }} />
+                      <div className="relative">
+                        <div className="w-16 h-16 rounded-2xl border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]" style={{ backgroundColor: p.color }} />
+                        {p.id === room?.createdBy && (
+                          <Crown className="absolute -top-6 -right-6 w-10 h-10 text-yellow-500 fill-yellow-500 rotate-12 drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]" />
+                        )}
+                      </div>
                       <span className="font-headline text-lg text-white">{p.name}</span>
                     </div>
                   ))}
