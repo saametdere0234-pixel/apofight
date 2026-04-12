@@ -86,7 +86,7 @@ export const FAST_FALL_SPEED = 40;
 export const STAMINA_MAX = 100;
 export const STAMINA_REGEN_RATE = 10; // per second
 export const STAMINA_DASH_COST = 30;
-export const STAMINA_DASH_COST_DAGGER = 15;
+export const STAMINA_DASH_COST_DAGGER = 20;
 export const STAMINA_ATTACK_COST = 25;
 
 export const STUN_DURATION = 800; // ms
