@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -21,7 +20,6 @@ import {
   MOVE_SPEED,
   DASH_DISTANCE,
   DASH_DURATION,
-  DASH_COOLDOWN_TIME,
   FAST_FALL_SPEED,
   STAMINA_MAX,
   STAMINA_REGEN_RATE,
@@ -32,7 +30,7 @@ import {
   STUN_COOLDOWN
 } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
-import { Trophy, ArrowLeft, Play, Zap, Shield, Heart, Users, Sword, Wand2, Target, Ban } from 'lucide-react';
+import { Trophy, ArrowLeft, Play, Zap, Heart, Users, Ban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface GameEffectNumber {
@@ -56,10 +54,12 @@ const WeaponIcon = ({ weapon, className = "w-6 h-6" }: { weapon: WeaponClass; cl
     return (
       <div className={className}>
         <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-          <path d="M14 22L12 20L28 4L32 8L14 22Z" fill="#cbd5e1" stroke="black" strokeWidth="2.5" />
-          <path d="M12 24L10 22L14 18L16 20L12 24Z" fill="#facc15" stroke="black" strokeWidth="2.5" />
-          <path d="M10 22L4 28" stroke="black" strokeWidth="5" strokeLinecap="round" />
-          <path d="M10 22L4 28" stroke="#451a03" strokeWidth="2.5" strokeLinecap="round" />
+          <path d="M12 20L28 4L30 6L14 22L12 20Z" fill="#38bdf8" stroke="black" strokeWidth="2.5" strokeLinejoin="round"/>
+          <path d="M14 22L16 24L28 12L26 10L14 22Z" fill="#0ea5e9" stroke="black" strokeWidth="2.5" strokeLinejoin="round"/>
+          <path d="M10 18L18 26" stroke="black" strokeWidth="5" strokeLinecap="round"/>
+          <path d="M10 18L18 26" stroke="#facc15" strokeWidth="2.5" strokeLinecap="round"/>
+          <path d="M10 22L4 28" stroke="black" strokeWidth="5" strokeLinecap="round"/>
+          <path d="M10 22L4 28" stroke="#78350f" strokeWidth="2.5" strokeLinecap="round"/>
         </svg>
       </div>
     );
@@ -68,9 +68,12 @@ const WeaponIcon = ({ weapon, className = "w-6 h-6" }: { weapon: WeaponClass; cl
     return (
       <div className={className}>
         <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-          <path d="M16 16L24 8L28 12L20 20L16 16Z" fill="#94a3b8" stroke="black" strokeWidth="2.5" />
-          <path d="M14 18L8 24" stroke="black" strokeWidth="5" strokeLinecap="round" />
-          <path d="M14 18L8 24" stroke="#1e293b" strokeWidth="2.5" strokeLinecap="round" />
+          <path d="M16 16L24 8L28 12L20 20L16 16Z" fill="#d946ef" stroke="black" strokeWidth="2.5" strokeLinejoin="round"/>
+          <path d="M16 16L20 20L26 14L22 10L16 16Z" fill="#f5d0fe" stroke="black" strokeWidth="2.5" strokeLinejoin="round"/>
+          <path d="M14 14L20 20" stroke="black" strokeWidth="5" strokeLinecap="round"/>
+          <path d="M14 14L20 20" stroke="#701a75" strokeWidth="2.5" strokeLinecap="round"/>
+          <path d="M14 18L8 24" stroke="black" strokeWidth="5" strokeLinecap="round"/>
+          <path d="M14 18L8 24" stroke="#1e293b" strokeWidth="2.5" strokeLinecap="round"/>
         </svg>
       </div>
     );
@@ -79,8 +82,10 @@ const WeaponIcon = ({ weapon, className = "w-6 h-6" }: { weapon: WeaponClass; cl
     return (
       <div className={className}>
         <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-          <path d="M8 8C16 8 24 16 24 24" stroke="#78350f" strokeWidth="3" fill="none" />
-          <path d="M8 8L24 24" stroke="rgba(255,255,255,0.3)" strokeWidth="1" />
+          <path d="M8 8C16 8 24 16 24 24" stroke="black" strokeWidth="5" strokeLinecap="round" fill="none"/>
+          <path d="M8 8C16 8 24 16 24 24" stroke="#f97316" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+          <path d="M8 8L24 24" stroke="black" strokeWidth="1.5" strokeDasharray="2 2" />
+          <circle cx="16" cy="16" r="3" fill="#ca8a04" stroke="black" strokeWidth="1.5" />
         </svg>
       </div>
     );
@@ -188,12 +193,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const roomPath = ref(db, `rooms/${roomId}`);
     const myPlayerRef = ref(db, `rooms/${roomId}/players/${profile.id}`);
     
+    const weaponStats = WEAPON_STATS[profile.weaponClass];
     const initialPlayer: GamePlayer = {
       ...profile,
       x: Math.random() * (ARENA_WIDTH - 5) + 2,
       y: GROUND_Y - PLAYER_HEIGHT,
       vy: 0,
-      hp: 1000,
+      hp: weaponStats.maxHp,
       stamina: STAMINA_MAX,
       facing: 'right',
       isJumping: false,
@@ -209,6 +215,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       stunnedUntil: 0,
       stunCooldownUntil: 0
     };
+
+    lastHpRef.current = weaponStats.maxHp;
 
     get(roomPath).then((snapshot) => {
       if (snapshot.exists()) {
@@ -275,7 +283,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (!profile || !currentRoom || !currentRoom.players?.[profile.id] || !db) return;
     
     const p = currentRoom.players[profile.id];
-    const maxCharges = getMaxDashCharges(p.weaponClass as WeaponClass);
+    const weapon = p.weaponClass as WeaponClass;
+    const stats = WEAPON_STATS[weapon];
+    const maxCharges = getMaxDashCharges(weapon);
     const now = Date.now();
     const isStunned = now < (p.stunnedUntil || 0);
     
@@ -337,7 +347,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     if (nextDashCharges < maxCharges) {
       nextDashRechargeProgress += dt;
-      if (nextDashRechargeProgress >= DASH_COOLDOWN_TIME) {
+      if (nextDashRechargeProgress >= stats.dashCooldown) {
         nextDashCharges++;
         nextDashRechargeProgress = 0;
       }
@@ -586,7 +596,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     if (p.weaponClass === 'Bow') {
       const healAmount = stats.damage * 0.3;
-      const newMyHp = Math.min(1000, p.hp + healAmount);
+      const myWeaponStats = WEAPON_STATS[p.weaponClass as WeaponClass];
+      const newMyHp = Math.min(myWeaponStats.maxHp, p.hp + healAmount);
       update(ref(db, `rooms/${roomId}/players/${profile.id}`), { hp: newMyHp });
     }
 
@@ -612,8 +623,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         if (!currentData) return;
         Object.keys(currentData.players).forEach(pid => {
           const p = currentData.players[pid];
+          const weaponStats = WEAPON_STATS[p.weaponClass as WeaponClass || 'Sword'];
           update(ref(db, `rooms/${roomId}/players/${pid}`), {
-            hp: 1000,
+            hp: weaponStats.maxHp,
             stamina: STAMINA_MAX,
             x: Math.random() * (ARENA_WIDTH - 5) + 2,
             y: GROUND_Y - PLAYER_HEIGHT,
@@ -872,10 +884,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       if (currentRoom.status !== 'lobby') {
         const hpWidth = pw * 1.2;
         const hpX = px - (hpWidth - pw) / 2;
+        const weaponStats = WEAPON_STATS[p.weaponClass as WeaponClass || 'Sword'];
         ctx.fillStyle = 'black';
         ctx.fillRect(hpX, py - 18, hpWidth, 8);
         ctx.fillStyle = '#ff4444';
-        const fillWidth = (p.hp / 1000) * (hpWidth - 4);
+        const fillWidth = (p.hp / weaponStats.maxHp) * (hpWidth - 4);
         ctx.fillRect(hpX + 2, py - 16, fillWidth, 4);
       }
       
@@ -930,7 +943,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   if (myP) {
     const stats = WEAPON_STATS[myP.weaponClass as WeaponClass];
     const reloadRemaining = (stats.delay * 1000) - (now - (myP.lastAttackTime || 0));
-    const dashRemaining = DASH_COOLDOWN_TIME - myP.dashRechargeProgress;
+    const dashRemaining = stats.dashCooldown - myP.dashRechargeProgress;
 
     if (now - feedback.lastReloadFail < 500 && reloadRemaining > 0) {
       alerts.push({ 
@@ -957,6 +970,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   const playerCount = room?.players ? Object.keys(room.players).length : 0;
   const canStart = playerCount >= 2;
+
+  const myWeaponStats = myP ? WEAPON_STATS[myP.weaponClass as WeaponClass] : WEAPON_STATS.Sword;
 
   return (
     <div className="min-h-screen bg-[#0a0a1a] overflow-hidden flex flex-col items-center select-none" onMouseMove={handleMouseMove}>
@@ -1093,7 +1108,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             <div className="juicy-bar h-6 bg-black/40">
               <div 
                 className="juicy-bar-fill bg-destructive transition-all duration-300"
-                style={{ width: `${(myP?.hp || 0) / 10}%` }}
+                style={{ width: `${(myP?.hp || 0) / (myWeaponStats.maxHp / 100)}%` }}
               />
             </div>
           </div>
@@ -1124,7 +1139,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
               <span className="font-headline text-sm text-accent drop-shadow-[1px_1px_0px_rgba(0,0,0,1)]">
                 {myP && myP.dashCharges === maxDash 
                   ? 'READY' 
-                  : `${(DASH_COOLDOWN_TIME - (myP?.dashRechargeProgress || 0)).toFixed(1)}s`
+                  : `${(myWeaponStats.dashCooldown - (myP?.dashRechargeProgress || 0)).toFixed(1)}s`
                 }
               </span>
             </div>

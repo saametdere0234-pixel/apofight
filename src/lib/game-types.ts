@@ -48,18 +48,24 @@ export const WEAPON_STATS = {
     range: 5.0, 
     angle: 70, 
     delay: 2.0, 
+    maxHp: 1000,
+    dashCooldown: 4.0
   },
   Dagger: {
-    damage: 200,
+    damage: 150,
     range: 2.8, 
     angle: 360,
     delay: 0.5,
+    maxHp: 750,
+    dashCooldown: 2.5
   },
   Bow: {
     damage: 200,
     range: 14.0,
     angle: 5, 
     delay: 2.0,
+    maxHp: 1000,
+    dashCooldown: 4.0
   },
 };
 
@@ -74,7 +80,7 @@ export const JUMP_FORCE = -11.2;
 export const MOVE_SPEED = 8;
 export const DASH_DISTANCE = 5.0; 
 export const DASH_DURATION = 0.2; 
-export const DASH_COOLDOWN_TIME = 4.0;
+export const DASH_COOLDOWN_TIME = 4.0; // Default fallback
 export const FAST_FALL_SPEED = 40;
 
 export const STAMINA_MAX = 100;
