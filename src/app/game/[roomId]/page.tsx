@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -50,6 +51,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const [keys] = useState<Set<string>>(new Set());
   
   const [flash, setFlash] = useState<{ type: 'taken' | 'dealt' | null, time: number }>({ type: null, time: 0 });
+  const [shakeUntil, setShakeUntil] = useState(0);
   const [dashTrail, setDashTrail] = useState<{ x1: number, y1: number, x2: number, y2: number, color: string, time: number } | null>(null);
   const [damageNumbers, setDamageNumbers] = useState<DamageNumber[]>([]);
   const damageNumbersRef = useRef<DamageNumber[]>([]);
@@ -292,7 +294,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const stats = WEAPON_STATS[weapon];
     const now = Date.now();
     
-    if (now - (p.lastAttackTime || 0) < stats.delay * 1000) return;
+    // Check Cooldown
+    if (now - (p.lastAttackTime || 0) < stats.delay * 1000) {
+      setShakeUntil(now + 100);
+      setTimeout(() => setShakeUntil(0), 100);
+      return;
+    }
+
     if ((p.stamina || 0) < STAMINA_ATTACK_COST) return;
 
     const px = p.x + PLAYER_WIDTH / 2;
@@ -413,6 +421,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const now = Date.now();
+
     ctx.fillStyle = '#0a0a0c';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -428,8 +438,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.stroke();
     }
 
-    if (dashTrail && Date.now() - dashTrail.time < 300) {
-      const alpha = 1 - ((Date.now() - dashTrail.time) / 300);
+    if (dashTrail && now - dashTrail.time < 300) {
+      const alpha = 1 - ((now - dashTrail.time) / 300);
       const ghostCount = 5;
       for (let i = 1; i <= ghostCount; i++) {
         const t = i / (ghostCount + 1);
@@ -444,7 +454,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     }
 
     Object.values(currentRoom.players || {}).forEach(p => {
-      const now = Date.now();
       const attackDuration = 500;
       const timeSinceAttack = now - (p.lastAttackTime || 0);
 
@@ -503,7 +512,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.shadowColor = p.color;
       ctx.fillStyle = p.color;
       ctx.fillRect(px, py, pw, ph);
-      if (Date.now() < (p.slowUntil || 0)) {
+      if (now < (p.slowUntil || 0)) {
         ctx.fillStyle = 'rgba(100, 100, 255, 0.4)';
         ctx.fillRect(px, py, pw, ph);
       }
@@ -526,7 +535,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.fillText(p.name, px + pw/2, py - 20);
     });
 
-    const now = Date.now();
     damageNumbersRef.current.forEach((dn) => {
       const elapsed = now - dn.startTime;
       if (elapsed > 800) return;
@@ -541,6 +549,23 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.restore();
     });
 
+    // Cooldown feedback text at cursor
+    const myP = currentRoom.players[profile.id];
+    if (myP) {
+      const stats = WEAPON_STATS[myP.weaponClass as WeaponClass];
+      const cooldownRemaining = (stats.delay * 1000) - (now - (myP.lastAttackTime || 0));
+      if (cooldownRemaining > 0) {
+        ctx.save();
+        ctx.fillStyle = '#ff4444';
+        ctx.font = 'bold 14px Inter';
+        ctx.textAlign = 'center';
+        ctx.shadowBlur = 4;
+        ctx.shadowColor = 'black';
+        ctx.fillText(`${(cooldownRemaining / 1000).toFixed(1)}s`, mouseRef.current.x * PIXELS_PER_METER, mouseRef.current.y * PIXELS_PER_METER + 25);
+        ctx.restore();
+      }
+    }
+
     ctx.strokeStyle = 'rgba(191, 90, 60, 0.5)';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -552,6 +577,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const myP = room?.players?.[profile.id];
   const maxDash = getMaxDashCharges(myP?.weaponClass as WeaponClass || 'Sword');
   const flashActive = Date.now() - flash.time < 200;
+  const isShaking = Date.now() < shakeUntil;
 
   return (
     <div className="min-h-screen bg-background overflow-hidden flex flex-col items-center select-none">
@@ -585,7 +611,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       </header>
 
       <main className="flex-1 w-full relative flex items-center justify-center p-4">
-        <div className="relative game-canvas-container border border-white/10 shadow-2xl bg-slate-950">
+        <div className={`relative game-canvas-container border border-white/10 shadow-2xl bg-slate-950 ${isShaking ? 'animate-shake' : ''}`}>
           <canvas ref={canvasRef} width={ARENA_WIDTH * PIXELS_PER_METER} height={ARENA_HEIGHT * PIXELS_PER_METER} className="w-full h-auto cursor-crosshair" onMouseMove={handleMouseMove} onClick={handleAttack} />
           {room?.status === 'lobby' && (
              <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center z-50 space-y-8">
