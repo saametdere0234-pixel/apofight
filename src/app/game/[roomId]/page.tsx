@@ -232,7 +232,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         if (p.dashCharges > 0) {
           if ((p.stamina || 0) < STAMINA_DASH_COST) {
             setStaminaError({ msg: `NEED ${STAMINA_DASH_COST} STAMINA`, time: now });
-            setShakeUntil(now + 80); // Shorter sharper shake for failure
+            setShakeUntil(now + 80);
           } else {
             const dx = mouseRef.current.x - (p.x + PLAYER_WIDTH/2);
             const dy = mouseRef.current.y - (p.y + PLAYER_HEIGHT/2);
@@ -245,7 +245,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
               const newY = Math.max(0, Math.min(GROUND_Y - PLAYER_HEIGHT, p.y + dashY));
               
               setDashTrail({ x1: p.x, y1: p.y, x2: newX, y2: newY, color: p.color, time: now });
-              setShakeUntil(now + 100); // Success dash shake
               update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
                 x: newX,
                 y: newY,
@@ -303,25 +302,23 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const now = Date.now();
     
     const staminaNeeded = STAMINA_ATTACK_COST;
-    const hasStamina = (p.stamina || 0) >= staminaNeeded;
     const cooldownRemaining = (stats.delay * 1000) - (now - (p.lastAttackTime || 0));
     const onCooldown = cooldownRemaining > 0;
 
-    // Stamina check takes priority for feedback
-    if (!hasStamina) {
-      setStaminaError({ msg: `NEED ${staminaNeeded} STAMINA`, time: now });
-      setShakeUntil(now + 80); // Sharp failure shake
-      return;
-    }
-
+    // Check Cooldown First
     if (onCooldown) {
-      setShakeUntil(now + 100); // Reload failure shake
+      setShakeUntil(now + 100);
       return;
     }
 
-    // Success: Impact shake
-    setShakeUntil(now + 100);
+    // Check Stamina Second
+    if ((p.stamina || 0) < staminaNeeded) {
+      setStaminaError({ msg: `NEED ${staminaNeeded} STAMINA`, time: now });
+      setShakeUntil(now + 80);
+      return;
+    }
 
+    // Success logic starts here - No shake as requested for success
     const px = p.x + PLAYER_WIDTH / 2;
     const py = p.y + PLAYER_HEIGHT / 2;
     const mx = mouseRef.current.x;
@@ -335,37 +332,30 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       stamina: (p.stamina || 0) - STAMINA_ATTACK_COST
     });
 
-    // Peak damage application after 150ms to match animation
-    setTimeout(() => {
-      const freshRoom = roomRefState.current;
-      if (!freshRoom || !profile) return;
-      const freshP = freshRoom.players[profile.id];
-      if (!freshP) return;
+    // Immediate hit detection to remove perceived input lag
+    Object.entries(currentRoom.players).forEach(([id, enemy]) => {
+      if (id === profile.id || enemy.hp <= 0) return;
+      
+      const ex = enemy.x + PLAYER_WIDTH / 2;
+      const ey = enemy.y + PLAYER_HEIGHT / 2;
+      const dx = ex - px;
+      const dy = ey - py;
+      const distToEnemy = Math.sqrt(dx * dx + dy * dy);
 
-      Object.entries(freshRoom.players).forEach(([id, enemy]) => {
-        if (id === profile.id || enemy.hp <= 0) return;
-        
-        const ex = enemy.x + PLAYER_WIDTH / 2;
-        const ey = enemy.y + PLAYER_HEIGHT / 2;
-        const dx = ex - px;
-        const dy = ey - py;
-        const distToEnemy = Math.sqrt(dx * dx + dy * dy);
-
-        if (distToEnemy <= stats.range) {
-          if (weapon === 'Dagger') {
+      if (distToEnemy <= stats.range) {
+        if (weapon === 'Dagger') {
+          thisHit(id, enemy);
+        } else {
+          const enemyAngle = Math.atan2(dy, dx);
+          let diff = Math.abs(enemyAngle - attackAngle);
+          if (diff > Math.PI) diff = 2 * Math.PI - diff;
+          const angleInDegrees = diff * (180 / Math.PI);
+          if (angleInDegrees <= stats.angle / 2) {
             thisHit(id, enemy);
-          } else {
-            const enemyAngle = Math.atan2(dy, dx);
-            let diff = Math.abs(enemyAngle - attackAngle);
-            if (diff > Math.PI) diff = 2 * Math.PI - diff;
-            const angleInDegrees = diff * (180 / Math.PI);
-            if (angleInDegrees <= stats.angle / 2) {
-              thisHit(id, enemy);
-            }
           }
         }
-      });
-    }, 150);
+      }
+    });
   };
 
   const thisHit = (id: string, enemy: GamePlayer) => {
