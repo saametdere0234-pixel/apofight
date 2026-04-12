@@ -28,7 +28,7 @@ import {
   STAMINA_ATTACK_COST
 } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
-import { Trophy, ArrowLeft, Play } from 'lucide-react';
+import { Trophy, ArrowLeft, Play, Zap, Shield, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface DamageNumber {
@@ -184,7 +184,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         isDashing = false;
         dashTimeLeft = 0;
       }
-      nextVy = 0; // Suspend gravity during dash
+      nextVy = 0;
     } else {
       nextVy += GRAVITY * dt;
       nextY += nextVy * dt;
@@ -472,26 +472,34 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     const now = Date.now();
 
-    ctx.fillStyle = '#0a0a0c';
+    // Cartoon stylized background
+    ctx.fillStyle = '#1e1b4b'; // Deep blue
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.fillStyle = '#1a1a20';
+    // stylized grid floor
+    ctx.fillStyle = '#0f172a';
     ctx.fillRect(0, GROUND_Y * PIXELS_PER_METER, canvas.width, (ARENA_HEIGHT - GROUND_Y) * PIXELS_PER_METER);
     
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-    ctx.lineWidth = 1;
-    for(let i=0; i < ARENA_WIDTH; i++) {
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 2;
+    for(let i=0; i <= ARENA_WIDTH; i++) {
         ctx.beginPath();
-        ctx.moveTo(i * PIXELS_PER_METER, 0);
+        ctx.moveTo(i * PIXELS_PER_METER, GROUND_Y * PIXELS_PER_METER);
         ctx.lineTo(i * PIXELS_PER_METER, canvas.height);
         ctx.stroke();
     }
+    for(let j=GROUND_Y; j <= ARENA_HEIGHT; j++) {
+        ctx.beginPath();
+        ctx.moveTo(0, j * PIXELS_PER_METER);
+        ctx.lineTo(canvas.width, j * PIXELS_PER_METER);
+        ctx.stroke();
+    }
 
-    // Ghost trails for dashing players
+    // Ghost trails
     Object.values(currentRoom.players || {}).forEach(p => {
       if (p.isDashing && p.dashTimeLeft && p.dashTimeLeft > 0) {
         const progress = 1 - (p.dashTimeLeft / DASH_DURATION);
-        const ghostCount = 4;
+        const ghostCount = 5;
         for (let i = 1; i <= ghostCount; i++) {
           const offset = i * 0.04;
           const ghostProgress = Math.max(0, progress - offset);
@@ -502,7 +510,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           const gy = (p.y - (p.dashDirY || 0) * dashSpeed * (progress - ghostProgress)) * PIXELS_PER_METER;
           
           ctx.save();
-          ctx.globalAlpha = 0.2 * (1 - (i / ghostCount));
+          ctx.globalAlpha = 0.3 * (1 - (i / ghostCount));
           ctx.fillStyle = p.color;
           ctx.fillRect(gx, gy, PLAYER_WIDTH * PIXELS_PER_METER, PLAYER_HEIGHT * PIXELS_PER_METER);
           ctx.restore();
@@ -510,6 +518,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     });
 
+    // Attack Indicators
     Object.values(currentRoom.players || {}).forEach(p => {
       const attackDuration = 500;
       const timeSinceAttack = now - (p.lastAttackTime || 0);
@@ -517,8 +526,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       if (timeSinceAttack < attackDuration) {
         const isLocal = p.id === profile.id;
         const baseColor = isLocal ? '64, 156, 255' : '255, 64, 64';
-        let opacity = 0.6;
-        if (timeSinceAttack > 400) opacity = 0.6 * (1 - (timeSinceAttack - 400) / 100);
+        let opacity = 0.7;
+        if (timeSinceAttack > 400) opacity = 0.7 * (1 - (timeSinceAttack - 400) / 100);
 
         const px = p.x * PIXELS_PER_METER;
         const py = p.y * PIXELS_PER_METER;
@@ -526,9 +535,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         const centerY = py + (PLAYER_HEIGHT * PIXELS_PER_METER) / 2;
 
         ctx.save();
-        ctx.fillStyle = `rgba(${baseColor}, ${opacity * 0.3})`;
-        ctx.strokeStyle = `rgba(${baseColor}, ${opacity})`;
-        ctx.lineWidth = 2;
+        ctx.fillStyle = `rgba(${baseColor}, ${opacity * 0.4})`;
+        ctx.strokeStyle = `rgba(0, 0, 0, ${opacity})`;
+        ctx.lineWidth = 4;
 
         const weapon = p.weaponClass as WeaponClass;
         const stats = WEAPON_STATS[weapon];
@@ -557,6 +566,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     });
 
+    // Players
     Object.values(currentRoom.players || {}).forEach(p => {
       if (p.hp <= 0 && currentRoom.status === 'playing') return;
       const px = p.x * PIXELS_PER_METER;
@@ -565,52 +575,84 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const ph = PLAYER_HEIGHT * PIXELS_PER_METER;
 
       ctx.save();
-      ctx.shadowBlur = 15;
-      ctx.shadowColor = p.color;
       ctx.fillStyle = p.color;
-      ctx.fillRect(px, py, pw, ph);
+      ctx.strokeStyle = 'black';
+      ctx.lineWidth = 4;
+      
+      // Capsule shape for cartoon feel
+      const radius = 10;
+      ctx.beginPath();
+      ctx.moveTo(px + radius, py);
+      ctx.lineTo(px + pw - radius, py);
+      ctx.quadraticCurveTo(px + pw, py, px + pw, py + radius);
+      ctx.lineTo(px + pw, py + ph - radius);
+      ctx.quadraticCurveTo(px + pw, py + ph, px + pw - radius, py + ph);
+      ctx.lineTo(px + radius, py + ph);
+      ctx.quadraticCurveTo(px, py + ph, px, py + ph - radius);
+      ctx.lineTo(px, py + radius);
+      ctx.quadraticCurveTo(px, py, px + radius, py);
+      ctx.fill();
+      ctx.stroke();
+
       if (now < (p.slowUntil || 0)) {
         ctx.fillStyle = 'rgba(100, 100, 255, 0.4)';
-        ctx.fillRect(px, py, pw, ph);
+        ctx.fill();
       }
       ctx.restore();
 
+      // Cartoon eyes
       ctx.fillStyle = 'white';
-      const eyeX = p.facing === 'right' ? px + pw - 8 : px + 4;
-      ctx.fillRect(eyeX, py + 10, 4, 4);
+      ctx.strokeStyle = 'black';
+      ctx.lineWidth = 1;
+      const eyeX = p.facing === 'right' ? px + pw - 12 : px + 4;
+      ctx.beginPath();
+      ctx.arc(eyeX + 4, py + 12, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = 'black';
+      ctx.beginPath();
+      ctx.arc(eyeX + 5, py + 12, 2, 0, Math.PI * 2);
+      ctx.fill();
 
+      // HP Bar above player
       if (currentRoom.status !== 'lobby') {
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.fillRect(px, py - 15, pw, 5);
+        const hpWidth = pw * 1.2;
+        const hpX = px - (hpWidth - pw) / 2;
+        ctx.fillStyle = 'black';
+        ctx.fillRect(hpX, py - 18, hpWidth, 8);
         ctx.fillStyle = '#ff4444';
-        ctx.fillRect(px, py - 15, (p.hp / 1000) * pw, 5);
+        const fillWidth = (p.hp / 1000) * (hpWidth - 4);
+        ctx.fillRect(hpX + 2, py - 16, fillWidth, 4);
       }
       
       ctx.fillStyle = '#fff';
-      ctx.font = 'bold 10px Inter';
+      ctx.strokeStyle = 'black';
+      ctx.lineWidth = 3;
+      ctx.font = 'bold 12px Fredoka';
       ctx.textAlign = 'center';
-      ctx.fillText(p.name, px + pw/2, py - 20);
+      ctx.strokeText(p.name, px + pw/2, py - 25);
+      ctx.fillText(p.name, px + pw/2, py - 25);
     });
 
+    // Damage Numbers
     damageNumbersRef.current.forEach((dn) => {
       const elapsed = now - dn.startTime;
       if (elapsed > 800) return;
       const alpha = 1 - (elapsed / 800);
-      const dy = (elapsed / 800) * 40;
+      const dy = (elapsed / 800) * 50;
       ctx.save();
       ctx.globalAlpha = alpha;
       ctx.fillStyle = '#ff4444';
-      ctx.font = 'bold 16px Space Grotesk';
+      ctx.strokeStyle = 'black';
+      ctx.lineWidth = 4;
+      ctx.font = 'bold 24px Luckiest Guy';
       ctx.textAlign = 'center';
-      ctx.fillText(dn.amount.toString(), dn.x * PIXELS_PER_METER, dn.y * PIXELS_PER_METER - 30 - dy);
+      const textX = dn.x * PIXELS_PER_METER;
+      const textY = dn.y * PIXELS_PER_METER - 40 - dy;
+      ctx.strokeText(dn.amount.toString(), textX, textY);
+      ctx.fillText(dn.amount.toString(), textX, textY);
       ctx.restore();
     });
-
-    ctx.strokeStyle = 'rgba(191, 90, 60, 0.5)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(mouseRef.current.x * PIXELS_PER_METER, mouseRef.current.y * PIXELS_PER_METER, 5, 0, Math.PI * 2);
-    ctx.stroke();
   };
 
   if (profileLoading || !profile) return null;
@@ -650,22 +692,23 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   }
 
   return (
-    <div className="min-h-screen bg-background overflow-hidden flex flex-col items-center select-none" onMouseMove={handleMouseMove}>
+    <div className="min-h-screen bg-[#0a0a1a] overflow-hidden flex flex-col items-center select-none" onMouseMove={handleMouseMove}>
       <div 
         className="fixed pointer-events-none z-[9999] flex flex-col items-center gap-1 select-none"
         style={{ 
           left: mousePos.x, 
-          top: mousePos.y + 25, 
+          top: mousePos.y + 35, 
           transform: 'translateX(-50%)'
         }}
       >
         {alerts.map((alert, i) => (
           <span 
             key={i} 
-            className="font-headline font-bold text-lg drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
+            className="font-headline text-2xl drop-shadow-[4px_4px_0px_rgba(0,0,0,1)] stroke-black"
             style={{ 
               color: alert.color, 
-              opacity: alert.alpha 
+              opacity: alert.alpha,
+              WebkitTextStroke: '2px black'
             }}
           >
             {alert.text}
@@ -674,27 +717,26 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       </div>
 
       {flashActive && (
-        <div className={`fixed inset-0 pointer-events-none z-[100] border-[24px] ${flash.type === 'taken' ? 'border-red-500/20' : 'border-blue-500/20'} animate-in fade-in duration-200`} />
+        <div className={`fixed inset-0 pointer-events-none z-[100] border-[40px] ${flash.type === 'taken' ? 'border-red-500/30' : 'border-blue-500/30'} animate-in fade-in duration-200`} />
       )}
 
-      <header className="w-full p-4 flex justify-between items-center bg-black/40 backdrop-blur-md border-b border-white/5 z-50">
-        <div className="flex items-center gap-6">
-          <Button variant="ghost" size="sm" onClick={() => router.push('/lobby')} className="text-muted-foreground hover:text-white">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            ABANDON
+      <header className="w-full p-4 flex justify-between items-center bg-black/60 backdrop-blur-xl border-b-8 border-black z-50">
+        <div className="flex items-center gap-8">
+          <Button variant="ghost" onClick={() => router.push('/lobby')} className="cartoon-button bg-destructive text-white h-12 px-6">
+            <ArrowLeft className="w-5 h-5 mr-2" />
+            QUIT
           </Button>
           <div className="flex flex-col">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest leading-none mb-1">Combat Zone</span>
-            <span className="text-sm font-headline font-bold text-white uppercase">{room?.name || 'Loading...'}</span>
+            <span className="text-xl font-headline text-white">{room?.name || 'ARENA'}</span>
           </div>
         </div>
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-10">
            {Object.values(room?.players || {}).map(p => (
-             <div key={p.id} className="flex flex-col items-center">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase mb-1">{p.name}</span>
-                <div className="flex gap-1">
+             <div key={p.id} className="flex flex-col items-center gap-1">
+                <span className="text-[10px] font-bold text-white/60 uppercase">{p.name}</span>
+                <div className="flex gap-2">
                   {[1, 2, 3].map(i => (
-                    <div key={i} className={`w-2 h-2 rounded-full border border-white/20 ${i <= (p.roundsWon || 0) ? 'bg-accent shadow-[0_0_4px_hsl(var(--accent))]' : 'bg-transparent'}`} />
+                    <div key={i} className={`w-4 h-4 rounded-full border-2 border-black ${i <= (p.roundsWon || 0) ? 'bg-accent' : 'bg-black/40'}`} />
                   ))}
                 </div>
              </div>
@@ -702,69 +744,79 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         </div>
       </header>
 
-      <main className="flex-1 w-full relative flex items-center justify-center p-4">
-        <div className={`relative game-canvas-container border border-white/10 shadow-2xl bg-slate-950 ${isShaking ? 'animate-shake' : ''}`}>
+      <main className="flex-1 w-full relative flex items-center justify-center p-8">
+        <div className={`relative game-canvas-container ${isShaking ? 'animate-shake' : ''}`}>
           <canvas ref={canvasRef} width={ARENA_WIDTH * PIXELS_PER_METER} height={ARENA_HEIGHT * PIXELS_PER_METER} className="w-full h-auto cursor-crosshair" onClick={handleAttack} />
           {room?.status === 'lobby' && (
-             <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center z-50 space-y-8">
-                <h2 className="text-4xl font-headline font-bold text-white uppercase italic tracking-tighter">WAITING FOR COMBATANTS</h2>
-                <div className="flex gap-4">
+             <div className="absolute inset-0 bg-black/80 backdrop-blur-lg flex flex-col items-center justify-center z-50 space-y-10">
+                <h2 className="text-7xl font-headline text-white animate-bounce-subtle">ARENA STANDBY</h2>
+                <div className="flex gap-8">
                   {Object.values(room.players).map(p => (
-                    <div key={p.id} className="flex flex-col items-center gap-2">
-                      <div className="w-10 h-10 rounded-lg border border-white/10" style={{ backgroundColor: p.color }} />
-                      <span className="text-[10px] font-bold text-white uppercase">{p.name}</span>
+                    <div key={p.id} className="flex flex-col items-center gap-3">
+                      <div className="w-16 h-16 rounded-2xl border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]" style={{ backgroundColor: p.color }} />
+                      <span className="font-headline text-lg text-white">{p.name}</span>
                     </div>
                   ))}
                 </div>
-                <Button onClick={startMatch} size="lg" className="font-headline font-bold px-12 h-14 text-xl">
-                  <Play className="w-6 h-6 mr-2 fill-current" />
-                  INITIATE COMBAT
+                <Button onClick={startMatch} size="lg" className="cartoon-button bg-primary text-white text-3xl px-20 h-24">
+                  <Play className="w-10 h-10 mr-4 fill-current" />
+                  START!
                 </Button>
              </div>
           )}
           {room?.status === 'round_over' && (
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
-              <h2 className="text-6xl font-headline font-bold text-accent animate-bounce uppercase italic tracking-tighter">ROUND END</h2>
+            <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
+              <h2 className="text-9xl font-headline text-accent animate-bounce drop-shadow-[8px_8px_0px_rgba(0,0,0,1)]">ROUND!</h2>
             </div>
           )}
           {room?.status === 'finished' && (
-             <div className="absolute inset-0 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center z-50 p-8 text-center space-y-6">
-                <Trophy className="w-20 h-20 text-yellow-500 animate-pulse" />
-                <h2 className="text-5xl font-headline font-bold text-white uppercase tracking-tighter">CHAMPION DECLARED</h2>
-                <Button onClick={() => router.push('/lobby')} size="lg" className="font-headline font-bold px-12">BACK TO LOBBY</Button>
+             <div className="absolute inset-0 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center z-50 p-10 text-center space-y-10">
+                <Trophy className="w-32 h-32 text-yellow-500 animate-pulse drop-shadow-[8px_8px_0px_rgba(0,0,0,1)]" />
+                <h2 className="text-8xl font-headline text-white italic">CHAMPION!</h2>
+                <Button onClick={() => router.push('/lobby')} size="lg" className="cartoon-button bg-primary text-white text-2xl h-16 px-16">LOBBY</Button>
              </div>
           )}
         </div>
-        <div className="absolute bottom-6 left-6 p-4 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-white font-mono text-sm space-y-1 z-50 min-w-[180px]">
-          <div className="flex justify-between">
-            <span className="text-muted-foreground uppercase text-[10px] font-bold">Health</span>
-            <span>HP: {Math.floor(myP?.hp || 0)} / 1000</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground uppercase text-[10px] font-bold">Energy</span>
-            <span>STAMINA: {Math.floor(myP?.stamina || 0)} / 100</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-muted-foreground uppercase text-[10px] font-bold">Phase</span>
-            <div className="flex items-center gap-2">
-              <span>DASH: {myP?.dashCharges || 0} / {maxDash}</span>
-              {myP && myP.dashCharges < maxDash && (
-                <span className="text-accent text-[11px]">
-                  [{(DASH_COOLDOWN_TIME - myP.dashRechargeProgress).toFixed(1)}s]
-                </span>
-              )}
+
+        {/* Juicy Stats HUD */}
+        <div className="absolute bottom-10 left-10 p-6 cartoon-card bg-black/60 backdrop-blur-md min-w-[320px] space-y-4">
+          <div className="space-y-1">
+            <div className="flex justify-between items-center px-2">
+              <span className="font-headline text-sm text-white/80 flex items-center gap-1"><Heart className="w-4 h-4 fill-current text-destructive" /> HEALTH</span>
+              <span className="font-headline text-lg text-white">{Math.floor(myP?.hp || 0)}</span>
+            </div>
+            <div className="juicy-bar h-10 bg-black/40">
+              <div 
+                className="juicy-bar-fill bg-destructive transition-all duration-300"
+                style={{ width: `${(myP?.hp || 0) / 10}%` }}
+              />
             </div>
           </div>
-          {myP?.weaponClass === 'Bow' && (
-            <div className="pt-1 border-t border-white/5">
-              <span className="text-accent uppercase text-[9px] font-bold">Passive: Life Steal 30%</span>
+          
+          <div className="space-y-1">
+            <div className="flex justify-between items-center px-2">
+              <span className="font-headline text-sm text-white/80 flex items-center gap-1"><Zap className="w-4 h-4 fill-current text-primary" /> ENERGY</span>
+              <span className="font-headline text-lg text-white">{Math.floor(myP?.stamina || 0)}</span>
             </div>
-          )}
-          {myP && Date.now() < (myP.slowUntil || 0) && (
-            <div className="pt-1 border-t border-white/5">
-              <span className="text-red-400 uppercase text-[9px] font-bold animate-pulse">Status: Slowed</span>
+            <div className="juicy-bar h-8 bg-black/40">
+              <div 
+                className="juicy-bar-fill bg-primary transition-all duration-300"
+                style={{ width: `${(myP?.stamina || 0)}%` }}
+              />
             </div>
-          )}
+          </div>
+
+          <div className="flex items-center justify-between pt-2">
+            <div className="flex items-center gap-2 bg-black/40 border-4 border-black px-4 py-2 rounded-2xl">
+              <Shield className="w-5 h-5 text-accent" />
+              <span className="font-headline text-lg text-white">DASH: {myP?.dashCharges || 0}</span>
+            </div>
+            {myP && myP.dashCharges < maxDash && (
+              <span className="font-headline text-accent animate-pulse">
+                RECHARGING...
+              </span>
+            )}
+          </div>
         </div>
       </main>
     </div>
