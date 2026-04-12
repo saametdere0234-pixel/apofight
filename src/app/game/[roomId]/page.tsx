@@ -79,7 +79,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (room?.players) {
       Object.entries(room.players).forEach(([id, p]) => {
         const prevHp = prevPlayersHpRef.current[id];
-        // Handle Damage Numbers for everyone
+        
+        // Damage Tracking
         if (prevHp !== undefined && p.hp < prevHp) {
           const diff = prevHp - p.hp;
           const newDN: GameEffectNumber = {
@@ -94,8 +95,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           effectNumbersRef.current.push(newDN);
         }
         
-        // Handle Heal Numbers for local player
-        if (id === profile?.id && prevHp !== undefined && p.hp > prevHp) {
+        // Global Heal Tracking (Visible to everyone)
+        if (prevHp !== undefined && p.hp > prevHp) {
           const diff = p.hp - prevHp;
           const newHN: GameEffectNumber = {
             id: Math.random().toString(),
@@ -107,7 +108,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           };
           setEffectNumbers(prev => [...prev, newHN]);
           effectNumbersRef.current.push(newHN);
-          setRecentHeal({ amount: Math.round(diff), time: Date.now() });
+          
+          // HUD Update for self
+          if (id === profile?.id) {
+            setRecentHeal({ amount: Math.round(diff), time: Date.now() });
+          }
         }
 
         prevPlayersHpRef.current[id] = p.hp;
@@ -165,7 +170,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       dashDirY: 0
     };
 
-    // Check if room is full before joining
     get(roomPath).then((snapshot) => {
       if (snapshot.exists()) {
         const roomData = snapshot.val() as GameRoom;
@@ -511,11 +515,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     const now = Date.now();
 
-    // Cartoon stylized background
-    ctx.fillStyle = '#1e1b4b'; // Deep blue
+    ctx.fillStyle = '#1e1b4b'; 
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // stylized grid floor
     ctx.fillStyle = '#0f172a';
     ctx.fillRect(0, GROUND_Y * PIXELS_PER_METER, canvas.width, (ARENA_HEIGHT - GROUND_Y) * PIXELS_PER_METER);
     
@@ -534,7 +536,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.stroke();
     }
 
-    // Ghost trails
     Object.values(currentRoom.players || {}).forEach(p => {
       if (p.isDashing && p.dashTimeLeft && p.dashTimeLeft > 0) {
         const progress = 1 - (p.dashTimeLeft / DASH_DURATION);
@@ -557,14 +558,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     });
 
-    // Attack Indicators (Own Blue, Enemy Red)
     Object.values(currentRoom.players || {}).forEach(p => {
       const attackDuration = 500;
       const timeSinceAttack = now - (p.lastAttackTime || 0);
 
       if (timeSinceAttack < attackDuration) {
         const isLocal = p.id === profile?.id;
-        const baseColor = isLocal ? '38, 114, 238' : '238, 43, 43'; // Blue for self, Red for enemy
+        const baseColor = isLocal ? '38, 114, 238' : '238, 43, 43'; 
         let opacity = 0.7;
         if (timeSinceAttack > 400) opacity = 0.7 * (1 - (timeSinceAttack - 400) / 100);
 
@@ -596,16 +596,19 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           ctx.fill();
           ctx.stroke();
         } else if (weapon === 'Bow') {
+          // Fixed Bow Aim: Visual is now a thin sector matching the 12 degree hitbox
+          const halfAngle = (stats.angle / 2) * (Math.PI / 180);
           ctx.beginPath();
           ctx.moveTo(centerX, centerY);
-          ctx.lineTo(centerX + Math.cos(angle) * stats.range * PIXELS_PER_METER, centerY + Math.sin(angle) * stats.range * PIXELS_PER_METER);
+          ctx.arc(centerX, centerY, stats.range * PIXELS_PER_METER, angle - halfAngle, angle + halfAngle);
+          ctx.closePath();
+          ctx.fill();
           ctx.stroke();
         }
         ctx.restore();
       }
     });
 
-    // Players and Weapons
     Object.values(currentRoom.players || {}).forEach(p => {
       if (p.hp <= 0 && currentRoom.status === 'playing') return;
       const px = p.x * PIXELS_PER_METER;
@@ -618,7 +621,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.strokeStyle = 'black';
       ctx.lineWidth = 4;
       
-      // Capsule shape for cartoon feel
       const radius = 10;
       ctx.beginPath();
       ctx.moveTo(px + radius, py);
@@ -639,7 +641,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
       ctx.restore();
 
-      // Weapon Rendering
       ctx.save();
       ctx.strokeStyle = 'black';
       ctx.lineWidth = 3;
@@ -653,7 +654,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.rect(weaponX, weaponY - 15, 10 * flip, 30);
         ctx.fill();
         ctx.stroke();
-        // Hilt
         ctx.fillStyle = '#451a03';
         ctx.fillRect(weaponX - 2 * flip, weaponY - 2, 4 * flip, 4);
       } else if (p.weaponClass === 'Dagger') {
@@ -668,7 +668,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.beginPath();
         ctx.arc(weaponX, weaponY, 15, -Math.PI/2, Math.PI/2, p.facing === 'left');
         ctx.stroke();
-        // String
         ctx.strokeStyle = 'white';
         ctx.lineWidth = 1;
         ctx.beginPath();
@@ -678,7 +677,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
       ctx.restore();
 
-      // Cartoon eyes
       ctx.fillStyle = 'white';
       ctx.strokeStyle = 'black';
       ctx.lineWidth = 1;
@@ -692,7 +690,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.arc(eyeX + 5, py + 12, 2, 0, Math.PI * 2);
       ctx.fill();
 
-      // HP Bar above player
       if (currentRoom.status !== 'lobby') {
         const hpWidth = pw * 1.2;
         const hpX = px - (hpWidth - pw) / 2;
@@ -712,7 +709,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.fillText(p.name, px + pw/2, py - 25);
     });
 
-    // Damage and Heal Numbers
     effectNumbersRef.current.forEach((en) => {
       const elapsed = now - en.startTime;
       if (elapsed > 800) return;
@@ -881,9 +877,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           )}
         </div>
 
-        {/* Optimized HUD with Dual-Tracking Info Panel */}
         <div className="absolute bottom-6 left-6 p-4 cartoon-card bg-black/60 backdrop-blur-md min-w-[240px] space-y-3 z-50">
-          {/* Health Section */}
           <div className="space-y-1">
             <div className="flex justify-between items-center px-1">
               <span className="font-headline text-[10px] text-white/80 flex items-center gap-1 uppercase tracking-tight">
@@ -904,7 +898,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             </div>
           </div>
 
-          {/* Persistent Stamina Info */}
           <div className="flex justify-between items-center px-1">
             <span className="font-headline text-[10px] text-white/80 uppercase tracking-tight">STAMINA</span>
             <span className="font-headline text-sm text-[#60a5fa] drop-shadow-[1px_1px_0px_rgba(0,0,0,1)]">
@@ -912,7 +905,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             </span>
           </div>
           
-          {/* Dash Tracking Section */}
           <div className="space-y-1 pt-1 border-t border-white/10">
             <div className="flex justify-between items-center px-1">
               <span className="font-headline text-[10px] text-white/80 uppercase tracking-tight">DASH STATUS</span>
