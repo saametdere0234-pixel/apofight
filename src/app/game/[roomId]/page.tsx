@@ -193,7 +193,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         const players = Object.values(room.players);
         const alivePlayers = players.filter(p => p.hp > 0);
         
-        // If it's a 1v1 or more, and only 1 player is left
         if (players.length >= 2 && alivePlayers.length === 1) {
           handleKill(alivePlayers[0].id);
         }
@@ -202,8 +201,17 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       // Check for countdown finish
       if (room.status === 'starting' && room.startTime) {
         const elapsed = Date.now() - room.startTime;
-        if (elapsed >= 3500 && profile?.id === room.createdBy) {
-          update(ref(db, `rooms/${roomId}`), { status: 'playing' });
+        const remaining = 3500 - elapsed;
+        
+        if (profile?.id === room.createdBy) {
+          if (remaining <= 0) {
+            update(ref(db, `rooms/${roomId}`), { status: 'playing' });
+          } else {
+            const timer = setTimeout(() => {
+               update(ref(db, `rooms/${roomId}`), { status: 'playing' });
+            }, remaining);
+            return () => clearTimeout(timer);
+          }
         }
       }
     }
@@ -335,7 +343,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const currentRoom = roomRefState.current;
     if (!profile || !currentRoom || !currentRoom.players?.[profile.id] || !db) return;
     
-    // Freeze movement during countdown
     if (currentRoom.status === 'starting') return;
 
     const p = currentRoom.players[profile.id];
@@ -676,10 +683,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const roomRef = ref(db, `rooms/${roomId}`);
     const winnersRounds = (winner.roundsWon || 0) + 1;
     
-    // Update individual winner
     update(ref(db, `rooms/${roomId}/players/${winnerId}`), { roundsWon: winnersRounds });
 
-    // Update room status and winner name
     const updates: any = { 
       status: winnersRounds >= 3 ? 'finished' : 'round_over',
       lastWinnerName: winner.name
@@ -722,7 +727,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           });
         });
         
-        // Return to lobby start flow
         update(roomRef, { status: 'lobby' });
       }, 3000);
     }
@@ -745,15 +749,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     const now = Date.now();
 
-    // 1. SKY (Deep Navy)
     ctx.fillStyle = '#000035';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // 2. GROUND (Dark Gray)
     ctx.fillStyle = '#333333'; 
     ctx.fillRect(0, GROUND_Y * PIXELS_PER_METER, canvas.width, (ARENA_HEIGHT - GROUND_Y) * PIXELS_PER_METER);
 
-    // Players Dash Ghosts
     Object.values(currentRoom.players || {}).forEach(p => {
       if (p.isDashing && p.dashTimeLeft && p.dashTimeLeft > 0) {
         const progress = 1 - (p.dashTimeLeft / DASH_DURATION);
@@ -776,7 +777,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     });
 
-    // Weapon VFX
     Object.values(currentRoom.players || {}).forEach(p => {
       const attackDuration = 500;
       const timeSinceAttack = now - (p.lastAttackTime || 0);
@@ -827,7 +827,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     });
 
-    // Players & Weapon Sprites
     Object.values(currentRoom.players || {}).forEach(p => {
       if (p.hp <= 0 && (currentRoom.status === 'playing' || currentRoom.status === 'starting')) return;
       const px = p.x * PIXELS_PER_METER;
@@ -976,7 +975,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.fillText(p.name, px + pw/2, py - 25);
     });
 
-    // Floating Combat Text
     effectNumbersRef.current.forEach((en) => {
       const elapsed = now - en.startTime;
       if (elapsed > 800) return;
@@ -1046,12 +1044,19 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   // Countdown logic
   let countdownText = '';
-  if (room?.status === 'starting' && room.startTime) {
+  let showCountdown = false;
+  if (room?.startTime) {
     const elapsed = now - room.startTime;
-    if (elapsed < 1000) countdownText = '3';
-    else if (elapsed < 2000) countdownText = '2';
-    else if (elapsed < 3000) countdownText = '1';
-    else countdownText = 'GO!';
+    if (room.status === 'starting') {
+      showCountdown = true;
+      if (elapsed < 1000) countdownText = '3';
+      else if (elapsed < 2000) countdownText = '2';
+      else if (elapsed < 3000) countdownText = '1';
+      else countdownText = 'GO!';
+    } else if (room.status === 'playing' && elapsed < 4000) {
+      showCountdown = true;
+      countdownText = 'GO!';
+    }
   }
 
   return (
@@ -1122,7 +1127,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         <div className={`relative game-canvas-container ${isShaking ? 'animate-shake' : ''}`}>
           <canvas ref={canvasRef} width={ARENA_WIDTH * PIXELS_PER_METER} height={ARENA_HEIGHT * PIXELS_PER_METER} className="w-full h-auto cursor-crosshair" onClick={handleAttack} />
           
-          {room?.status === 'starting' && (
+          {showCountdown && (
             <div className="absolute inset-0 flex items-center justify-center z-[60] pointer-events-none">
               <span className="text-9xl font-headline text-white drop-shadow-[8px_8px_0px_rgba(0,0,0,1)] animate-in zoom-in duration-300">
                 {countdownText}
