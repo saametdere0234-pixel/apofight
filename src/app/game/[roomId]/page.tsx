@@ -745,12 +745,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     const now = Date.now();
 
-    // 1. SKY (Solid Dark Blue)
-    ctx.fillStyle = '#000080';
+    // 1. SKY (Deep Navy)
+    ctx.fillStyle = '#000035';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // 2. GROUND (Solid Light Gray)
-    ctx.fillStyle = '#D3D3D3'; 
+    // 2. GROUND (Dark Gray)
+    ctx.fillStyle = '#333333'; 
     ctx.fillRect(0, GROUND_Y * PIXELS_PER_METER, canvas.width, (ARENA_HEIGHT - GROUND_Y) * PIXELS_PER_METER);
 
     // Players Dash Ghosts
@@ -1055,7 +1055,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a1a] overflow-hidden flex flex-col items-center select-none" onMouseMove={handleMouseMove}>
+    <div className="min-h-screen bg-[#000035] overflow-hidden flex flex-col items-center select-none" onMouseMove={handleMouseMove}>
       <div 
         className="fixed pointer-events-none z-[9999] flex flex-col items-center gap-1 select-none"
         style={{ 
