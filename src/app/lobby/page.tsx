@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -8,7 +7,7 @@ import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Plus, Users, ArrowRight, Home, LayoutGrid, ShieldAlert, UserPlus } from 'lucide-react';
+import { Plus, Users, ArrowRight, Home, LayoutGrid, ShieldAlert } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { GameRoom } from '@/lib/game-types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -29,13 +28,10 @@ export default function LobbyScreen() {
       setRooms(allRooms);
 
       // Automatic Room Deletion Logic (Reaper)
-      // Cleans up rooms with 0 players that aren't freshly created
       Object.entries(allRooms).forEach(([id, room]: [string, any]) => {
         const playerCount = Object.keys(room.players || {}).length;
         const timeSinceUpdate = Date.now() - (room.lastUpdate || 0);
         
-        // Safety: Only delete if empty AND it's been more than 10 seconds 
-        // since the room was last touched (prevents deletion during creation/join loading)
         if (playerCount === 0 && timeSinceUpdate > 10000) {
           remove(ref(db, `rooms/${id}`));
         }
@@ -51,6 +47,7 @@ export default function LobbyScreen() {
     const room: Partial<GameRoom> = {
       id: newRoomRef.key!,
       name: newRoomName,
+      createdBy: profile.id,
       status: 'lobby',
       currentRound: 1,
       lastUpdate: Date.now(),

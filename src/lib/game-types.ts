@@ -35,11 +35,14 @@ export interface GamePlayer extends PlayerProfile {
 export interface GameRoom {
   id: string;
   name: string;
+  createdBy: string; // The ID of the host
   players: Record<string, GamePlayer>;
-  status: 'lobby' | 'playing' | 'round_over' | 'finished';
+  status: 'lobby' | 'starting' | 'playing' | 'round_over' | 'finished';
   currentRound: number;
   lastUpdate: number;
   maxPlayers: number;
+  startTime?: number; // Server timestamp for the start of the match
+  lastWinnerName?: string; // Name of the last round winner
 }
 
 export const WEAPON_STATS = {

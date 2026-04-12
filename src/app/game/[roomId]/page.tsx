@@ -187,8 +187,27 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
         prevPlayersHpRef.current[id] = p.hp;
       });
+
+      // Status check for Last Man Standing
+      if (room.status === 'playing') {
+        const players = Object.values(room.players);
+        const alivePlayers = players.filter(p => p.hp > 0);
+        
+        // If it's a 1v1 or more, and only 1 player is left
+        if (players.length >= 2 && alivePlayers.length === 1) {
+          handleKill(alivePlayers[0].id);
+        }
+      }
+
+      // Check for countdown finish
+      if (room.status === 'starting' && room.startTime) {
+        const elapsed = Date.now() - room.startTime;
+        if (elapsed >= 3500 && profile?.id === room.createdBy) {
+          update(ref(db, `rooms/${roomId}`), { status: 'playing' });
+        }
+      }
     }
-  }, [room, profile?.id]);
+  }, [room, profile?.id, roomId]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -316,6 +335,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const currentRoom = roomRefState.current;
     if (!profile || !currentRoom || !currentRoom.players?.[profile.id] || !db) return;
     
+    // Freeze movement during countdown
+    if (currentRoom.status === 'starting') return;
+
     const p = currentRoom.players[profile.id];
     const weapon = p.weaponClass as WeaponClass;
     const stats = WEAPON_STATS[weapon];
@@ -471,7 +493,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const dt = Math.min((time - lastTime) / 1000, 0.1);
       lastTime = time;
       const currentRoom = roomRefState.current;
-      if (profile && currentRoom?.players?.[profile.id] && currentRoom.status === 'playing') {
+      if (profile && currentRoom?.players?.[profile.id] && (currentRoom.status === 'playing' || currentRoom.status === 'starting')) {
         updateGameLogic(dt);
       }
       render();
@@ -642,21 +664,34 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     update(enemyRef, updates);
     setFlash({ type: 'dealt', time: Date.now() });
-    if (newHp === 0) handleKill(id);
   };
 
-  const handleKill = (victimId: string) => {
+  const handleKill = (winnerId: string) => {
     const currentRoom = roomRefState.current;
-    if (!currentRoom || !profile || !db) return;
-    const roomRef = ref(db, `rooms/${roomId}`);
-    const winnersRounds = (currentRoom.players[profile.id].roundsWon || 0) + 1;
-    update(ref(db, `rooms/${roomId}/players/${profile.id}`), { roundsWon: winnersRounds });
+    if (!currentRoom || !db || currentRoom.status !== 'playing') return;
+    
+    const winner = currentRoom.players[winnerId];
+    if (!winner) return;
 
-    if (winnersRounds >= 3) {
+    const roomRef = ref(db, `rooms/${roomId}`);
+    const winnersRounds = (winner.roundsWon || 0) + 1;
+    
+    // Update individual winner
+    update(ref(db, `rooms/${roomId}/players/${winnerId}`), { roundsWon: winnersRounds });
+
+    // Update room status and winner name
+    const updates: any = { 
+      status: winnersRounds >= 3 ? 'finished' : 'round_over',
+      lastWinnerName: winner.name
+    };
+    
+    if (winnersRounds >= 3 && profile?.id === winnerId) {
       updateProfile({ medals: profile.medals + 1 });
-      update(roomRef, { status: 'finished' });
-    } else {
-      update(roomRef, { status: 'round_over' });
+    }
+
+    update(roomRef, updates);
+
+    if (winnersRounds < 3) {
       setTimeout(() => {
         const currentData = roomRefState.current;
         if (!currentData) return;
@@ -686,14 +721,19 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             dashTimeLeft: 0
           });
         });
-        update(roomRef, { status: 'playing' });
-      }, 2000);
+        
+        // Return to lobby start flow
+        update(roomRef, { status: 'lobby' });
+      }, 3000);
     }
   };
 
   const startMatch = () => {
-    if (!db || !roomId) return;
-    update(ref(db, `rooms/${roomId}`), { status: 'playing' });
+    if (!db || !roomId || !room || profile?.id !== room.createdBy) return;
+    update(ref(db, `rooms/${roomId}`), { 
+      status: 'starting', 
+      startTime: Date.now() 
+    });
   };
 
   const render = () => {
@@ -789,7 +829,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     // Players & Weapon Sprites
     Object.values(currentRoom.players || {}).forEach(p => {
-      if (p.hp <= 0 && currentRoom.status === 'playing') return;
+      if (p.hp <= 0 && (currentRoom.status === 'playing' || currentRoom.status === 'starting')) return;
       const px = p.x * PIXELS_PER_METER;
       const py = p.y * PIXELS_PER_METER;
       const pw = PLAYER_WIDTH * PIXELS_PER_METER;
@@ -1000,8 +1040,19 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   const playerCount = room?.players ? Object.keys(room.players).length : 0;
   const canStart = playerCount >= 2;
+  const isHost = room?.createdBy === profile.id;
 
   const myWeaponStats = myP ? WEAPON_STATS[myP.weaponClass as WeaponClass] : WEAPON_STATS.Sword;
+
+  // Countdown logic
+  let countdownText = '';
+  if (room?.status === 'starting' && room.startTime) {
+    const elapsed = now - room.startTime;
+    if (elapsed < 1000) countdownText = '3';
+    else if (elapsed < 2000) countdownText = '2';
+    else if (elapsed < 3000) countdownText = '1';
+    else countdownText = 'GO!';
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0a1a] overflow-hidden flex flex-col items-center select-none" onMouseMove={handleMouseMove}>
@@ -1070,6 +1121,15 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       <main className="flex-1 w-full relative flex items-center justify-center p-8">
         <div className={`relative game-canvas-container ${isShaking ? 'animate-shake' : ''}`}>
           <canvas ref={canvasRef} width={ARENA_WIDTH * PIXELS_PER_METER} height={ARENA_HEIGHT * PIXELS_PER_METER} className="w-full h-auto cursor-crosshair" onClick={handleAttack} />
+          
+          {room?.status === 'starting' && (
+            <div className="absolute inset-0 flex items-center justify-center z-[60] pointer-events-none">
+              <span className="text-9xl font-headline text-white drop-shadow-[8px_8px_0px_rgba(0,0,0,1)] animate-in zoom-in duration-300">
+                {countdownText}
+              </span>
+            </div>
+          )}
+
           {room?.status === 'lobby' && (
              <div className="absolute inset-0 bg-black/80 backdrop-blur-lg flex flex-col items-center justify-center z-50 space-y-10">
                 <h2 className="text-7xl font-headline text-white animate-bounce-subtle">ARENA STANDBY</h2>
@@ -1090,33 +1150,50 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                     </span>
                   </div>
                   
-                  {canStart ? (
-                    <Button onClick={startMatch} size="lg" className="cartoon-button bg-primary text-white text-3xl px-20 h-24">
-                      <Play className="w-10 h-10 mr-4 fill-current" />
-                      START!
-                    </Button>
+                  {isHost ? (
+                    canStart ? (
+                      <Button onClick={startMatch} size="lg" className="cartoon-button bg-primary text-white text-3xl px-20 h-24">
+                        <Play className="w-10 h-10 mr-4 fill-current" />
+                        START!
+                      </Button>
+                    ) : (
+                      <div className="flex flex-col items-center animate-pulse">
+                        <span className="font-headline text-2xl text-white/40 uppercase tracking-widest text-center">
+                          WAITING FOR CHALLENGERS...
+                        </span>
+                        <span className="text-xs font-bold text-primary uppercase mt-2">
+                          Need at least 2 warriors to begin
+                        </span>
+                      </div>
+                    )
                   ) : (
                     <div className="flex flex-col items-center animate-pulse">
                       <span className="font-headline text-2xl text-white/40 uppercase tracking-widest text-center">
-                        WAITING FOR CHALLENGERS...
-                      </span>
-                      <span className="text-xs font-bold text-primary uppercase mt-2">
-                        Need at least 2 warriors to begin
+                        WAITING FOR HOST...
                       </span>
                     </div>
                   )}
                 </div>
              </div>
           )}
+
           {room?.status === 'round_over' && (
-            <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-50">
+            <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center z-50">
               <h2 className="text-9xl font-headline text-accent animate-bounce drop-shadow-[8px_8px_0px_rgba(0,0,0,1)]">ROUND!</h2>
+              {room.lastWinnerName && (
+                <span className="text-4xl font-headline text-white drop-shadow-[4px_4px_0px_rgba(0,0,0,1)] mt-4">
+                  {room.lastWinnerName.toUpperCase()} WINS
+                </span>
+              )}
             </div>
           )}
+
           {room?.status === 'finished' && (
              <div className="absolute inset-0 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center z-50 p-10 text-center space-y-10">
                 <Trophy className="w-32 h-32 text-yellow-500 animate-pulse drop-shadow-[8px_8px_0px_rgba(0,0,0,1)]" />
-                <h2 className="text-8xl font-headline text-white italic">CHAMPION!</h2>
+                <h2 className="text-8xl font-headline text-white italic">
+                  {room.lastWinnerName ? `${room.lastWinnerName.toUpperCase()} IS CHAMPION!` : 'CHAMPION!'}
+                </h2>
                 <Button onClick={handleQuit} size="lg" className="cartoon-button bg-primary text-white text-2xl h-16 px-16">LOBBY</Button>
              </div>
           )}
