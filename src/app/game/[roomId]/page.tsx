@@ -120,6 +120,22 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const prevPlayersHpRef = useRef<Record<string, number>>({});
   const [recentHeal, setRecentHeal] = useState<{ amount: number, time: number } | null>(null);
 
+  // Grass tufts for texture
+  const grassTufts = useRef<{x: number, y: number, size: number}[]>([]);
+
+  useEffect(() => {
+    // Initialize grass tufts once
+    if (grassTufts.current.length === 0) {
+      for (let i = 0; i < 150; i++) {
+        grassTufts.current.push({
+          x: Math.random() * ARENA_WIDTH,
+          y: GROUND_Y + Math.random() * (ARENA_HEIGHT - GROUND_Y),
+          size: 2 + Math.random() * 4
+        });
+      }
+    }
+  }, []);
+
   useEffect(() => {
     roomRefState.current = room;
     if (room?.players) {
@@ -453,23 +469,18 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   }, [profile, updateGameLogic, keys, roomId]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    // Maintain screen-space for the floating HUD alerts
     setMousePos({ x: e.clientX, y: e.clientY });
 
     const canvas = canvasRef.current;
     if (!canvas) return;
     
     const rect = canvas.getBoundingClientRect();
-    
-    // Calculate position relative to the visual area of the canvas
     const offsetX = e.clientX - rect.left;
     const offsetY = e.clientY - rect.top;
     
-    // Scale visual coordinates to the canvas internal resolution
     const internalX = offsetX * (canvas.width / rect.width);
     const internalY = offsetY * (canvas.height / rect.height);
     
-    // Convert pixels to game units (meters) and clamp to boundaries
     const gameX = Math.max(0, Math.min(ARENA_WIDTH, internalX / PIXELS_PER_METER));
     const gameY = Math.max(0, Math.min(ARENA_HEIGHT, internalY / PIXELS_PER_METER));
     
@@ -670,27 +681,42 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     const now = Date.now();
 
-    ctx.fillStyle = '#1e1b4b'; 
+    // 1. SKY (Dusky Atmospheric Blue)
+    ctx.fillStyle = '#0f172a'; // Dusky Blue/Black
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.fillStyle = '#0f172a';
+    // 2. HILLS (Muted Greens)
+    ctx.fillStyle = '#14532d'; // Darker hill
+    ctx.beginPath();
+    ctx.moveTo(0, GROUND_Y * PIXELS_PER_METER);
+    ctx.quadraticCurveTo(ARENA_WIDTH * 0.25 * PIXELS_PER_METER, GROUND_Y * 0.7 * PIXELS_PER_METER, ARENA_WIDTH * 0.5 * PIXELS_PER_METER, GROUND_Y * PIXELS_PER_METER);
+    ctx.fill();
+
+    ctx.fillStyle = '#166534'; // Lighter foreground hill
+    ctx.beginPath();
+    ctx.moveTo(ARENA_WIDTH * 0.3 * PIXELS_PER_METER, GROUND_Y * PIXELS_PER_METER);
+    ctx.quadraticCurveTo(ARENA_WIDTH * 0.7 * PIXELS_PER_METER, GROUND_Y * 0.8 * PIXELS_PER_METER, ARENA_WIDTH * PIXELS_PER_METER, GROUND_Y * PIXELS_PER_METER);
+    ctx.fill();
+
+    // 3. GROUND (Dark Olive Grass)
+    ctx.fillStyle = '#064e3b'; 
     ctx.fillRect(0, GROUND_Y * PIXELS_PER_METER, canvas.width, (ARENA_HEIGHT - GROUND_Y) * PIXELS_PER_METER);
     
-    ctx.strokeStyle = '#334155';
-    ctx.lineWidth = 2;
-    for(let i=0; i <= ARENA_WIDTH; i++) {
-        ctx.beginPath();
-        ctx.moveTo(i * PIXELS_PER_METER, GROUND_Y * PIXELS_PER_METER);
-        ctx.lineTo(i * PIXELS_PER_METER, canvas.height);
-        ctx.stroke();
-    }
-    for(let j=GROUND_Y; j <= ARENA_HEIGHT; j++) {
-        ctx.beginPath();
-        ctx.moveTo(0, j * PIXELS_PER_METER);
-        ctx.lineTo(canvas.width, j * PIXELS_PER_METER);
-        ctx.stroke();
-    }
+    // Procedural Grass Texture
+    ctx.strokeStyle = '#065f46';
+    ctx.lineWidth = 1.5;
+    grassTufts.current.forEach(t => {
+      const tx = t.x * PIXELS_PER_METER;
+      const ty = t.y * PIXELS_PER_METER;
+      ctx.beginPath();
+      ctx.moveTo(tx, ty);
+      ctx.lineTo(tx - t.size, ty - t.size);
+      ctx.moveTo(tx, ty);
+      ctx.lineTo(tx + t.size, ty - t.size);
+      ctx.stroke();
+    });
 
+    // Players Dash Ghosts
     Object.values(currentRoom.players || {}).forEach(p => {
       if (p.isDashing && p.dashTimeLeft && p.dashTimeLeft > 0) {
         const progress = 1 - (p.dashTimeLeft / DASH_DURATION);
@@ -713,6 +739,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     });
 
+    // Weapon VFX
     Object.values(currentRoom.players || {}).forEach(p => {
       const attackDuration = 500;
       const timeSinceAttack = now - (p.lastAttackTime || 0);
@@ -763,6 +790,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     });
 
+    // Players & Weapon Sprites
     Object.values(currentRoom.players || {}).forEach(p => {
       if (p.hp <= 0 && currentRoom.status === 'playing') return;
       const px = p.x * PIXELS_PER_METER;
@@ -911,6 +939,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.fillText(p.name, px + pw/2, py - 25);
     });
 
+    // Floating Combat Text
     effectNumbersRef.current.forEach((en) => {
       const elapsed = now - en.startTime;
       if (elapsed > 800) return;
