@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -20,6 +19,7 @@ import {
   JUMP_FORCE,
   MOVE_SPEED,
   DASH_DISTANCE,
+  DASH_DURATION,
   DASH_COOLDOWN_TIME,
   FAST_FALL_SPEED,
   STAMINA_MAX,
@@ -67,7 +67,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     staminaMsg: ''
   });
 
-  const [dashTrail, setDashTrail] = useState<{ x1: number, y1: number, x2: number, y2: number, color: string, time: number } | null>(null);
   const [damageNumbers, setDamageNumbers] = useState<DamageNumber[]>([]);
   const damageNumbersRef = useRef<DamageNumber[]>([]);
   const lastHpRef = useRef<number>(1000);
@@ -134,7 +133,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       dashCharges: getMaxDashCharges(profile.weaponClass),
       dashRechargeProgress: 0,
       lastAttackTime: 0,
-      roundsWon: 0
+      roundsWon: 0,
+      isDashing: false,
+      dashTimeLeft: 0,
+      dashDirX: 0,
+      dashDirY: 0
     };
 
     set(myPlayerRef, initialPlayer);
@@ -169,24 +172,39 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     let nextDashRechargeProgress = p.dashRechargeProgress || 0;
     let nextJumpCount = p.jumpCount || 0;
     let nextStamina = Math.min(STAMINA_MAX, (p.stamina || 0) + STAMINA_REGEN_RATE * dt);
+    let isDashing = p.isDashing || false;
+    let dashTimeLeft = p.dashTimeLeft || 0;
 
-    nextVy += GRAVITY * dt;
-    const isFastFallPressed = keys.has('ShiftLeft') || keys.has('ShiftRight');
-    if (p.isJumping && isFastFallPressed) {
-      nextVy = Math.max(nextVy, FAST_FALL_SPEED);
-    }
-    nextY += nextVy * dt;
+    if (isDashing && dashTimeLeft > 0) {
+      const dashSpeed = DASH_DISTANCE / DASH_DURATION;
+      nextX += (p.dashDirX || 0) * dashSpeed * dt;
+      nextY += (p.dashDirY || 0) * dashSpeed * dt;
+      dashTimeLeft -= dt;
+      if (dashTimeLeft <= 0) {
+        isDashing = false;
+        dashTimeLeft = 0;
+      }
+      nextVy = 0; // Suspend gravity during dash
+    } else {
+      nextVy += GRAVITY * dt;
+      nextY += nextVy * dt;
 
-    const isSlowed = Date.now() < (p.slowUntil || 0);
-    const speed = isSlowed ? MOVE_SPEED * 0.5 : MOVE_SPEED;
+      const isFastFallPressed = keys.has('ShiftLeft') || keys.has('ShiftRight');
+      if (p.isJumping && isFastFallPressed) {
+        nextVy = Math.max(nextVy, FAST_FALL_SPEED);
+      }
 
-    if (keys.has('KeyA') || keys.has('ArrowLeft')) {
-      nextX -= speed * dt;
-      nextFacing = 'left';
-    }
-    if (keys.has('KeyD') || keys.has('ArrowRight')) {
-      nextX += speed * dt;
-      nextFacing = 'right';
+      const isSlowed = Date.now() < (p.slowUntil || 0);
+      const speed = isSlowed ? MOVE_SPEED * 0.5 : MOVE_SPEED;
+
+      if (keys.has('KeyA') || keys.has('ArrowLeft')) {
+        nextX -= speed * dt;
+        nextFacing = 'left';
+      }
+      if (keys.has('KeyD') || keys.has('ArrowRight')) {
+        nextX += speed * dt;
+        nextFacing = 'right';
+      }
     }
 
     let isJumping = true;
@@ -198,6 +216,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     }
 
     nextX = Math.max(0, Math.min(ARENA_WIDTH - PLAYER_WIDTH, nextX));
+    nextY = Math.max(0, Math.min(GROUND_Y - PLAYER_HEIGHT, nextY));
 
     if (nextDashCharges < maxCharges) {
       nextDashRechargeProgress += dt;
@@ -219,7 +238,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       jumpCount: nextJumpCount,
       dashCharges: nextDashCharges,
       dashRechargeProgress: nextDashRechargeProgress,
-      stamina: nextStamina
+      stamina: nextStamina,
+      isDashing,
+      dashTimeLeft
     });
   }, [profile, roomId, keys]);
 
@@ -230,7 +251,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       if (!profile || !currentRoom || !currentRoom.players?.[profile.id] || !db || currentRoom.status !== 'playing') return;
       const p = currentRoom.players[profile.id];
 
-      if (e.code === 'KeyW' || e.code === 'ArrowUp') {
+      if ((e.code === 'KeyW' || e.code === 'ArrowUp') && !p.isDashing) {
         const currentJumpCount = p.jumpCount || 0;
         if (currentJumpCount < 2) {
           update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
@@ -252,7 +273,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             ...prev,
             lastDashFail: !hasCharges ? now : prev.lastDashFail,
             lastStaminaFail: !hasStamina ? now : prev.lastStaminaFail,
-            staminaMsg: '' // Display live stamina now
+            staminaMsg: ''
           }));
           return;
         }
@@ -262,15 +283,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         const dist = Math.sqrt(dx * dx + dy * dy);
         
         if (dist > 0.1) {
-          const dashX = (dx / dist) * DASH_DISTANCE;
-          const dashY = (dy / dist) * DASH_DISTANCE;
-          const newX = Math.max(0, Math.min(ARENA_WIDTH - PLAYER_WIDTH, p.x + dashX));
-          const newY = Math.max(0, Math.min(GROUND_Y - PLAYER_HEIGHT, p.y + dashY));
-          
-          setDashTrail({ x1: p.x, y1: p.y, x2: newX, y2: newY, color: p.color, time: now });
           update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
-            x: newX,
-            y: newY,
+            isDashing: true,
+            dashTimeLeft: DASH_DURATION,
+            dashDirX: dx / dist,
+            dashDirY: dy / dist,
             dashCharges: p.dashCharges - 1,
             stamina: (p.stamina || 0) - STAMINA_DASH_COST
           });
@@ -431,7 +448,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             dashCharges: getMaxDashCharges(p.weaponClass as WeaponClass),
             dashRechargeProgress: 0,
             lastAttackTime: 0,
-            slowUntil: 0
+            slowUntil: 0,
+            isDashing: false,
+            dashTimeLeft: 0
           });
         });
         update(roomRef, { status: 'playing' });
@@ -468,20 +487,28 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.stroke();
     }
 
-    if (dashTrail && now - dashTrail.time < 300) {
-      const alpha = 1 - ((now - dashTrail.time) / 300);
-      const ghostCount = 5;
-      for (let i = 1; i <= ghostCount; i++) {
-        const t = i / (ghostCount + 1);
-        const gx = dashTrail.x1 + (dashTrail.x2 - dashTrail.x1) * t;
-        const gy = dashTrail.y1 + (dashTrail.y2 - dashTrail.y1) * t;
-        ctx.save();
-        ctx.globalAlpha = alpha * (i / ghostCount) * 0.4;
-        ctx.fillStyle = dashTrail.color;
-        ctx.fillRect(gx * PIXELS_PER_METER, gy * PIXELS_PER_METER, PLAYER_WIDTH * PIXELS_PER_METER, PLAYER_HEIGHT * PIXELS_PER_METER);
-        ctx.restore();
+    // Ghost trails for dashing players
+    Object.values(currentRoom.players || {}).forEach(p => {
+      if (p.isDashing && p.dashTimeLeft && p.dashTimeLeft > 0) {
+        const progress = 1 - (p.dashTimeLeft / DASH_DURATION);
+        const ghostCount = 4;
+        for (let i = 1; i <= ghostCount; i++) {
+          const offset = i * 0.04;
+          const ghostProgress = Math.max(0, progress - offset);
+          if (ghostProgress <= 0) continue;
+          
+          const dashSpeed = DASH_DISTANCE / DASH_DURATION;
+          const gx = (p.x - (p.dashDirX || 0) * dashSpeed * (progress - ghostProgress)) * PIXELS_PER_METER;
+          const gy = (p.y - (p.dashDirY || 0) * dashSpeed * (progress - ghostProgress)) * PIXELS_PER_METER;
+          
+          ctx.save();
+          ctx.globalAlpha = 0.2 * (1 - (i / ghostCount));
+          ctx.fillStyle = p.color;
+          ctx.fillRect(gx, gy, PLAYER_WIDTH * PIXELS_PER_METER, PLAYER_HEIGHT * PIXELS_PER_METER);
+          ctx.restore();
+        }
       }
-    }
+    });
 
     Object.values(currentRoom.players || {}).forEach(p => {
       const attackDuration = 500;
@@ -599,7 +626,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const reloadRemaining = (stats.delay * 1000) - (now - (myP.lastAttackTime || 0));
     const dashRemaining = DASH_COOLDOWN_TIME - myP.dashRechargeProgress;
 
-    // Reload (Red) - Priority 1
     if (now - feedback.lastReloadFail < 500 && reloadRemaining > 0) {
       alerts.push({ 
         text: `${(reloadRemaining / 1000).toFixed(1)}s`, 
@@ -607,7 +633,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         alpha: 1 - (now - feedback.lastReloadFail) / 500 
       });
     }
-    // Dash (Yellow) - Priority 2
     if (now - feedback.lastDashFail < 500 && myP.dashCharges === 0) {
       alerts.push({ 
         text: `${dashRemaining.toFixed(1)}s`, 
@@ -615,7 +640,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         alpha: 1 - (now - feedback.lastDashFail) / 500 
       });
     }
-    // Stamina (Blue) - Priority 3 - Shows Live Current Stamina
     if (now - feedback.lastStaminaFail < 500) {
       alerts.push({ 
         text: Math.floor(myP.stamina || 0).toString(), 
@@ -746,4 +770,3 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     </div>
   );
 }
-

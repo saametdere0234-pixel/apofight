@@ -23,6 +23,11 @@ export interface GamePlayer extends PlayerProfile {
   lastAttackAngle?: number; // Synced angle for VFX
   roundsWon: number;
   slowUntil?: number; // Timestamp until which the player is slowed
+  // Dash Physics
+  isDashing?: boolean;
+  dashTimeLeft?: number;
+  dashDirX?: number;
+  dashDirY?: number;
 }
 
 export interface GameRoom {
@@ -65,6 +70,7 @@ export const GRAVITY = 25;
 export const JUMP_FORCE = -11.2; // 2.5m jump height
 export const MOVE_SPEED = 8;
 export const DASH_DISTANCE = 5.0; 
+export const DASH_DURATION = 0.2; // Duration of the slide in seconds
 export const DASH_COOLDOWN_TIME = 4.0;
 export const FAST_FALL_SPEED = 40;
 
