@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -778,8 +779,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           )}
         </div>
 
-        {/* Optimized HUD */}
-        <div className="absolute bottom-6 left-6 p-4 cartoon-card bg-black/60 backdrop-blur-md min-w-[220px] space-y-3 z-50">
+        {/* Optimized HUD with Dual-Tracking Info Panel */}
+        <div className="absolute bottom-6 left-6 p-4 cartoon-card bg-black/60 backdrop-blur-md min-w-[240px] space-y-3 z-50">
+          {/* Health Section */}
           <div className="space-y-1">
             <div className="flex justify-between items-center px-1">
               <span className="font-headline text-[10px] text-white/80 flex items-center gap-1 uppercase tracking-tight"><Heart className="w-3 h-3 fill-current text-destructive" /> HEALTH</span>
@@ -792,10 +794,27 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
               />
             </div>
           </div>
+
+          {/* Persistent Stamina Info */}
+          <div className="flex justify-between items-center px-1">
+            <span className="font-headline text-[10px] text-white/80 uppercase tracking-tight">STAMINA</span>
+            <span className="font-headline text-sm text-[#7ED7EB] drop-shadow-[1px_1px_0px_rgba(0,0,0,1)]">
+              {Math.floor(myP?.stamina || 0)}
+            </span>
+          </div>
           
-          <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-2">
-              <span className="font-headline text-[10px] text-white/80 uppercase tracking-tight">DASH</span>
+          {/* Dash Tracking Section */}
+          <div className="space-y-1 pt-1 border-t border-white/10">
+            <div className="flex justify-between items-center px-1">
+              <span className="font-headline text-[10px] text-white/80 uppercase tracking-tight">DASH STATUS</span>
+              <span className="font-headline text-sm text-accent drop-shadow-[1px_1px_0px_rgba(0,0,0,1)]">
+                {myP && myP.dashCharges === maxDash 
+                  ? 'READY' 
+                  : `${(DASH_COOLDOWN_TIME - (myP?.dashRechargeProgress || 0)).toFixed(1)}s`
+                }
+              </span>
+            </div>
+            <div className="flex items-center gap-2 px-1">
               <div className="flex gap-1.5">
                 {Array.from({ length: maxDash }).map((_, i) => (
                   <div 
@@ -804,10 +823,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                   />
                 ))}
               </div>
+              {myP && myP.dashCharges < maxDash && (
+                <Zap className="w-3 h-3 text-accent animate-pulse" />
+              )}
             </div>
-            {myP && myP.dashCharges < maxDash && (
-              <Zap className="w-3 h-3 text-accent animate-pulse" />
-            )}
           </div>
         </div>
       </main>
