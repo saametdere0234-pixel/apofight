@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Sparkles, User, Trophy, Zap } from 'lucide-react';
+import { User, Trophy, Zap } from 'lucide-react';
 import { WeaponClass, WEAPON_STATS } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
 
@@ -54,7 +54,7 @@ const WeaponIcon = ({ weapon, className = "w-8 h-8" }: { weapon: WeaponClass; cl
 };
 
 export default function EntryScreen() {
-  const { profile, updateProfile, generateName, loading } = useLocalPlayer();
+  const { profile, updateProfile, loading } = useLocalPlayer();
   const router = useRouter();
 
   if (loading || !profile) {
@@ -66,9 +66,6 @@ export default function EntryScreen() {
   }
 
   const handlePlay = () => {
-    if (!profile.name) {
-      generateName();
-    }
     router.push('/lobby');
   };
 
@@ -127,15 +124,8 @@ export default function EntryScreen() {
                     placeholder="ENTER NAME..." 
                     value={profile.name}
                     onChange={(e) => updateProfile({ name: e.target.value })}
-                    className="bg-black/20 border-4 border-black rounded-[15px] h-14 font-bold text-lg"
+                    className="bg-black/20 border-4 border-black rounded-[15px] h-14 font-bold text-lg w-full"
                   />
-                  <Button 
-                    variant="outline" 
-                    onClick={generateName} 
-                    className="cartoon-button bg-accent text-black h-14 w-14 p-0"
-                  >
-                    <Sparkles className="w-6 h-6" />
-                  </Button>
                 </div>
               </div>
               
@@ -198,6 +188,7 @@ export default function EntryScreen() {
             size="lg" 
             className="cartoon-button bg-primary text-white w-full max-w-md h-20 text-3xl hover:scale-105 active:scale-95"
             onClick={handlePlay}
+            disabled={!profile.name.trim()}
           >
             ENTER THE ARENA
           </Button>

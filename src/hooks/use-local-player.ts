@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { PlayerProfile, WeaponClass } from '@/lib/game-types';
-import { generatePlayerName } from '@/ai/flows/dynamic-player-name-generation';
+import { PlayerProfile } from '@/lib/game-types';
 import { ref, onValue, set } from 'firebase/database';
 import { db } from '@/lib/firebase';
 
@@ -65,10 +64,5 @@ export function useLocalPlayer() {
     }
   };
 
-  const generateName = async () => {
-    const result = await generatePlayerName({});
-    updateProfile({ name: result.name });
-  };
-
-  return { profile, updateProfile, generateName, loading };
+  return { profile, updateProfile, loading };
 }
