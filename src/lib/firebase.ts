@@ -1,7 +1,11 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getDatabase } from 'firebase/database';
 
-// These values should be provided via environment variables in your .env file.
+/**
+ * Firebase configuration object.
+ * In Next.js, environment variables prefixed with NEXT_PUBLIC_ are accessible on the client side.
+ * We use process.env as per Next.js standards.
+ */
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -12,25 +16,35 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Ensure we only initialize once
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+/**
+ * Validates the configuration and identifies missing keys for easier debugging.
+ */
+const getMissingKeys = () => {
+  const required = [
+    'NEXT_PUBLIC_FIREBASE_API_KEY',
+    'NEXT_PUBLIC_FIREBASE_DATABASE_URL',
+    'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
+    'NEXT_PUBLIC_FIREBASE_APP_ID'
+  ];
+  return required.filter(key => !process.env[key]);
+};
+
+const missingKeys = getMissingKeys();
+const isConfigValid = missingKeys.length === 0;
+
+if (!isConfigValid && typeof window !== 'undefined') {
+  console.warn(
+    `[Firebase] Configuration is incomplete. Missing keys: ${missingKeys.join(', ')}. ` +
+    'Multiplayer features will be disabled until these are added to your environment variables.'
+  );
+}
+
+// Ensure we only initialize once and only if config is valid
+const app = (isConfigValid && (getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()));
 
 /**
- * Safely initialize the Realtime Database.
- * This prevents the "FATAL ERROR: Can't determine Firebase Database URL" which occurs
- * if getDatabase is called with an incomplete configuration during SSR or initial load.
+ * Exported Database instance.
+ * If the configuration is invalid, this will be null. 
+ * The application UI handles the null state by showing the "System Error" alert.
  */
-export const db = (() => {
-  if (!firebaseConfig.databaseURL || !firebaseConfig.projectId) {
-    if (typeof window !== 'undefined') {
-      console.warn(
-        'Firebase configuration is incomplete. ' +
-        'Please ensure NEXT_PUBLIC_FIREBASE_DATABASE_URL and NEXT_PUBLIC_FIREBASE_PROJECT_ID are set in your .env file.'
-      );
-    }
-    // Return a dummy object to prevent the fatal initialization crash.
-    // Subsequent calls to Firebase functions using this (like ref()) will still fail, but it prevents the app from crashing on load.
-    return null as any;
-  }
-  return getDatabase(app);
-})();
+export const db = app ? getDatabase(app) : null;
