@@ -452,17 +452,27 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     };
   }, [profile, updateGameLogic, keys, roomId]);
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
+  const handleMouseMove = (e: React.MouseEvent) => {
+    // Maintain screen-space for the floating HUD alerts
     setMousePos({ x: e.clientX, y: e.clientY });
 
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const gameX = (x / (rect.width / (ARENA_WIDTH * PIXELS_PER_METER))) / PIXELS_PER_METER;
-    const gameY = (y / (rect.height / (ARENA_HEIGHT * PIXELS_PER_METER))) / PIXELS_PER_METER;
+    
+    const rect = canvas.getBoundingClientRect();
+    
+    // Calculate position relative to the visual area of the canvas
+    const offsetX = e.clientX - rect.left;
+    const offsetY = e.clientY - rect.top;
+    
+    // Scale visual coordinates to the canvas internal resolution
+    const internalX = offsetX * (canvas.width / rect.width);
+    const internalY = offsetY * (canvas.height / rect.height);
+    
+    // Convert pixels to game units (meters) and clamp to boundaries
+    const gameX = Math.max(0, Math.min(ARENA_WIDTH, internalX / PIXELS_PER_METER));
+    const gameY = Math.max(0, Math.min(ARENA_HEIGHT, internalY / PIXELS_PER_METER));
+    
     mouseRef.current = { x: gameX, y: gameY };
   };
 
