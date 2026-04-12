@@ -1,10 +1,9 @@
-
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
 import { useLocalPlayer } from '@/hooks/use-local-player';
 import { db } from '@/lib/firebase';
-import { ref, onValue, set, update, onDisconnect, remove } from 'firebase/database';
+import { ref, onValue, set, update, onDisconnect, remove, get } from 'firebase/database';
 import { 
   GamePlayer, 
   GameRoom, 
@@ -29,7 +28,7 @@ import {
   STAMINA_ATTACK_COST
 } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
-import { Trophy, ArrowLeft, Play, Zap, Shield, Heart, Plus } from 'lucide-react';
+import { Trophy, ArrowLeft, Play, Zap, Shield, Heart, Plus, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface GameEffectNumber {
@@ -166,8 +165,22 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       dashDirY: 0
     };
 
-    set(myPlayerRef, initialPlayer);
-    onDisconnect(myPlayerRef).remove();
+    // Check if room is full before joining
+    get(roomPath).then((snapshot) => {
+      if (snapshot.exists()) {
+        const roomData = snapshot.val() as GameRoom;
+        const playerCount = Object.keys(roomData.players || {}).length;
+        const isAlreadyIn = roomData.players && roomData.players[profile.id];
+        
+        if (!isAlreadyIn && playerCount >= (roomData.maxPlayers || 4)) {
+          router.push('/lobby');
+          return;
+        }
+        
+        set(myPlayerRef, initialPlayer);
+        onDisconnect(myPlayerRef).remove();
+      }
+    });
 
     const unsubscribe = onValue(roomPath, (snapshot) => {
       if (!snapshot.exists()) {
@@ -757,6 +770,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     }
   }
 
+  const playerCount = room?.players ? Object.keys(room.players).length : 0;
+  const canStart = playerCount >= 2;
+
   return (
     <div className="min-h-screen bg-[#0a0a1a] overflow-hidden flex flex-col items-center select-none" onMouseMove={handleMouseMove}>
       <div 
@@ -824,10 +840,31 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                     </div>
                   ))}
                 </div>
-                <Button onClick={startMatch} size="lg" className="cartoon-button bg-primary text-white text-3xl px-20 h-24">
-                  <Play className="w-10 h-10 mr-4 fill-current" />
-                  START!
-                </Button>
+                
+                <div className="flex flex-col items-center gap-4">
+                  <div className="flex items-center gap-2 bg-black/40 px-6 py-2 rounded-full border-2 border-white/10">
+                    <Users className="w-6 h-6 text-primary" />
+                    <span className="font-headline text-2xl text-white">
+                      {playerCount} / {room.maxPlayers || 4}
+                    </span>
+                  </div>
+                  
+                  {canStart ? (
+                    <Button onClick={startMatch} size="lg" className="cartoon-button bg-primary text-white text-3xl px-20 h-24">
+                      <Play className="w-10 h-10 mr-4 fill-current" />
+                      START!
+                    </Button>
+                  ) : (
+                    <div className="flex flex-col items-center animate-pulse">
+                      <span className="font-headline text-2xl text-white/40 uppercase tracking-widest">
+                        WAITING FOR CHALLENGERS...
+                      </span>
+                      <span className="text-xs font-bold text-primary uppercase mt-2">
+                        Need at least 2 warriors to begin
+                      </span>
+                    </div>
+                  )}
+                </div>
              </div>
           )}
           {room?.status === 'round_over' && (
@@ -905,4 +942,3 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     </div>
   );
 }
-

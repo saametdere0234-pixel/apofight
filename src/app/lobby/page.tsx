@@ -7,15 +7,17 @@ import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Plus, Users, ArrowRight, Home, LayoutGrid, AlertCircle, ShieldAlert } from 'lucide-react';
+import { Plus, Users, ArrowRight, Home, LayoutGrid, ShieldAlert, UserPlus } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { GameRoom } from '@/lib/game-types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Slider } from '@/components/ui/slider';
 
 export default function LobbyScreen() {
   const { profile, loading: profileLoading } = useLocalPlayer();
   const [rooms, setRooms] = useState<Record<string, GameRoom>>({});
   const [newRoomName, setNewRoomName] = useState('');
+  const [maxPlayers, setMaxPlayers] = useState(4);
   const router = useRouter();
 
   useEffect(() => {
@@ -37,6 +39,7 @@ export default function LobbyScreen() {
       status: 'lobby',
       currentRound: 1,
       lastUpdate: Date.now(),
+      maxPlayers: maxPlayers,
     };
     await set(newRoomRef, room);
     router.push(`/game/${newRoomRef.key}`);
@@ -108,6 +111,22 @@ export default function LobbyScreen() {
                     disabled={!db}
                   />
                 </div>
+                
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest">MAX PLAYERS</label>
+                    <span className="font-headline text-xl text-primary">{maxPlayers}</span>
+                  </div>
+                  <Slider 
+                    value={[maxPlayers]} 
+                    onValueChange={(v) => setMaxPlayers(v[0])}
+                    min={2} 
+                    max={6} 
+                    step={1}
+                    className="py-4"
+                  />
+                </div>
+
                 <Button className="cartoon-button bg-primary text-white w-full h-14 text-xl" onClick={createRoom} disabled={!newRoomName.trim() || !db}>
                   BUILD ARENA
                 </Button>
@@ -135,32 +154,38 @@ export default function LobbyScreen() {
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-6">
-                {Object.values(rooms).map((room) => (
-                  <Card key={room.id} className="cartoon-card hover:border-primary">
-                    <CardContent className="p-6 flex items-center justify-between">
-                      <div className="space-y-2">
-                        <h4 className="text-3xl font-headline text-white group-hover:text-primary">
-                          {room.name}
-                        </h4>
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-2 bg-black/20 px-3 py-1 rounded-full border-2 border-black text-[10px] font-bold text-white/60 uppercase">
-                            <Users className="w-3 h-3" />
-                            {Object.keys(room.players || {}).length} / 4
+                {Object.values(rooms).map((room) => {
+                  const playerCount = Object.keys(room.players || {}).length;
+                  const isFull = playerCount >= (room.maxPlayers || 4);
+                  
+                  return (
+                    <Card key={room.id} className={`cartoon-card hover:border-primary transition-opacity ${isFull ? 'opacity-90' : ''}`}>
+                      <CardContent className="p-6 flex items-center justify-between">
+                        <div className="space-y-2">
+                          <h4 className="text-3xl font-headline text-white group-hover:text-primary">
+                            {room.name}
+                          </h4>
+                          <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2 bg-black/20 px-3 py-1 rounded-full border-2 border-black text-[10px] font-bold text-white/60 uppercase">
+                              <Users className="w-3 h-3" />
+                              {playerCount} / {room.maxPlayers || 4}
+                            </div>
+                            <span className={`px-4 py-1 rounded-full border-2 border-black text-[10px] font-headline uppercase ${isFull ? 'bg-destructive text-white font-bold' : room.status === 'playing' ? 'bg-orange-500 text-white' : 'bg-primary text-white'}`}>
+                              {isFull ? 'FULL' : room.status}
+                            </span>
                           </div>
-                          <span className={`px-4 py-1 rounded-full border-2 border-black text-[10px] font-headline uppercase ${room.status === 'playing' ? 'bg-destructive text-white' : 'bg-primary text-white'}`}>
-                            {room.status}
-                          </span>
                         </div>
-                      </div>
-                      <Button 
-                        onClick={() => router.push(`/game/${room.id}`)}
-                        className="cartoon-button bg-accent text-black w-16 h-16 rounded-full"
-                      >
-                        <ArrowRight className="w-10 h-10" />
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
+                        <Button 
+                          onClick={() => router.push(`/game/${room.id}`)}
+                          disabled={isFull && !room.players?.[profile.id]}
+                          className={`cartoon-button w-16 h-16 rounded-full ${isFull && !room.players?.[profile.id] ? 'bg-zinc-800 opacity-50' : 'bg-accent text-black'}`}
+                        >
+                          {isFull && !room.players?.[profile.id] ? <ShieldAlert className="w-8 h-8" /> : <ArrowRight className="w-10 h-10" />}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </div>

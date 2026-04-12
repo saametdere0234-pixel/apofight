@@ -37,6 +37,7 @@ export interface GameRoom {
   status: 'lobby' | 'playing' | 'round_over' | 'finished';
   currentRound: number;
   lastUpdate: number;
+  maxPlayers: number;
 }
 
 export const WEAPON_STATS = {
