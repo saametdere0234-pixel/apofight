@@ -29,14 +29,15 @@ import {
   STAMINA_ATTACK_COST
 } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
-import { Trophy, ArrowLeft, Play, Zap, Shield, Heart } from 'lucide-react';
+import { Trophy, ArrowLeft, Play, Zap, Shield, Heart, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-interface DamageNumber {
+interface GameEffectNumber {
   id: string;
   x: number;
   y: number;
   amount: number;
+  type: 'damage' | 'heal';
   startTime: number;
 }
 
@@ -68,41 +69,65 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     staminaMsg: ''
   });
 
-  const [damageNumbers, setDamageNumbers] = useState<DamageNumber[]>([]);
-  const damageNumbersRef = useRef<DamageNumber[]>([]);
+  const [effectNumbers, setEffectNumbers] = useState<GameEffectNumber[]>([]);
+  const effectNumbersRef = useRef<GameEffectNumber[]>([]);
   const lastHpRef = useRef<number>(1000);
   const prevPlayersHpRef = useRef<Record<string, number>>({});
+  const [recentHeal, setRecentHeal] = useState<{ amount: number, time: number } | null>(null);
 
   useEffect(() => {
     roomRefState.current = room;
     if (room?.players) {
       Object.entries(room.players).forEach(([id, p]) => {
         const prevHp = prevPlayersHpRef.current[id];
+        // Handle Damage Numbers for everyone
         if (prevHp !== undefined && p.hp < prevHp) {
           const diff = prevHp - p.hp;
-          const newDN = {
+          const newDN: GameEffectNumber = {
             id: Math.random().toString(),
             x: p.x + PLAYER_WIDTH / 2,
             y: p.y,
             amount: Math.round(diff),
+            type: 'damage',
             startTime: Date.now()
           };
-          setDamageNumbers(prev => [...prev, newDN]);
-          damageNumbersRef.current.push(newDN);
+          setEffectNumbers(prev => [...prev, newDN]);
+          effectNumbersRef.current.push(newDN);
         }
+        
+        // Handle Heal Numbers for local player
+        if (id === profile?.id && prevHp !== undefined && p.hp > prevHp) {
+          const diff = p.hp - prevHp;
+          const newHN: GameEffectNumber = {
+            id: Math.random().toString(),
+            x: p.x + PLAYER_WIDTH / 2,
+            y: p.y,
+            amount: Math.round(diff),
+            type: 'heal',
+            startTime: Date.now()
+          };
+          setEffectNumbers(prev => [...prev, newHN]);
+          effectNumbersRef.current.push(newHN);
+          setRecentHeal({ amount: Math.round(diff), time: Date.now() });
+        }
+
         prevPlayersHpRef.current[id] = p.hp;
       });
     }
-  }, [room]);
+  }, [room, profile?.id]);
 
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
-      setDamageNumbers(prev => prev.filter(dn => now - dn.startTime < 800));
-      damageNumbersRef.current = damageNumbersRef.current.filter(dn => now - dn.startTime < 800);
+      setEffectNumbers(prev => prev.filter(en => now - en.startTime < 800));
+      effectNumbersRef.current = effectNumbersRef.current.filter(en => now - en.startTime < 800);
+      
+      if (recentHeal && now - recentHeal.time > 1000) {
+        setRecentHeal(null);
+      }
     }, 100);
     return () => clearInterval(interval);
-  }, []);
+  }, [recentHeal]);
 
   useEffect(() => {
     if (!profile || !room?.players?.[profile.id]) return;
@@ -519,14 +544,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     });
 
-    // Attack Indicators
+    // Attack Indicators (Own Blue, Enemy Red)
     Object.values(currentRoom.players || {}).forEach(p => {
       const attackDuration = 500;
       const timeSinceAttack = now - (p.lastAttackTime || 0);
 
       if (timeSinceAttack < attackDuration) {
-        const isLocal = p.id === profile.id;
-        const baseColor = isLocal ? '64, 156, 255' : '255, 64, 64';
+        const isLocal = p.id === profile?.id;
+        const baseColor = isLocal ? '38, 114, 238' : '238, 43, 43'; // Blue for self, Red for enemy
         let opacity = 0.7;
         if (timeSinceAttack > 400) opacity = 0.7 * (1 - (timeSinceAttack - 400) / 100);
 
@@ -537,7 +562,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
         ctx.save();
         ctx.fillStyle = `rgba(${baseColor}, ${opacity * 0.4})`;
-        ctx.strokeStyle = `rgba(0, 0, 0, ${opacity})`;
+        ctx.strokeStyle = `rgba(${baseColor}, ${opacity})`;
         ctx.lineWidth = 4;
 
         const weapon = p.weaponClass as WeaponClass;
@@ -567,7 +592,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     });
 
-    // Players
+    // Players and Weapons
     Object.values(currentRoom.players || {}).forEach(p => {
       if (p.hp <= 0 && currentRoom.status === 'playing') return;
       const px = p.x * PIXELS_PER_METER;
@@ -598,6 +623,45 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       if (now < (p.slowUntil || 0)) {
         ctx.fillStyle = 'rgba(100, 100, 255, 0.4)';
         ctx.fill();
+      }
+      ctx.restore();
+
+      // Weapon Rendering
+      ctx.save();
+      ctx.strokeStyle = 'black';
+      ctx.lineWidth = 3;
+      const weaponX = p.facing === 'right' ? px + pw + 5 : px - 15;
+      const weaponY = py + ph / 2;
+      const flip = p.facing === 'right' ? 1 : -1;
+
+      if (p.weaponClass === 'Sword') {
+        ctx.fillStyle = '#cbd5e1';
+        ctx.beginPath();
+        ctx.rect(weaponX, weaponY - 15, 10 * flip, 30);
+        ctx.fill();
+        ctx.stroke();
+        // Hilt
+        ctx.fillStyle = '#451a03';
+        ctx.fillRect(weaponX - 2 * flip, weaponY - 2, 4 * flip, 4);
+      } else if (p.weaponClass === 'Dagger') {
+        ctx.fillStyle = '#94a3b8';
+        ctx.beginPath();
+        ctx.rect(weaponX, weaponY - 5, 8 * flip, 10);
+        ctx.fill();
+        ctx.stroke();
+      } else if (p.weaponClass === 'Bow') {
+        ctx.strokeStyle = '#78350f';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(weaponX, weaponY, 15, -Math.PI/2, Math.PI/2, p.facing === 'left');
+        ctx.stroke();
+        // String
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(weaponX, weaponY - 15);
+        ctx.lineTo(weaponX, weaponY + 15);
+        ctx.stroke();
       }
       ctx.restore();
 
@@ -635,23 +699,24 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.fillText(p.name, px + pw/2, py - 25);
     });
 
-    // Damage Numbers
-    damageNumbersRef.current.forEach((dn) => {
-      const elapsed = now - dn.startTime;
+    // Damage and Heal Numbers
+    effectNumbersRef.current.forEach((en) => {
+      const elapsed = now - en.startTime;
       if (elapsed > 800) return;
       const alpha = 1 - (elapsed / 800);
       const dy = (elapsed / 800) * 50;
       ctx.save();
       ctx.globalAlpha = alpha;
-      ctx.fillStyle = '#ff4444';
+      ctx.fillStyle = en.type === 'damage' ? '#ff4444' : '#4ade80';
       ctx.strokeStyle = 'black';
       ctx.lineWidth = 4;
       ctx.font = 'bold 24px Luckiest Guy';
       ctx.textAlign = 'center';
-      const textX = dn.x * PIXELS_PER_METER;
-      const textY = dn.y * PIXELS_PER_METER - 40 - dy;
-      ctx.strokeText(dn.amount.toString(), textX, textY);
-      ctx.fillText(dn.amount.toString(), textX, textY);
+      const textX = en.x * PIXELS_PER_METER;
+      const textY = en.y * PIXELS_PER_METER - 40 - dy;
+      const prefix = en.type === 'heal' ? '+' : '';
+      ctx.strokeText(prefix + en.amount.toString(), textX, textY);
+      ctx.fillText(prefix + en.amount.toString(), textX, textY);
       ctx.restore();
     });
   };
@@ -784,8 +849,15 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           {/* Health Section */}
           <div className="space-y-1">
             <div className="flex justify-between items-center px-1">
-              <span className="font-headline text-[10px] text-white/80 flex items-center gap-1 uppercase tracking-tight"><Heart className="w-3 h-3 fill-current text-destructive" /> HEALTH</span>
-              <span className="font-headline text-sm text-white">{Math.floor(myP?.hp || 0)}</span>
+              <span className="font-headline text-[10px] text-white/80 flex items-center gap-1 uppercase tracking-tight">
+                <Heart className="w-3 h-3 fill-current text-destructive" /> HEALTH
+              </span>
+              <div className="flex items-center gap-2">
+                {recentHeal && (
+                  <span className="font-headline text-sm text-[#4ade80] animate-bounce-subtle">+{recentHeal.amount}</span>
+                )}
+                <span className="font-headline text-sm text-white">{Math.floor(myP?.hp || 0)}</span>
+              </div>
             </div>
             <div className="juicy-bar h-6 bg-black/40">
               <div 
@@ -798,7 +870,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           {/* Persistent Stamina Info */}
           <div className="flex justify-between items-center px-1">
             <span className="font-headline text-[10px] text-white/80 uppercase tracking-tight">STAMINA</span>
-            <span className="font-headline text-sm text-[#7ED7EB] drop-shadow-[1px_1px_0px_rgba(0,0,0,1)]">
+            <span className="font-headline text-sm text-[#60a5fa] drop-shadow-[1px_1px_0px_rgba(0,0,0,1)]">
               {Math.floor(myP?.stamina || 0)}
             </span>
           </div>
@@ -833,3 +905,4 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     </div>
   );
 }
+
