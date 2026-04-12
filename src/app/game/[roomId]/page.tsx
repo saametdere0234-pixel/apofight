@@ -1067,7 +1067,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const stunCDRemaining = myP ? Math.max(0, (myP.stunCooldownUntil || 0) - now) : 0;
 
   if (myP) {
-    const weaponStats = WEAPON_STATS[myP.weaponClass as WeaponClass] || WEAPON_STATS.Sword;
+    const weaponStats = (WEAPON_STATS[myP.weaponClass as WeaponClass] || WEAPON_STATS.Sword);
     const reloadRemaining = (weaponStats.delay * 1000) - (now - (myP.lastAttackTime || 0));
     const dashRemaining = weaponStats.dashCooldown - (myP.dashRechargeProgress || 0);
 
@@ -1095,7 +1095,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   }
 
   const playerCount = room?.players ? Object.keys(room.players).length : 0;
-  const canStart = playerCount >= 2;
+  const allReady = room?.players ? Object.values(room.players).every(p => p.isReady) : false;
+  const canStart = playerCount >= 2 && allReady;
   const isHost = room?.createdBy === profile.id;
 
   const myWeaponStats = (myP && WEAPON_STATS[myP.weaponClass as WeaponClass]) ? WEAPON_STATS[myP.weaponClass as WeaponClass] : WEAPON_STATS.Sword;
@@ -1219,8 +1220,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                         {p.id === room?.createdBy && (
                           <Crown className="absolute -top-6 -right-6 w-10 h-10 text-yellow-500 fill-yellow-500 rotate-12 drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]" />
                         )}
-                        {/* Waiting Indicator for results screen */}
-                        {!p.isReady && room.status === 'finished' && (
+                        {/* Waiting Indicator for results screen or initial join */}
+                        {!p.isReady && (
                           <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center rounded-2xl">
                              <div className="w-6 h-6 border-2 border-white border-t-transparent animate-spin rounded-full mb-1" />
                              <span className="text-[10px] font-headline text-white tracking-widest">WAITING...</span>
@@ -1249,10 +1250,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                     ) : (
                       <div className="flex flex-col items-center animate-pulse">
                         <span className="font-headline text-2xl text-white/40 uppercase tracking-widest text-center">
-                          WAITING FOR CHALLENGERS...
+                          {playerCount < 2 ? 'WAITING FOR CHALLENGERS...' : 'WAITING FOR WARRIORS...'}
                         </span>
                         <span className="text-xs font-bold text-primary uppercase mt-2">
-                          Need at least 2 warriors to begin
+                          {playerCount < 2 
+                            ? 'Need at least 2 warriors to begin' 
+                            : 'All players must be ready to start'}
                         </span>
                       </div>
                     )
