@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -169,10 +170,19 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   useEffect(() => {
     roomRefState.current = room;
     if (room?.players) {
-      const pIds = Object.keys(room.players);
+      const pIds = Object.keys(room.players).sort();
       const playerCount = pIds.length;
+      const hostPresent = !!room.players[room.createdBy];
 
-      // Handle solo player: Return to lobby and ensure they are host
+      // Robust Host Transfer: Only transfer if host is missing
+      if (!hostPresent && playerCount > 0) {
+        const nextHostId = pIds[0];
+        if (profile?.id === nextHostId) {
+          update(ref(db, `rooms/${roomId}`), { createdBy: nextHostId });
+        }
+      }
+
+      // Handle solo player: Return to lobby if not already there or finished
       if (playerCount === 1) {
         const onlyPlayerId = pIds[0];
         if (onlyPlayerId === profile?.id) {
@@ -180,13 +190,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           const updates: any = {};
           let needsUpdate = false;
           
-          if (room.status !== 'lobby') {
+          if (room.status !== 'lobby' && room.status !== 'finished') {
             updates.status = 'lobby';
-            needsUpdate = true;
-          }
-          
-          if (room.createdBy !== profile.id) {
-            updates.createdBy = profile.id;
             needsUpdate = true;
           }
           
@@ -570,9 +575,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (isStunned) return;
 
     const weapon = (p.weaponClass as WeaponClass) || 'Sword';
-    const stats = (WEAPON_STATS[weapon] || WEAPON_STATS.Sword);
+    const weaponStats = WEAPON_STATS[weapon] || WEAPON_STATS.Sword;
     
-    const reloadRemaining = (stats.delay * 1000) - (now - (p.lastAttackTime || 0));
+    const reloadRemaining = (weaponStats.delay * 1000) - (now - (p.lastAttackTime || 0));
     const onCooldown = reloadRemaining > 0;
     const hasStamina = (p.stamina || 0) >= STAMINA_ATTACK_COST;
 
@@ -618,20 +623,20 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
       let hit = false;
       if (weapon === 'Dagger') {
-        if (distToEnemyCenter <= stats.range) hit = true;
+        if (distToEnemyCenter <= weaponStats.range) hit = true;
       } else if (weapon === 'Sword') {
-        if (distToEnemyCenter <= stats.range + 2) {
+        if (distToEnemyCenter <= weaponStats.range + 2) {
           const enemyAngle = Math.atan2(dy, dx);
           let diff = Math.abs(enemyAngle - attackAngle);
           if (diff > Math.PI) diff = 2 * Math.PI - diff;
           const angleInDegrees = diff * (180 / Math.PI);
-          if (angleInDegrees <= stats.angle / 2) {
+          if (angleInDegrees <= weaponStats.angle / 2) {
             hit = true;
           }
         }
       } else if (weapon === 'Bow') {
-        const x2 = px + Math.cos(attackAngle) * stats.range;
-        const y2 = py + Math.sin(attackAngle) * stats.range;
+        const x2 = px + Math.cos(attackAngle) * weaponStats.range;
+        const y2 = py + Math.sin(attackAngle) * weaponStats.range;
         
         if (checkLineRect(px, py, x2, y2, exMin, eyMin, exMax, eyMax)) {
           hit = true;
@@ -675,9 +680,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (!p) return;
     
     const now = Date.now();
-    const stats = (WEAPON_STATS[p.weaponClass as WeaponClass] || WEAPON_STATS.Sword);
+    const weaponStats = (WEAPON_STATS[p.weaponClass as WeaponClass] || WEAPON_STATS.Sword);
     const enemyRef = ref(db, `rooms/${roomId}/players/${id}`);
-    const newHp = Math.max(0, enemy.hp - stats.damage);
+    const newHp = Math.max(0, enemy.hp - weaponStats.damage);
     const updates: any = { hp: newHp };
     
     if (p.weaponClass === 'Sword') {
@@ -688,7 +693,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     }
 
     if (p.weaponClass === 'Bow') {
-      const healAmount = stats.damage * 0.3;
+      const healAmount = weaponStats.damage * 0.3;
       const myWeaponStats = (WEAPON_STATS[p.weaponClass as WeaponClass] || WEAPON_STATS.Sword);
       const newMyHp = Math.min(myWeaponStats.maxHp, p.hp + healAmount);
       update(ref(db, `rooms/${roomId}/players/${profile.id}`), { hp: newMyHp });
@@ -823,27 +828,27 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.lineWidth = 4;
 
         const weapon = (p.weaponClass as WeaponClass) || 'Sword';
-        const stats = (WEAPON_STATS[weapon] || WEAPON_STATS.Sword);
+        const weaponStats = (WEAPON_STATS[weapon] || WEAPON_STATS.Sword);
         const angle = p.lastAttackAngle || 0;
 
         if (weapon === 'Dagger') {
           ctx.beginPath();
-          ctx.arc(centerX, centerY, stats.range * PIXELS_PER_METER, 0, Math.PI * 2);
+          ctx.arc(centerX, centerY, weaponStats.range * PIXELS_PER_METER, 0, Math.PI * 2);
           ctx.fill();
           ctx.stroke();
         } else if (weapon === 'Sword') {
-          const halfAngle = (stats.angle / 2) * (Math.PI / 180);
+          const halfAngle = (weaponStats.angle / 2) * (Math.PI / 180);
           ctx.beginPath();
           ctx.moveTo(centerX, centerY);
-          ctx.arc(centerX, centerY, stats.range * PIXELS_PER_METER, angle - halfAngle, angle + halfAngle);
+          ctx.arc(centerX, centerY, weaponStats.range * PIXELS_PER_METER, angle - halfAngle, angle + halfAngle);
           ctx.closePath();
           ctx.fill();
           ctx.stroke();
         } else if (weapon === 'Bow') {
           ctx.beginPath();
           ctx.moveTo(centerX, centerY);
-          const endX = centerX + Math.cos(angle) * stats.range * PIXELS_PER_METER;
-          const endY = centerY + Math.sin(angle) * stats.range * PIXELS_PER_METER;
+          const endX = centerX + Math.cos(angle) * weaponStats.range * PIXELS_PER_METER;
+          const endY = centerY + Math.sin(angle) * weaponStats.range * PIXELS_PER_METER;
           ctx.lineTo(endX, endY);
           ctx.lineWidth = 6;
           ctx.stroke();
@@ -1034,9 +1039,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const stunCDRemaining = myP ? Math.max(0, (myP.stunCooldownUntil || 0) - now) : 0;
 
   if (myP) {
-    const stats = (WEAPON_STATS[myP.weaponClass as WeaponClass] || WEAPON_STATS.Sword);
-    const reloadRemaining = (stats.delay * 1000) - (now - (myP.lastAttackTime || 0));
-    const dashRemaining = stats.dashCooldown - (myP.dashRechargeProgress || 0);
+    const weaponStats = (WEAPON_STATS[myP.weaponClass as WeaponClass] || WEAPON_STATS.Sword);
+    const reloadRemaining = (weaponStats.delay * 1000) - (now - (myP.lastAttackTime || 0));
+    const dashRemaining = weaponStats.dashCooldown - (myP.dashRechargeProgress || 0);
 
     if (now - feedback.lastReloadFail < 500 && reloadRemaining > 0) {
       alerts.push({ 
