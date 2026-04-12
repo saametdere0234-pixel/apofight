@@ -5,9 +5,53 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Sword, Wand2, Shield, Sparkles, User, Trophy, Zap } from 'lucide-react';
+import { Sparkles, User, Trophy, Zap } from 'lucide-react';
 import { WeaponClass, WEAPON_STATS } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
+
+const WeaponIcon = ({ weapon, className = "w-8 h-8" }: { weapon: WeaponClass; className?: string }) => {
+  if (weapon === 'Sword') {
+    return (
+      <div className={className}>
+        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+          <path d="M12 20L28 4L30 6L14 22L12 20Z" fill="#38bdf8" stroke="black" strokeWidth="2.5" strokeLinejoin="round"/>
+          <path d="M14 22L16 24L28 12L26 10L14 22Z" fill="#0ea5e9" stroke="black" strokeWidth="2.5" strokeLinejoin="round"/>
+          <path d="M10 18L18 26" stroke="black" strokeWidth="5" strokeLinecap="round"/>
+          <path d="M10 18L18 26" stroke="#facc15" strokeWidth="2.5" strokeLinecap="round"/>
+          <path d="M10 22L4 28" stroke="black" strokeWidth="5" strokeLinecap="round"/>
+          <path d="M10 22L4 28" stroke="#78350f" strokeWidth="2.5" strokeLinecap="round"/>
+        </svg>
+      </div>
+    );
+  }
+  if (weapon === 'Dagger') {
+    return (
+      <div className={className}>
+        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+          <path d="M16 16L24 8L28 12L20 20L16 16Z" fill="#d946ef" stroke="black" strokeWidth="2.5" strokeLinejoin="round"/>
+          <path d="M16 16L20 20L26 14L22 10L16 16Z" fill="#f5d0fe" stroke="black" strokeWidth="2.5" strokeLinejoin="round"/>
+          <path d="M14 14L20 20" stroke="black" strokeWidth="5" strokeLinecap="round"/>
+          <path d="M14 14L20 20" stroke="#701a75" strokeWidth="2.5" strokeLinecap="round"/>
+          <path d="M14 18L8 24" stroke="black" strokeWidth="5" strokeLinecap="round"/>
+          <path d="M14 18L8 24" stroke="#1e293b" strokeWidth="2.5" strokeLinecap="round"/>
+        </svg>
+      </div>
+    );
+  }
+  if (weapon === 'Bow') {
+    return (
+      <div className={className}>
+        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+          <path d="M8 8C16 8 24 16 24 24" stroke="black" strokeWidth="5" strokeLinecap="round" fill="none"/>
+          <path d="M8 8C16 8 24 16 24 24" stroke="#f97316" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+          <path d="M8 8L24 24" stroke="black" strokeWidth="1.5" strokeDasharray="2 2" />
+          <circle cx="16" cy="16" r="3" fill="#ca8a04" stroke="black" strokeWidth="1.5" />
+        </svg>
+      </div>
+    );
+  }
+  return null;
+};
 
 export default function EntryScreen() {
   const { profile, updateProfile, generateName, loading } = useLocalPlayer();
@@ -28,20 +72,17 @@ export default function EntryScreen() {
     router.push('/lobby');
   };
 
-  const weapons: { id: WeaponClass; icon: any; desc: string }[] = [
+  const weapons: { id: WeaponClass; desc: string }[] = [
     { 
       id: 'Sword', 
-      icon: Sword, 
       desc: `Balanced: ${WEAPON_STATS.Sword.damage} DMG, ${WEAPON_STATS.Sword.range}m Cone, ${WEAPON_STATS.Sword.delay}s Delay` 
     },
     { 
       id: 'Dagger', 
-      icon: Shield, 
       desc: `Fast: ${WEAPON_STATS.Dagger.damage} DMG, ${WEAPON_STATS.Dagger.range}m AoE, ${WEAPON_STATS.Dagger.delay}s Delay` 
     },
     { 
       id: 'Bow', 
-      icon: Wand2, 
       desc: `Range: ${WEAPON_STATS.Bow.damage} DMG, ${WEAPON_STATS.Bow.range}m Range, 30% Life Steal` 
     },
   ];
@@ -127,7 +168,7 @@ export default function EntryScreen() {
           <Card className="cartoon-card">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 font-headline text-2xl text-primary">
-                <Sword className="w-6 h-6" />
+                <Zap className="w-6 h-6" />
                 SELECT ARSENAL
               </CardTitle>
               <CardDescription className="font-bold text-white/60">CHOOSE YOUR COMBAT STYLE</CardDescription>
@@ -139,8 +180,8 @@ export default function EntryScreen() {
                   onClick={() => updateProfile({ weaponClass: w.id })}
                   className={`w-full p-4 flex items-center gap-4 rounded-[20px] border-4 transition-all text-left group ${profile.weaponClass === w.id ? 'border-primary bg-primary/20 scale-[1.02]' : 'border-black bg-black/20 hover:border-primary/50'}`}
                 >
-                  <div className={`p-3 rounded-xl border-4 border-black ${profile.weaponClass === w.id ? 'bg-primary text-white' : 'bg-zinc-800 text-zinc-500'}`}>
-                    <w.icon className="w-8 h-8" />
+                  <div className={`p-1.5 rounded-xl border-4 border-black transition-colors ${profile.weaponClass === w.id ? 'bg-primary' : 'bg-zinc-800'}`}>
+                    <WeaponIcon weapon={w.id} className="w-10 h-10" />
                   </div>
                   <div>
                     <h4 className="font-headline text-xl leading-none mb-1 text-white">{w.id}</h4>
