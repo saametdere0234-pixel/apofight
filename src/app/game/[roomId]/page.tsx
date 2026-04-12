@@ -252,7 +252,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             ...prev,
             lastDashFail: !hasCharges ? now : prev.lastDashFail,
             lastStaminaFail: !hasStamina ? now : prev.lastStaminaFail,
-            staminaMsg: !hasStamina ? `${STAMINA_DASH_COST}` : prev.staminaMsg
+            staminaMsg: '' // Display live stamina now
           }));
           return;
         }
@@ -309,10 +309,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     
-    // UI coordinates for fixed overlay
     setMousePos({ x: e.clientX, y: e.clientY });
 
-    // Game coordinates for combat logic
     const canvas = canvasRef.current;
     if (!canvas) return;
     const gameX = (x / (rect.width / (ARENA_WIDTH * PIXELS_PER_METER))) / PIXELS_PER_METER;
@@ -339,7 +337,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ...prev,
         lastReloadFail: onCooldown ? now : prev.lastReloadFail,
         lastStaminaFail: !hasStamina ? now : prev.lastStaminaFail,
-        staminaMsg: !hasStamina ? `${STAMINA_ATTACK_COST}` : prev.staminaMsg
+        staminaMsg: ''
       }));
       return;
     }
@@ -594,7 +592,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const flashActive = Date.now() - flash.time < 200;
   const isShaking = Date.now() < shakeUntil;
 
-  // Derived Alerts for the high-priority DOM overlay
   const now = Date.now();
   const alerts: { text: string, color: string, alpha: number }[] = [];
   if (myP) {
@@ -618,10 +615,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         alpha: 1 - (now - feedback.lastDashFail) / 500 
       });
     }
-    // Stamina (Blue) - Priority 3
+    // Stamina (Blue) - Priority 3 - Shows Live Current Stamina
     if (now - feedback.lastStaminaFail < 500) {
       alerts.push({ 
-        text: feedback.staminaMsg, 
+        text: Math.floor(myP.stamina || 0).toString(), 
         color: '#60a5fa', 
         alpha: 1 - (now - feedback.lastStaminaFail) / 500 
       });
@@ -630,7 +627,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   return (
     <div className="min-h-screen bg-background overflow-hidden flex flex-col items-center select-none" onMouseMove={handleMouseMove}>
-      {/* High-Priority Cursor Feedback Overlay */}
       <div 
         className="fixed pointer-events-none z-[9999] flex flex-col items-center gap-1 select-none"
         style={{ 
@@ -750,3 +746,4 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     </div>
   );
 }
+
