@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -31,7 +32,7 @@ import {
   SPAWN_POINTS
 } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
-import { Trophy, ArrowLeft, Play, Zap, Heart, Users, Crown, RotateCcw } from 'lucide-react';
+import { Trophy, ArrowLeft, Play, Zap, Heart, Users, Crown, RotateCcw, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface GameEffectNumber {
@@ -122,15 +123,16 @@ const getBestSpawnPoint = (points: typeof SPAWN_POINTS, existingPositions: {x: n
 
 export default function GamePage({ params }: { params: Promise<{ roomId: string }> }) {
   const { roomId } = use(params);
-  const { profile, loading: profileLoading, updateProfile } = useLocalPlayer();
+  const { profile, loading: profileLoading } = useLocalPlayer();
   const router = useRouter();
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mouseRef = useRef({ x: 0, y: 0 });
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [room, setRoom] = useState<GameRoom | null>(null);
-  const roomRefState = useRef<GameRoom | null>(null);
+  const roomRef = useRef<GameRoom | null>(null);
   const [keys] = useState<Set<string>>(new Set());
+  const [isConnected, setIsConnected] = useState(true);
   
   const [flash, setFlash] = useState<{ type: 'taken' | 'dealt' | null, time: number }>({ type: null, time: 0 });
   const [shakeUntil, setShakeUntil] = useState(0);
@@ -146,6 +148,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const lastHpRef = useRef<number>(1000);
   const prevPlayersHpRef = useRef<Record<string, number>>({});
   const [recentHeal, setRecentHeal] = useState<{ amount: number, time: number } | null>(null);
+
+  // Network Optimization State
+  const interpPlayersRef = useRef<Record<string, GamePlayer>>({});
+  const lastSyncTimeRef = useRef(0);
 
   const handleQuit = useCallback(async () => {
     if (!db || !roomId || !profile) return;
@@ -191,7 +197,16 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   }, [roomId, room, profile]);
 
   useEffect(() => {
-    roomRefState.current = room;
+    if (!db) return;
+    const connectedRef = ref(db, '.info/connected');
+    const unsubscribe = onValue(connectedRef, (snap) => {
+      setIsConnected(snap.val() === true);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    roomRef.current = room;
     if (room?.players) {
       const pIds = Object.keys(room.players).sort();
       const playerCount = pIds.length;
@@ -207,7 +222,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       if (playerCount === 1) {
         const onlyPlayerId = pIds[0];
         if (onlyPlayerId === profile?.id) {
-          const roomRef = ref(db, `rooms/${roomId}`);
+          const roomPath = ref(db, `rooms/${roomId}`);
           const updates: any = {};
           let needsUpdate = false;
           
@@ -217,7 +232,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           }
           
           if (needsUpdate) {
-            update(roomRef, updates);
+            update(roomPath, updates);
           }
         }
       }
@@ -374,7 +389,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         router.push('/lobby');
         return;
       }
-      setRoom(snapshot.val());
+      const data = snapshot.val() as GameRoom;
+      setRoom(data);
     });
 
     return () => {
@@ -394,7 +410,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   }, [profile, profileLoading, roomId, router]);
 
   const updateGameLogic = useCallback((dt: number) => {
-    const currentRoom = roomRefState.current;
+    const currentRoom = roomRef.current;
     if (!profile || !currentRoom || !currentRoom.players?.[profile.id] || !db) return;
     
     if (currentRoom.status === 'starting') return;
@@ -472,8 +488,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       nextDashRechargeProgress = 0;
     }
 
-    const myPlayerRef = ref(db, `rooms/${roomId}/players/${profile.id}`);
-    update(myPlayerRef, {
+    // Apply Local State Immediately (Prediction)
+    const updatedLocalPlayer = {
+      ...p,
       x: nextX,
       y: nextY,
       vy: nextVy,
@@ -485,13 +502,35 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       stamina: nextStamina,
       isDashing,
       dashTimeLeft
-    });
+    };
+    
+    currentRoom.players[profile.id] = updatedLocalPlayer;
+    interpPlayersRef.current[profile.id] = updatedLocalPlayer;
+
+    // Network Throttling: Sync to Firebase every ~33ms (30fps)
+    if (now - lastSyncTimeRef.current > 33) {
+      lastSyncTimeRef.current = now;
+      const myPlayerRef = ref(db, `rooms/${roomId}/players/${profile.id}`);
+      update(myPlayerRef, {
+        x: nextX,
+        y: nextY,
+        vy: nextVy,
+        facing: nextFacing,
+        isJumping,
+        jumpCount: nextJumpCount,
+        dashCharges: nextDashCharges,
+        dashRechargeProgress: nextDashRechargeProgress,
+        stamina: nextStamina,
+        isDashing,
+        dashTimeLeft
+      });
+    }
   }, [profile, roomId, keys]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       keys.add(e.code);
-      const currentRoom = roomRefState.current;
+      const currentRoom = roomRef.current;
       if (!profile || !currentRoom || !currentRoom.players?.[profile.id] || !db || currentRoom.status !== 'playing') return;
       const p = currentRoom.players[profile.id];
       const now = Date.now();
@@ -553,7 +592,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const loop = (time: number) => {
       const dt = Math.min((time - lastTime) / 1000, 0.1);
       lastTime = time;
-      const currentRoom = roomRefState.current;
+      const currentRoom = roomRef.current;
       if (profile && currentRoom?.players?.[profile.id] && (currentRoom.status === 'playing' || currentRoom.status === 'starting')) {
         updateGameLogic(dt);
       }
@@ -589,7 +628,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   };
 
   const handleAttack = () => {
-    const currentRoom = roomRefState.current;
+    const currentRoom = roomRef.current;
     if (!profile || !currentRoom || !currentRoom.players?.[profile.id] || !db || currentRoom.status !== 'playing') return;
     
     const p = currentRoom.players[profile.id];
@@ -700,7 +739,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   const thisHit = (id: string, enemy: GamePlayer, shouldStun: boolean = false) => {
     if (!db || !roomId || !profile) return;
-    const p = roomRefState.current?.players?.[profile.id];
+    const p = roomRef.current?.players?.[profile.id];
     if (!p) return;
     
     const now = Date.now();
@@ -728,13 +767,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   };
 
   const handleKill = (winnerId: string) => {
-    const currentRoom = roomRefState.current;
+    const currentRoom = roomRef.current;
     if (!currentRoom || !db || currentRoom.status !== 'playing') return;
     
     const winner = currentRoom.players[winnerId];
     if (!winner) return;
 
-    const roomRef = ref(db, `rooms/${roomId}`);
     const winnersRounds = (winner.roundsWon || 0) + 1;
     
     update(ref(db, `rooms/${roomId}/players/${winnerId}`), { roundsWon: winnersRounds });
@@ -750,11 +788,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       });
     }
 
-    update(roomRef, updates);
+    update(ref(db, `rooms/${roomId}`), updates);
 
     if (winnersRounds < 3) {
       setTimeout(() => {
-        const currentData = roomRefState.current;
+        const currentData = roomRef.current;
         if (!currentData) return;
         
         const assignedSpawns: {x: number, y: number}[] = [];
@@ -783,7 +821,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           });
         });
         
-        update(roomRef, { 
+        update(ref(db, `rooms/${roomId}`), { 
           status: 'starting', 
           startTime: Date.now() 
         });
@@ -801,7 +839,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   const render = () => {
     const canvas = canvasRef.current;
-    const currentRoom = roomRefState.current;
+    const currentRoom = roomRef.current;
     if (!canvas || !currentRoom) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -814,7 +852,25 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     ctx.fillStyle = '#333333'; 
     ctx.fillRect(0, GROUND_Y * PIXELS_PER_METER, canvas.width, (ARENA_HEIGHT - GROUND_Y) * PIXELS_PER_METER);
 
+    // Apply Interpolation to remote players
     Object.values(currentRoom.players || {}).forEach(p => {
+      if (p.id === profile?.id) {
+        interpPlayersRef.current[p.id] = p; // Autoritative local
+      } else {
+        const currentInterp = interpPlayersRef.current[p.id] || p;
+        const lerpFactor = 0.25; // How fast to catch up (higher = faster but jitterier)
+        
+        interpPlayersRef.current[p.id] = {
+          ...p,
+          x: currentInterp.x + (p.x - currentInterp.x) * lerpFactor,
+          y: currentInterp.y + (p.y - currentInterp.y) * lerpFactor,
+        };
+      }
+    });
+
+    const playersToDraw = Object.values(interpPlayersRef.current);
+
+    playersToDraw.forEach(p => {
       if (p.isDashing && p.dashTimeLeft && p.dashTimeLeft > 0) {
         const progress = 1 - (p.dashTimeLeft / DASH_DURATION);
         const ghostCount = 5;
@@ -836,7 +892,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     });
 
-    Object.values(currentRoom.players || {}).forEach(p => {
+    playersToDraw.forEach(p => {
       const attackDuration = 500;
       const timeSinceAttack = now - (p.lastAttackTime || 0);
 
@@ -886,7 +942,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     });
 
-    Object.values(currentRoom.players || {}).forEach(p => {
+    playersToDraw.forEach(p => {
       if (p.hp <= 0 && (currentRoom.status === 'playing' || currentRoom.status === 'starting')) return;
       const px = p.x * PIXELS_PER_METER;
       const py = p.y * PIXELS_PER_METER;
@@ -1057,6 +1113,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   if (profileLoading || !profile) return null;
   const myP = room?.players?.[profile.id];
+  const myWeaponStats = (myP && WEAPON_STATS[myP.weaponClass as WeaponClass]) ? WEAPON_STATS[myP.weaponClass as WeaponClass] : WEAPON_STATS.Sword;
   const maxDash = getMaxDashCharges(myP?.weaponClass as WeaponClass || 'Sword');
   const flashActive = Date.now() - flash.time < 200;
   const isShaking = Date.now() < shakeUntil;
@@ -1068,9 +1125,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const stunCDRemaining = myP ? Math.max(0, (myP.stunCooldownUntil || 0) - now) : 0;
 
   if (myP) {
-    const weaponStats = (WEAPON_STATS[myP.weaponClass as WeaponClass] || WEAPON_STATS.Sword);
-    const reloadRemaining = (weaponStats.delay * 1000) - (now - (myP.lastAttackTime || 0));
-    const dashRemaining = weaponStats.dashCooldown - (myP.dashRechargeProgress || 0);
+    const reloadRemaining = (myWeaponStats.delay * 1000) - (now - (myP.lastAttackTime || 0));
+    const dashRemaining = (myWeaponStats.dashCooldown || 4.0) - (myP.dashRechargeProgress || 0);
 
     if (now - feedback.lastReloadFail < 500 && reloadRemaining > 0) {
       alerts.push({ 
@@ -1099,8 +1155,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const allReady = room?.players ? Object.values(room.players).every(p => p.isReady) : false;
   const canStart = playerCount >= 2 && allReady;
   const isHost = room?.createdBy === profile.id;
-
-  const myWeaponStats = (myP && WEAPON_STATS[myP.weaponClass as WeaponClass]) ? WEAPON_STATS[myP.weaponClass as WeaponClass] : WEAPON_STATS.Sword;
 
   let countdownText = '';
   let showCountdown = false;
@@ -1151,6 +1205,15 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         <div className="w-full bg-destructive/20 py-2 border-b-4 border-black text-center z-[100]">
           <span className="font-headline text-2xl text-white tracking-widest drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]">
             ROOM IS EMPTY
+          </span>
+        </div>
+      )}
+
+      {!isConnected && (
+        <div className="w-full bg-yellow-500/80 py-2 border-b-4 border-black text-center z-[101] flex items-center justify-center gap-2">
+          <WifiOff className="w-6 h-6 text-black" />
+          <span className="font-headline text-2xl text-black tracking-widest drop-shadow-[1px_1px_0px_rgba(255,255,255,0.5)]">
+            RECONNECTING...
           </span>
         </div>
       )}
