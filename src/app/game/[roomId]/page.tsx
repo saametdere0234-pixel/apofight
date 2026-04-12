@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -29,7 +28,7 @@ import {
   STAMINA_ATTACK_COST
 } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
-import { Trophy, ArrowLeft, Play, Zap, Shield, Heart, Users } from 'lucide-react';
+import { Trophy, ArrowLeft, Play, Zap, Shield, Heart, Users, Sword, Wand2, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface GameEffectNumber {
@@ -670,7 +669,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
       ctx.save();
       const flip = p.facing === 'right' ? 1 : -1;
-      // Anchor hand slightly outside to avoid overlap
       const handX = p.facing === 'right' ? px + pw - 5 : px + 5;
       const handY = py + ph * 0.55;
 
@@ -682,7 +680,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.lineCap = 'round';
 
       if (p.weaponClass === 'Sword') {
-        ctx.fillStyle = '#cbd5e1'; // Blade
+        ctx.fillStyle = '#cbd5e1'; 
         ctx.beginPath();
         ctx.moveTo(4, -2.5);
         ctx.lineTo(34, -2.5);
@@ -693,16 +691,15 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.fill();
         ctx.stroke();
         
-        ctx.fillStyle = '#451a03'; // Guard
+        ctx.fillStyle = '#451a03'; 
         ctx.fillRect(4, -10, 4, 20);
         ctx.strokeRect(4, -10, 4, 20);
         
-        ctx.fillStyle = '#78350f'; // Grip
+        ctx.fillStyle = '#78350f'; 
         ctx.fillRect(-10, -3, 14, 6);
         ctx.strokeRect(-10, -3, 14, 6);
       } else if (p.weaponClass === 'Dagger') {
-        // Redesigned Dagger Sprite
-        ctx.fillStyle = '#94a3b8'; // Blade Base
+        ctx.fillStyle = '#94a3b8'; 
         ctx.beginPath();
         ctx.moveTo(3, -5);
         ctx.lineTo(16, -2);
@@ -713,7 +710,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.fill();
         ctx.stroke();
 
-        ctx.fillStyle = '#f1f5f9'; // Sharp edge accent
+        ctx.fillStyle = '#f1f5f9'; 
         ctx.beginPath();
         ctx.moveTo(3, -4);
         ctx.lineTo(22, 0);
@@ -721,11 +718,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.closePath();
         ctx.fill();
 
-        ctx.fillStyle = '#334155'; // Guard
+        ctx.fillStyle = '#334155'; 
         ctx.fillRect(2, -8, 3, 16);
         ctx.strokeRect(2, -8, 3, 16);
 
-        ctx.fillStyle = '#1e293b'; // Handle
+        ctx.fillStyle = '#1e293b'; 
         ctx.fillRect(-8, -3, 10, 6);
         ctx.strokeRect(-8, -3, 10, 6);
       } else if (p.weaponClass === 'Bow') {
@@ -797,6 +794,15 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     });
   };
 
+  const WeaponIcon = ({ weapon }: { weapon: WeaponClass }) => {
+    switch (weapon) {
+      case 'Sword': return <Sword className="w-5 h-5 text-primary" />;
+      case 'Dagger': return <Shield className="w-5 h-5 text-accent" />;
+      case 'Bow': return <Wand2 className="w-5 h-5 text-orange-500" />;
+      default: return null;
+    }
+  };
+
   if (profileLoading || !profile) return null;
   const myP = room?.players?.[profile.id];
   const maxDash = getMaxDashCharges(myP?.weaponClass as WeaponClass || 'Sword');
@@ -849,7 +855,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         {alerts.map((alert, i) => (
           <span 
             key={i} 
-            className="font-headline text-2xl drop-shadow-[4px_4px_0px_rgba(0,0,0,1)] stroke-black"
+            className="font-headline text-2xl drop-shadow-[4px_4px_0px_rgba(0,0,0,1)]"
             style={{ 
               color: alert.color, 
               opacity: alert.alpha,
@@ -865,27 +871,38 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         <div className={`fixed inset-0 pointer-events-none z-[100] border-[40px] ${flash.type === 'taken' ? 'border-red-500/30' : 'border-blue-500/30'} animate-in fade-in duration-200`} />
       )}
 
-      <header className="w-full p-4 flex justify-between items-center bg-black/60 backdrop-blur-xl border-b-8 border-black z-50">
-        <div className="flex items-center gap-8">
+      <header className="w-full p-4 flex justify-center items-center bg-black/60 backdrop-blur-xl border-b-8 border-black z-50">
+        <div className="absolute left-4">
           <Button variant="ghost" onClick={() => router.push('/lobby')} className="cartoon-button bg-destructive text-white h-12 px-6">
             <ArrowLeft className="w-5 h-5 mr-2" />
             QUIT
           </Button>
-          <div className="flex flex-col">
-            <span className="text-xl font-headline text-white">{room?.name || 'ARENA'}</span>
-          </div>
         </div>
-        <div className="flex items-center gap-10">
-           {Object.values(room?.players || {}).map(p => (
-             <div key={p.id} className="flex flex-col items-center gap-1">
-                <span className="text-[10px] font-bold text-white/60 uppercase">{p.name}</span>
-                <div className="flex gap-2">
+
+        <div className="flex items-center gap-4 overflow-x-auto max-w-[70vw] scrollbar-hide px-4">
+          {Object.values(room?.players || {}).map(p => (
+            <div key={p.id} className="flex items-center gap-3 bg-black/40 border-4 border-black rounded-[20px] p-2 px-4 shadow-[4px_4px_0px_rgba(0,0,0,1)] min-w-[180px]">
+              <div className="flex flex-col items-start gap-0.5 flex-1">
+                <div className="flex items-center gap-2">
+                  <WeaponIcon weapon={p.weaponClass as WeaponClass} />
+                  <span 
+                    className="font-headline text-lg truncate max-w-[100px]"
+                    style={{ color: p.color, WebkitTextStroke: '1px black' }}
+                  >
+                    {p.name}
+                  </span>
+                </div>
+                <div className="flex gap-1.5 mt-1">
                   {[1, 2, 3].map(i => (
-                    <div key={i} className={`w-4 h-4 rounded-full border-2 border-black ${i <= (p.roundsWon || 0) ? 'bg-accent' : 'bg-black/40'}`} />
+                    <div 
+                      key={i} 
+                      className={`w-3.5 h-3.5 rounded-full border-2 border-black transition-all duration-300 ${i <= (p.roundsWon || 0) ? 'bg-yellow-500 shadow-[0_0_8px_rgba(255,215,0,0.6)]' : 'bg-white/10'}`} 
+                    />
                   ))}
                 </div>
-             </div>
-           ))}
+              </div>
+            </div>
+          ))}
         </div>
       </header>
 
