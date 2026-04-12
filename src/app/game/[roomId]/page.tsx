@@ -330,7 +330,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       nextVy += GRAVITY * dt;
       nextY += nextVy * dt;
 
-      const isFastFallPressed = keys.has('ShiftLeft') || keys.has('ShiftRight');
+      // Quick Drop Logic: Available on Shift and S keys
+      const isFastFallPressed = keys.has('ShiftLeft') || keys.has('ShiftRight') || keys.has('KeyS');
       if (p.isJumping && isFastFallPressed) {
         nextVy = Math.max(nextVy, FAST_FALL_SPEED);
       }
