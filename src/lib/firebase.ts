@@ -7,7 +7,7 @@ import { getDatabase } from 'firebase/database';
  * We use process.env as per Next.js standards.
  */
 const firebaseConfig = {
-apiKey: "AIzaSyCnAituTyyU2JtWPnL1L1mYBzX45xKV1uI"
+apiKey: "AIzaSyCnAituTyyU2JtWPnL1L1mYBzX45xKV1uI",
 authDomain: "studio-1664944821-7e3d5.firebaseapp.com"
 databaseURL: "https://studio-1664944821-7e3d5-default-rtdb.firebaseio.com"
 projectId: "studio-1664944821-7e3d5"
