@@ -32,7 +32,7 @@ import {
   SPAWN_POINTS
 } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
-import { Trophy, ArrowLeft, Play, Zap, Heart, Users, ShieldAlert, Crown, RotateCcw } from 'lucide-react';
+import { Trophy, ArrowLeft, Play, Zap, Heart, Users, Crown, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface GameEffectNumber {
@@ -281,7 +281,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
     }
-  }, [room, profile?.id, roomId, handleQuit]);
+  }, [room, profile?.id, roomId]);
 
   useEffect(() => {
     const interval = setInterval(() => {
