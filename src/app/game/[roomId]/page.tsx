@@ -26,10 +26,13 @@ import {
   STAMINA_MAX,
   STAMINA_REGEN_RATE,
   STAMINA_DASH_COST,
-  STAMINA_ATTACK_COST
+  STAMINA_DASH_COST_DAGGER,
+  STAMINA_ATTACK_COST,
+  STUN_DURATION,
+  STUN_COOLDOWN
 } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
-import { Trophy, ArrowLeft, Play, Zap, Shield, Heart, Users, Sword, Wand2, Target } from 'lucide-react';
+import { Trophy, ArrowLeft, Play, Zap, Shield, Heart, Users, Sword, Wand2, Target, Ban } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface GameEffectNumber {
@@ -177,7 +180,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     lastHpRef.current = currentHp;
   }, [room?.players, profile]);
 
-  const getMaxDashCharges = (weapon: WeaponClass) => (weapon === 'Dagger' ? 2 : 1);
+  const getMaxDashCharges = (weapon: WeaponClass) => (weapon === 'Dagger' ? 3 : 1);
 
   useEffect(() => {
     if (profileLoading || !profile || !db) return;
@@ -202,7 +205,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       isDashing: false,
       dashTimeLeft: 0,
       dashDirX: 0,
-      dashDirY: 0
+      dashDirY: 0,
+      stunnedUntil: 0,
+      stunCooldownUntil: 0
     };
 
     get(roomPath).then((snapshot) => {
@@ -232,7 +237,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     return () => {
       unsubscribe();
-      // Manual cleanup if we're navigating away
       get(roomPath).then(s => {
         if (s.exists()) {
           const r = s.val();
@@ -272,6 +276,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     
     const p = currentRoom.players[profile.id];
     const maxCharges = getMaxDashCharges(p.weaponClass as WeaponClass);
+    const now = Date.now();
+    const isStunned = now < (p.stunnedUntil || 0);
     
     let nextX = p.x;
     let nextY = p.y;
@@ -303,16 +309,18 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         nextVy = Math.max(nextVy, FAST_FALL_SPEED);
       }
 
-      const isSlowed = Date.now() < (p.slowUntil || 0);
-      const speed = isSlowed ? MOVE_SPEED * 0.5 : MOVE_SPEED;
+      if (!isStunned) {
+        const isSlowed = now < (p.slowUntil || 0);
+        const speed = isSlowed ? MOVE_SPEED * 0.5 : MOVE_SPEED;
 
-      if (keys.has('KeyA') || keys.has('ArrowLeft')) {
-        nextX -= speed * dt;
-        nextFacing = 'left';
-      }
-      if (keys.has('KeyD') || keys.has('ArrowRight')) {
-        nextX += speed * dt;
-        nextFacing = 'right';
+        if (keys.has('KeyA') || keys.has('ArrowLeft')) {
+          nextX -= speed * dt;
+          nextFacing = 'left';
+        }
+        if (keys.has('KeyD') || keys.has('ArrowRight')) {
+          nextX += speed * dt;
+          nextFacing = 'right';
+        }
       }
     }
 
@@ -359,6 +367,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const currentRoom = roomRefState.current;
       if (!profile || !currentRoom || !currentRoom.players?.[profile.id] || !db || currentRoom.status !== 'playing') return;
       const p = currentRoom.players[profile.id];
+      const now = Date.now();
+      const isStunned = now < (p.stunnedUntil || 0);
+
+      if (isStunned) return;
 
       if ((e.code === 'KeyW' || e.code === 'ArrowUp') && !p.isDashing) {
         const currentJumpCount = p.jumpCount || 0;
@@ -372,9 +384,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
       
       if (e.code === 'Space') {
-        const now = Date.now();
         const hasCharges = p.dashCharges > 0;
-        const hasStamina = (p.stamina || 0) >= STAMINA_DASH_COST;
+        const dashCost = p.weaponClass === 'Dagger' ? STAMINA_DASH_COST_DAGGER : STAMINA_DASH_COST;
+        const hasStamina = (p.stamina || 0) >= dashCost;
 
         if (!hasCharges || !hasStamina) {
           setShakeUntil(now + 80);
@@ -398,7 +410,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             dashDirX: dx / dist,
             dashDirY: dy / dist,
             dashCharges: p.dashCharges - 1,
-            stamina: (p.stamina || 0) - STAMINA_DASH_COST
+            stamina: (p.stamina || 0) - dashCost
           });
         }
       }
@@ -449,9 +461,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (!profile || !currentRoom || !currentRoom.players?.[profile.id] || !db || currentRoom.status !== 'playing') return;
     
     const p = currentRoom.players[profile.id];
+    const now = Date.now();
+    const isStunned = now < (p.stunnedUntil || 0);
+
+    if (isStunned) return;
+
     const weapon = p.weaponClass as WeaponClass;
     const stats = WEAPON_STATS[weapon];
-    const now = Date.now();
     
     const reloadRemaining = (stats.delay * 1000) - (now - (p.lastAttackTime || 0));
     const onCooldown = reloadRemaining > 0;
@@ -540,15 +556,20 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const p = roomRefState.current?.players?.[profile.id];
     if (!p) return;
     
+    const now = Date.now();
     const stats = WEAPON_STATS[p.weaponClass as WeaponClass];
     const enemyRef = ref(db, `rooms/${roomId}/players/${id}`);
     const newHp = Math.max(0, enemy.hp - stats.damage);
     const updates: any = { hp: newHp };
     
     if (p.weaponClass === 'Sword') {
-      updates.slowUntil = Date.now() + 400;
+      updates.slowUntil = now + 400;
+      // Stun check
+      if (now > (enemy.stunCooldownUntil || 0)) {
+        updates.stunnedUntil = now + STUN_DURATION;
+        updates.stunCooldownUntil = now + STUN_COOLDOWN;
+      }
     }
-    update(enemyRef, updates);
 
     if (p.weaponClass === 'Bow') {
       const healAmount = stats.damage * 0.3;
@@ -556,6 +577,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       update(ref(db, `rooms/${roomId}/players/${profile.id}`), { hp: newMyHp });
     }
 
+    update(enemyRef, updates);
     setFlash({ type: 'dealt', time: Date.now() });
     if (newHp === 0) handleKill(id);
   };
@@ -588,6 +610,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             dashRechargeProgress: 0,
             lastAttackTime: 0,
             slowUntil: 0,
+            stunnedUntil: 0,
+            stunCooldownUntil: 0,
             isDashing: false,
             dashTimeLeft: 0
           });
@@ -710,6 +734,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const py = p.y * PIXELS_PER_METER;
       const pw = PLAYER_WIDTH * PIXELS_PER_METER;
       const ph = PLAYER_HEIGHT * PIXELS_PER_METER;
+      const isStunned = now < (p.stunnedUntil || 0);
 
       ctx.save();
       ctx.fillStyle = p.color;
@@ -733,6 +758,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       if (now < (p.slowUntil || 0)) {
         ctx.fillStyle = 'rgba(100, 100, 255, 0.4)';
         ctx.fill();
+      }
+      
+      if (isStunned) {
+        ctx.fillStyle = 'rgba(255, 255, 0, 0.3)';
+        ctx.fill();
+        ctx.strokeStyle = 'yellow';
+        ctx.lineWidth = 6;
+        ctx.stroke();
       }
       ctx.restore();
 
@@ -840,6 +873,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.textAlign = 'center';
       ctx.strokeText(p.name, px + pw/2, py - 25);
       ctx.fillText(p.name, px + pw/2, py - 25);
+
+      if (isStunned) {
+        ctx.fillStyle = 'yellow';
+        ctx.font = 'bold 10px Fredoka';
+        ctx.fillText('STUNNED!', px + pw/2, py - 40);
+      }
     });
 
     effectNumbersRef.current.forEach((en) => {
@@ -871,6 +910,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   const now = Date.now();
   const alerts: { text: string, color: string, alpha: number }[] = [];
+  const isStunned = myP && now < (myP.stunnedUntil || 0);
+  const stunRemaining = myP ? Math.max(0, (myP.stunnedUntil || 0) - now) : 0;
+  const stunCDRemaining = myP ? Math.max(0, (myP.stunCooldownUntil || 0) - now) : 0;
+
   if (myP) {
     const stats = WEAPON_STATS[myP.weaponClass as WeaponClass];
     const reloadRemaining = (stats.delay * 1000) - (now - (myP.lastAttackTime || 0));
@@ -1021,7 +1064,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           )}
         </div>
 
-        <div className="absolute bottom-6 left-6 p-4 cartoon-card bg-black/60 backdrop-blur-md min-w-[240px] space-y-3 z-50">
+        <div className={`absolute bottom-6 left-6 p-4 cartoon-card bg-black/60 backdrop-blur-md min-w-[240px] space-y-3 z-50 transition-all duration-300 ${isStunned ? 'blur-sm scale-95 opacity-80' : ''}`}>
           <div className="space-y-1">
             <div className="flex justify-between items-center px-1">
               <span className="font-headline text-[10px] text-white/80 flex items-center gap-1 uppercase tracking-tight">
@@ -1050,6 +1093,15 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
               {Math.floor(myP?.stamina || 0)}
             </span>
           </div>
+
+          {isStunned && (
+            <div className="absolute inset-0 flex items-center justify-center z-[60]">
+               <div className="bg-yellow-500/90 border-4 border-black px-4 py-1 rounded-xl flex items-center gap-2 shadow-[4px_4px_0px_rgba(0,0,0,1)]">
+                 <Ban className="w-5 h-5 text-black" />
+                 <span className="font-headline text-black text-lg">STUNNED: {(stunRemaining / 1000).toFixed(1)}s</span>
+               </div>
+            </div>
+          )}
           
           <div className="space-y-1 pt-1 border-t border-white/10">
             <div className="flex justify-between items-center px-1">
@@ -1063,8 +1115,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                 }
               </span>
             </div>
-            <div className="flex items-center gap-2 px-1">
-              <div className="flex gap-1.5">
+            <div className="flex justify-between items-center px-1">
+               <div className="flex gap-1.5">
                 {Array.from({ length: maxDash }).map((_, i) => (
                   <div 
                     key={i} 
@@ -1072,6 +1124,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                   />
                 ))}
               </div>
+              {stunCDRemaining > 0 && (
+                <span className="font-headline text-[8px] text-white/40 uppercase">STUN CD: {(stunCDRemaining / 1000).toFixed(1)}s</span>
+              )}
             </div>
           </div>
         </div>

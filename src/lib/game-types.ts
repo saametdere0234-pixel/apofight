@@ -23,6 +23,8 @@ export interface GamePlayer extends PlayerProfile {
   lastAttackAngle?: number; // Synced angle for VFX
   roundsWon: number;
   slowUntil?: number; // Timestamp until which the player is slowed
+  stunnedUntil?: number; // Timestamp until which the player is stunned
+  stunCooldownUntil?: number; // Timestamp until which the player is immune to stun
   // Dash Physics
   isDashing?: boolean;
   dashTimeLeft?: number;
@@ -42,7 +44,7 @@ export interface GameRoom {
 
 export const WEAPON_STATS = {
   Sword: {
-    damage: 300,
+    damage: 250,
     range: 5.0, 
     angle: 70, 
     delay: 2.0, 
@@ -56,7 +58,7 @@ export const WEAPON_STATS = {
   Bow: {
     damage: 200,
     range: 14.0,
-    angle: 5, // Tightened angle for precise line detection
+    angle: 5, 
     delay: 2.0,
   },
 };
@@ -78,4 +80,8 @@ export const FAST_FALL_SPEED = 40;
 export const STAMINA_MAX = 100;
 export const STAMINA_REGEN_RATE = 10; // per second
 export const STAMINA_DASH_COST = 30;
+export const STAMINA_DASH_COST_DAGGER = 15;
 export const STAMINA_ATTACK_COST = 25;
+
+export const STUN_DURATION = 800; // ms
+export const STUN_COOLDOWN = 8000; // ms
