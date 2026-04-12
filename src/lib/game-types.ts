@@ -22,6 +22,7 @@ export interface GamePlayer extends PlayerProfile {
   lastAttackTime: number;
   lastAttackAngle?: number; // Synced angle for VFX
   roundsWon: number;
+  slowUntil?: number; // Timestamp until which the player is slowed
 }
 
 export interface GameRoom {
@@ -38,19 +39,19 @@ export const WEAPON_STATS = {
     damage: 300,
     range: 5.5,
     angle: 60, // degrees
-    delay: 0.6,
+    delay: 2.0, // 2 seconds between attacks
   },
   Dagger: {
     damage: 200,
     range: 3.0,
     angle: 360, // 360 for circular AoE
-    delay: 0.25,
+    delay: 0.5, // 0.5 seconds between attacks
   },
   Bow: {
     damage: 100,
     range: 12.0,
     angle: 15,
-    delay: 0.8,
+    delay: 2.0, // 2 seconds between attacks
   },
 };
 

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -31,6 +30,14 @@ import { useRouter } from 'next/navigation';
 import { Trophy, ArrowLeft, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
+interface DamageNumber {
+  id: string;
+  x: number;
+  y: number;
+  amount: number;
+  startTime: number;
+}
+
 export default function GamePage({ params }: { params: Promise<{ roomId: string }> }) {
   const { roomId } = use(params);
   const { profile, loading: profileLoading, updateProfile } = useLocalPlayer();
@@ -45,11 +52,44 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   // Visual FX State
   const [flash, setFlash] = useState<{ type: 'taken' | 'dealt' | null, time: number }>({ type: null, time: 0 });
   const [dashTrail, setDashTrail] = useState<{ x1: number, y1: number, x2: number, y2: number, color: string, time: number } | null>(null);
+  const [damageNumbers, setDamageNumbers] = useState<DamageNumber[]>([]);
+  const damageNumbersRef = useRef<DamageNumber[]>([]);
   const lastHpRef = useRef<number>(1000);
+  const prevPlayersHpRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     roomRefState.current = room;
+    
+    // Sync damage numbers globally by watching HP changes
+    if (room?.players) {
+      Object.entries(room.players).forEach(([id, p]) => {
+        const prevHp = prevPlayersHpRef.current[id];
+        if (prevHp !== undefined && p.hp < prevHp) {
+          const diff = prevHp - p.hp;
+          const newDN = {
+            id: Math.random().toString(),
+            x: p.x + PLAYER_WIDTH / 2,
+            y: p.y,
+            amount: Math.round(diff),
+            startTime: Date.now()
+          };
+          setDamageNumbers(prev => [...prev, newDN]);
+          damageNumbersRef.current.push(newDN);
+        }
+        prevPlayersHpRef.current[id] = p.hp;
+      });
+    }
   }, [room]);
+
+  // Clean up old damage numbers
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      setDamageNumbers(prev => prev.filter(dn => now - dn.startTime < 800));
+      damageNumbersRef.current = damageNumbersRef.current.filter(dn => now - dn.startTime < 800);
+    }, 100);
+    return () => clearInterval(interval);
+  }, []);
 
   // Effect to detect damage taken for screen flash
   useEffect(() => {
@@ -129,13 +169,16 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     nextY += nextVy * dt;
 
-    // Movement
+    // Movement (Applying Slow Effect if active)
+    const isSlowed = Date.now() < (p.slowUntil || 0);
+    const speed = isSlowed ? MOVE_SPEED * 0.5 : MOVE_SPEED;
+
     if (keys.has('KeyA') || keys.has('ArrowLeft')) {
-      nextX -= MOVE_SPEED * dt;
+      nextX -= speed * dt;
       nextFacing = 'left';
     }
     if (keys.has('KeyD') || keys.has('ArrowRight')) {
-      nextX += MOVE_SPEED * dt;
+      nextX += speed * dt;
       nextFacing = 'right';
     }
 
@@ -331,7 +374,15 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const stats = WEAPON_STATS[p.weaponClass as WeaponClass];
     const enemyRef = ref(db, `rooms/${roomId}/players/${id}`);
     const newHp = Math.max(0, enemy.hp - stats.damage);
-    update(enemyRef, { hp: newHp });
+    
+    const updates: any = { hp: newHp };
+    
+    // Sword Slow Passive
+    if (p.weaponClass === 'Sword') {
+      updates.slowUntil = Date.now() + 400; // 0.4s slow
+    }
+
+    update(enemyRef, updates);
 
     // Bow Life Steal Passive
     if (p.weaponClass === 'Bow') {
@@ -375,7 +426,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             jumpCount: 0,
             dashCharges: getMaxDashCharges(p.weaponClass as WeaponClass),
             dashRechargeProgress: 0,
-            lastAttackTime: 0
+            lastAttackTime: 0,
+            slowUntil: 0
           });
         });
         update(roomRef, { status: 'playing' });
@@ -433,7 +485,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     // LAYER 1: Attack Indicators (Below players)
     Object.values(currentRoom.players || {}).forEach(p => {
       const now = Date.now();
-      const attackDuration = 500; // Increased to 0.5s
+      const attackDuration = 500;
       const timeSinceAttack = now - (p.lastAttackTime || 0);
 
       if (timeSinceAttack < attackDuration) {
@@ -497,11 +549,18 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const pw = PLAYER_WIDTH * PIXELS_PER_METER;
       const ph = PLAYER_HEIGHT * PIXELS_PER_METER;
 
+      ctx.save();
       ctx.shadowBlur = 15;
       ctx.shadowColor = p.color;
       ctx.fillStyle = p.color;
       ctx.fillRect(px, py, pw, ph);
-      ctx.shadowBlur = 0;
+      
+      // If slowed, draw a slight blue overlay
+      if (Date.now() < (p.slowUntil || 0)) {
+        ctx.fillStyle = 'rgba(100, 100, 255, 0.4)';
+        ctx.fillRect(px, py, pw, ph);
+      }
+      ctx.restore();
 
       ctx.fillStyle = 'white';
       const eyeX = p.facing === 'right' ? px + pw - 8 : px + 4;
@@ -518,6 +577,23 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.font = 'bold 10px Inter';
       ctx.textAlign = 'center';
       ctx.fillText(p.name, px + pw/2, py - 20);
+    });
+
+    // LAYER 3: Damage Numbers
+    const now = Date.now();
+    damageNumbersRef.current.forEach((dn) => {
+      const elapsed = now - dn.startTime;
+      if (elapsed > 800) return;
+      const alpha = 1 - (elapsed / 800);
+      const dy = (elapsed / 800) * 40; // upward movement
+      
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#ff4444';
+      ctx.font = 'bold 16px Space Grotesk';
+      ctx.textAlign = 'center';
+      ctx.fillText(dn.amount.toString(), dn.x * PIXELS_PER_METER, dn.y * PIXELS_PER_METER - 30 - dy);
+      ctx.restore();
     });
 
     ctx.strokeStyle = 'rgba(191, 90, 60, 0.5)';
@@ -639,6 +715,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           {myP?.weaponClass === 'Bow' && (
             <div className="pt-1 border-t border-white/5">
               <span className="text-accent uppercase text-[9px] font-bold">Passive: Life Steal 30%</span>
+            </div>
+          )}
+          {myP && Date.now() < (myP.slowUntil || 0) && (
+            <div className="pt-1 border-t border-white/5">
+              <span className="text-red-400 uppercase text-[9px] font-bold animate-pulse">Status: Slowed</span>
             </div>
           )}
         </div>
