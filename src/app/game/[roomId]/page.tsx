@@ -31,7 +31,7 @@ import {
   SPAWN_POINTS
 } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
-import { Trophy, ArrowLeft, Play, Zap, Heart, Users, Ban } from 'lucide-react';
+import { Trophy, ArrowLeft, Play, Zap, Heart, Users, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface GameEffectNumber {
@@ -147,9 +147,37 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const prevPlayersHpRef = useRef<Record<string, number>>({});
   const [recentHeal, setRecentHeal] = useState<{ amount: number, time: number } | null>(null);
 
+  const handleQuit = useCallback(async () => {
+    if (!db || !roomId || !profile) return;
+    const roomPath = ref(db, `rooms/${roomId}`);
+    const myPlayerRef = ref(db, `rooms/${roomId}/players/${profile.id}`);
+    
+    const snapshot = await get(roomPath);
+    if (snapshot.exists()) {
+      const roomData = snapshot.val() as GameRoom;
+      const otherPlayers = Object.keys(roomData.players || {}).filter(id => id !== profile.id);
+      
+      if (otherPlayers.length === 0) {
+        await remove(roomPath);
+      } else {
+        await remove(myPlayerRef);
+      }
+    }
+    router.push('/lobby');
+  }, [profile, roomId, router]);
+
   useEffect(() => {
     roomRefState.current = room;
     if (room?.players) {
+      const pIds = Object.keys(room.players);
+      const playerCount = pIds.length;
+
+      // Close room and kick if only one player is left during an active game
+      if (playerCount === 1 && room.status !== 'lobby') {
+        handleQuit();
+        return;
+      }
+
       Object.entries(room.players).forEach(([id, p]) => {
         const prevHp = prevPlayersHpRef.current[id];
         
@@ -215,7 +243,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
     }
-  }, [room, profile?.id, roomId]);
+  }, [room, profile?.id, roomId, handleQuit]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -319,25 +347,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       });
     };
   }, [profile, profileLoading, roomId, router]);
-
-  const handleQuit = async () => {
-    if (!db || !roomId || !profile) return;
-    const roomPath = ref(db, `rooms/${roomId}`);
-    const myPlayerRef = ref(db, `rooms/${roomId}/players/${profile.id}`);
-    
-    const snapshot = await get(roomPath);
-    if (snapshot.exists()) {
-      const roomData = snapshot.val() as GameRoom;
-      const otherPlayers = Object.keys(roomData.players || {}).filter(id => id !== profile.id);
-      
-      if (otherPlayers.length === 0) {
-        await remove(roomPath);
-      } else {
-        await remove(myPlayerRef);
-      }
-    }
-    router.push('/lobby');
-  };
 
   const updateGameLogic = useCallback((dt: number) => {
     const currentRoom = roomRefState.current;
