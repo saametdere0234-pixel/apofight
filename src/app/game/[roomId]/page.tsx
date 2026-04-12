@@ -308,7 +308,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         const hasStamina = (p.stamina || 0) >= STAMINA_DASH_COST;
 
         if (!hasCharges || !hasStamina) {
-          setShakeUntil(now + 100);
+          setShakeUntil(now + 80);
           setFeedback(prev => ({
             ...prev,
             lastDashFail: !hasCharges ? now : prev.lastDashFail,
@@ -389,7 +389,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const hasStamina = (p.stamina || 0) >= STAMINA_ATTACK_COST;
 
     if (onCooldown || !hasStamina) {
-      setShakeUntil(now + 100);
+      setShakeUntil(now + 80);
       setFeedback(prev => ({
         ...prev,
         lastReloadFail: onCooldown ? now : prev.lastReloadFail,
@@ -414,7 +414,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     Object.entries(currentRoom.players).forEach(([id, enemy]) => {
       if (id === profile.id || enemy.hp <= 0) return;
       
-      // Bounding box for accurate hitbox
       const exMin = enemy.x;
       const exMax = enemy.x + PLAYER_WIDTH;
       const eyMin = enemy.y;
@@ -426,7 +425,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const dy = ey - py;
       const distToEnemyCenter = Math.sqrt(dx * dx + dy * dy);
 
-      // Early range check
       if (distToEnemyCenter > stats.range + 2) return; 
 
       if (weapon === 'Dagger') {
@@ -442,7 +440,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           }
         }
       } else if (weapon === 'Bow') {
-        // Hitscan Line-to-Rectangle Segment Check
         const x2 = px + Math.cos(attackAngle) * stats.range;
         const y2 = py + Math.sin(attackAngle) * stats.range;
         
@@ -453,13 +450,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     });
   };
 
-  // Helper for line segment vs rectangle intersection
   const checkLineRect = (x1: number, y1: number, x2: number, y2: number, minX: number, minY: number, maxX: number, maxY: number) => {
-    // Check if either end is inside
     if (x1 >= minX && x1 <= maxX && y1 >= minY && y1 <= maxY) return true;
     if (x2 >= minX && x2 <= maxX && y2 >= minY && y2 <= maxY) return true;
 
-    // Check intersection with all 4 sides
     return lineIntersect(x1, y1, x2, y2, minX, minY, minX, maxY) ||
            lineIntersect(x1, y1, x2, y2, maxX, minY, maxX, maxY) ||
            lineIntersect(x1, y1, x2, y2, minX, minY, maxX, minY) ||
@@ -676,37 +670,63 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.restore();
 
       ctx.save();
+      const flip = p.facing === 'right' ? 1 : -1;
+      const handX = p.facing === 'right' ? px + pw - 8 : px + 8;
+      const handY = py + ph * 0.55;
+
+      ctx.translate(handX, handY);
+      ctx.scale(flip, 1);
       ctx.strokeStyle = 'black';
       ctx.lineWidth = 3;
-      const weaponX = p.facing === 'right' ? px + pw + 5 : px - 15;
-      const weaponY = py + ph / 2;
-      const flip = p.facing === 'right' ? 1 : -1;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
 
       if (p.weaponClass === 'Sword') {
         ctx.fillStyle = '#cbd5e1';
         ctx.beginPath();
-        ctx.rect(weaponX, weaponY - 15, 10 * flip, 30);
+        ctx.moveTo(4, -2);
+        ctx.lineTo(32, -2);
+        ctx.lineTo(36, 0);
+        ctx.lineTo(32, 2);
+        ctx.lineTo(4, 2);
+        ctx.closePath();
         ctx.fill();
         ctx.stroke();
+        
         ctx.fillStyle = '#451a03';
-        ctx.fillRect(weaponX - 2 * flip, weaponY - 2, 4 * flip, 4);
+        ctx.fillRect(4, -8, 3, 16);
+        ctx.strokeRect(4, -8, 3, 16);
+        
+        ctx.fillStyle = '#78350f';
+        ctx.fillRect(-6, -2.5, 10, 5);
+        ctx.strokeRect(-6, -2.5, 10, 5);
       } else if (p.weaponClass === 'Dagger') {
         ctx.fillStyle = '#94a3b8';
         ctx.beginPath();
-        ctx.rect(weaponX, weaponY - 5, 8 * flip, 10);
+        ctx.moveTo(3, -1.5);
+        ctx.lineTo(14, -1.5);
+        ctx.lineTo(18, 0);
+        ctx.lineTo(14, 1.5);
+        ctx.lineTo(3, 1.5);
+        ctx.closePath();
         ctx.fill();
         ctx.stroke();
+
+        ctx.fillStyle = '#451a03';
+        ctx.fillRect(-4, -2.5, 7, 5);
+        ctx.strokeRect(-4, -2.5, 7, 5);
       } else if (p.weaponClass === 'Bow') {
         ctx.strokeStyle = '#78350f';
         ctx.lineWidth = 4;
         ctx.beginPath();
-        ctx.arc(weaponX, weaponY, 15, -Math.PI/2, Math.PI/2, p.facing === 'left');
+        ctx.arc(0, 0, 15, -Math.PI/2, Math.PI/2);
         ctx.stroke();
-        ctx.strokeStyle = 'white';
+        
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(weaponX, weaponY - 15);
-        ctx.lineTo(weaponX, weaponY + 15);
+        ctx.moveTo(0, -14);
+        ctx.lineTo(0, 14);
         ctx.stroke();
       }
       ctx.restore();
