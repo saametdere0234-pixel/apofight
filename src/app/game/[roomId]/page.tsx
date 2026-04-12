@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -168,21 +167,31 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   }, [profile, roomId, router]);
 
   const handlePlayAgain = useCallback(async () => {
-    if (!db || !roomId || !room) return;
+    if (!db || !roomId || !room || !profile) return;
     
-    const updates: any = {
-      status: 'lobby',
-      lastWinnerName: null,
-      startTime: null
-    };
+    // Set current player as ready
+    const myPlayerRef = ref(db, `rooms/${roomId}/players/${profile.id}`);
+    update(myPlayerRef, { isReady: true });
 
-    // Reset rounds won for all players so the match starts clean
-    Object.keys(room.players).forEach(pid => {
-      updates[`players/${pid}/roundsWon`] = 0;
-    });
+    // Check if everyone is ready to transition the global room state
+    const players = Object.values(room.players);
+    const allReady = players.every(p => p.id === profile.id ? true : (p.isReady === true));
 
-    update(ref(db, `rooms/${roomId}`), updates);
-  }, [roomId, room]);
+    if (allReady) {
+      const updates: any = {
+        status: 'lobby',
+        lastWinnerName: null,
+        startTime: null
+      };
+
+      // Reset rounds won for everyone
+      players.forEach(p => {
+        updates[`players/${p.id}/roundsWon`] = 0;
+      });
+
+      update(ref(db, `rooms/${roomId}`), updates);
+    }
+  }, [roomId, room, profile]);
 
   useEffect(() => {
     roomRefState.current = room;
@@ -191,7 +200,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const playerCount = pIds.length;
       const hostPresent = !!room.players[room.createdBy];
 
-      // Robust Host Transfer: Only transfer if host is missing
       if (!hostPresent && playerCount > 0) {
         const nextHostId = pIds[0];
         if (profile?.id === nextHostId) {
@@ -199,7 +207,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
 
-      // Handle solo player: Return to lobby if not already there or finished
       if (playerCount === 1) {
         const onlyPlayerId = pIds[0];
         if (onlyPlayerId === profile?.id) {
@@ -351,7 +358,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           dashDirX: 0,
           dashDirY: 0,
           stunnedUntil: 0,
-          stunCooldownUntil: 0
+          stunCooldownUntil: 0,
+          isReady: true // New players join ready for lobby
         };
 
         lastHpRef.current = weaponStats.maxHp;
@@ -737,8 +745,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       lastWinnerName: winner.name
     };
     
-    if (winnersRounds >= 3 && profile?.id === winnerId) {
-      updateProfile({ medals: profile.medals + 1 });
+    // When game finishes, everyone is marked as not ready for the results screen
+    if (winnersRounds >= 3) {
+      Object.keys(currentRoom.players).forEach(pid => {
+        updates[`players/${pid}/isReady`] = false;
+      });
     }
 
     update(roomRef, updates);
@@ -1056,7 +1067,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const stunCDRemaining = myP ? Math.max(0, (myP.stunCooldownUntil || 0) - now) : 0;
 
   if (myP) {
-    const weaponStats = (WEAPON_STATS[myP.weaponClass as WeaponClass] || WEAPON_STATS.Sword);
+    const weaponStats = WEAPON_STATS[myP.weaponClass as WeaponClass] || WEAPON_STATS.Sword;
     const reloadRemaining = (weaponStats.delay * 1000) - (now - (myP.lastAttackTime || 0));
     const dashRemaining = weaponStats.dashCooldown - (myP.dashRechargeProgress || 0);
 
@@ -1104,6 +1115,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       countdownText = 'GO!';
     }
   }
+
+  // Determine if we should show the results screen or the standby screen
+  const isLocalReady = myP?.isReady ?? false;
+  const showResults = room?.status === 'finished' && !isLocalReady;
+  const showLobby = room?.status === 'lobby' || (room?.status === 'finished' && isLocalReady);
 
   return (
     <div className="min-h-screen bg-[#000035] overflow-hidden flex flex-col items-center select-none" onMouseMove={handleMouseMove}>
@@ -1192,7 +1208,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             </div>
           )}
 
-          {room?.status === 'lobby' && (
+          {showLobby && room && (
              <div className="absolute inset-0 bg-black/80 backdrop-blur-lg flex flex-col items-center justify-center z-50 space-y-10">
                 <h2 className="text-7xl font-headline text-white animate-bounce-subtle">ARENA STANDBY</h2>
                 <div className="flex gap-8">
@@ -1202,6 +1218,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                         <div className="w-16 h-16 rounded-2xl border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]" style={{ backgroundColor: p.color }} />
                         {p.id === room?.createdBy && (
                           <Crown className="absolute -top-6 -right-6 w-10 h-10 text-yellow-500 fill-yellow-500 rotate-12 drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]" />
+                        )}
+                        {/* Waiting Indicator for results screen */}
+                        {!p.isReady && room.status === 'finished' && (
+                          <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center rounded-2xl">
+                             <div className="w-6 h-6 border-2 border-white border-t-transparent animate-spin rounded-full mb-1" />
+                             <span className="text-[10px] font-headline text-white tracking-widest">WAITING...</span>
+                          </div>
                         )}
                       </div>
                       <span className="font-headline text-lg text-white">{p.name}</span>
@@ -1255,7 +1278,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             </div>
           )}
 
-          {room?.status === 'finished' && (
+          {showResults && room && (
              <div className="absolute inset-0 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center z-50 p-10 text-center space-y-10">
                 <Trophy className="w-32 h-32 text-yellow-500 animate-pulse drop-shadow-[8px_8px_0px_rgba(0,0,0,1)]" />
                 <h2 className="text-8xl font-headline text-white italic">

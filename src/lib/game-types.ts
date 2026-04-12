@@ -25,6 +25,7 @@ export interface GamePlayer extends PlayerProfile {
   slowUntil?: number; // Timestamp until which the player is slowed
   stunnedUntil?: number; // Timestamp until which the player is stunned
   stunCooldownUntil?: number; // Timestamp until which the player is immune to stun
+  isReady?: boolean; // For Play Again synchronization
   // Dash Physics
   isDashing?: boolean;
   dashTimeLeft?: number;
