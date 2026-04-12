@@ -305,7 +305,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const cooldownRemaining = (stats.delay * 1000) - (now - (p.lastAttackTime || 0));
     const onCooldown = cooldownRemaining > 0;
 
-    // Check Cooldown First
+    // Check Cooldown First (Highest Priority)
     if (onCooldown) {
       setShakeUntil(now + 100);
       return;
@@ -318,21 +318,19 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       return;
     }
 
-    // Success logic starts here - No shake as requested for success
+    // Success logic starts here
     const px = p.x + PLAYER_WIDTH / 2;
     const py = p.y + PLAYER_HEIGHT / 2;
     const mx = mouseRef.current.x;
     const my = mouseRef.current.y;
     const attackAngle = Math.atan2(my - py, mx - px);
 
-    // Synchronize Visual Immediately
     update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
       lastAttackTime: now,
       lastAttackAngle: attackAngle,
       stamina: (p.stamina || 0) - STAMINA_ATTACK_COST
     });
 
-    // Immediate hit detection to remove perceived input lag
     Object.entries(currentRoom.players).forEach(([id, enemy]) => {
       if (id === profile.id || enemy.hp <= 0) return;
       
@@ -571,14 +569,15 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.shadowBlur = 4;
       ctx.shadowColor = 'black';
 
-      if (hasStaminaErr) {
+      // Priority Logic: Reload (Red) text takes priority first
+      if (cooldownRemaining > 0) {
+        ctx.fillStyle = '#ff4444'; // Red for reload
+        ctx.fillText(`${(cooldownRemaining / 1000).toFixed(1)}s`, mouseRef.current.x * PIXELS_PER_METER, mouseRef.current.y * PIXELS_PER_METER + 25);
+      } else if (hasStaminaErr) {
         const alpha = 1 - (now - staminaError!.time) / 500;
         ctx.globalAlpha = alpha;
-        ctx.fillStyle = '#ff4444';
+        ctx.fillStyle = '#409cff'; // Light Blue for stamina as requested
         ctx.fillText(staminaError!.msg, mouseRef.current.x * PIXELS_PER_METER, mouseRef.current.y * PIXELS_PER_METER + 25);
-      } else if (cooldownRemaining > 0) {
-        ctx.fillStyle = '#ff4444';
-        ctx.fillText(`${(cooldownRemaining / 1000).toFixed(1)}s`, mouseRef.current.x * PIXELS_PER_METER, mouseRef.current.y * PIXELS_PER_METER + 25);
       }
       ctx.restore();
     }
