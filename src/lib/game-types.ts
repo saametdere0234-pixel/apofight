@@ -92,7 +92,7 @@ export const STAMINA_DASH_COST = 30;
 export const STAMINA_DASH_COST_DAGGER = 20;
 export const STAMINA_ATTACK_COST = 25;
 
-export const STUN_DURATION = 800; // ms
+export const STUN_DURATION = 3000; // ms (Increased from 800ms)
 export const STUN_COOLDOWN = 8000; // ms
 
 export const SPAWN_POINTS = [
