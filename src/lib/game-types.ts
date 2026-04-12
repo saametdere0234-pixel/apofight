@@ -91,3 +91,12 @@ export const STAMINA_ATTACK_COST = 25;
 
 export const STUN_DURATION = 800; // ms
 export const STUN_COOLDOWN = 8000; // ms
+
+export const SPAWN_POINTS = [
+  { x: 2, y: GROUND_Y - PLAYER_HEIGHT }, // Far Left
+  { x: ARENA_WIDTH - 2 - PLAYER_WIDTH, y: GROUND_Y - PLAYER_HEIGHT }, // Far Right
+  { x: 10, y: GROUND_Y - PLAYER_HEIGHT }, // Left Center
+  { x: 30, y: GROUND_Y - PLAYER_HEIGHT }, // Right Center
+  { x: 16, y: GROUND_Y - PLAYER_HEIGHT }, // Middle Left
+  { x: 24, y: GROUND_Y - PLAYER_HEIGHT }  // Middle Right
+];

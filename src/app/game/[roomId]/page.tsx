@@ -27,7 +27,8 @@ import {
   STAMINA_DASH_COST_DAGGER,
   STAMINA_ATTACK_COST,
   STUN_DURATION,
-  STUN_COOLDOWN
+  STUN_COOLDOWN,
+  SPAWN_POINTS
 } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
 import { Trophy, ArrowLeft, Play, Zap, Heart, Users, Ban } from 'lucide-react';
@@ -91,6 +92,32 @@ const WeaponIcon = ({ weapon, className = "w-6 h-6" }: { weapon: WeaponClass; cl
     );
   }
   return null;
+};
+
+const getBestSpawnPoint = (points: typeof SPAWN_POINTS, existingPositions: {x: number, y: number}[]) => {
+  if (existingPositions.length === 0) {
+    return points[Math.floor(Math.random() * points.length)];
+  }
+  
+  let bestPoint = points[0];
+  let maxMinDist = -1;
+  
+  points.forEach(point => {
+    let minDist = Infinity;
+    existingPositions.forEach(pos => {
+      const d = Math.sqrt(Math.pow(point.x - pos.x, 2) + Math.pow(point.y - pos.y, 2));
+      if (d < minDist) minDist = d;
+    });
+    
+    if (minDist > maxMinDist) {
+      maxMinDist = minDist;
+      bestPoint = point;
+    } else if (minDist === maxMinDist) {
+      if (Math.random() > 0.5) bestPoint = point;
+    }
+  });
+  
+  return bestPoint;
 };
 
 export default function GamePage({ params }: { params: Promise<{ roomId: string }> }) {
@@ -194,29 +221,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const myPlayerRef = ref(db, `rooms/${roomId}/players/${profile.id}`);
     
     const weaponStats = WEAPON_STATS[profile.weaponClass];
-    const initialPlayer: GamePlayer = {
-      ...profile,
-      x: Math.random() * (ARENA_WIDTH - 5) + 2,
-      y: GROUND_Y - PLAYER_HEIGHT,
-      vy: 0,
-      hp: weaponStats.maxHp,
-      stamina: STAMINA_MAX,
-      facing: 'right',
-      isJumping: false,
-      jumpCount: 0,
-      dashCharges: getMaxDashCharges(profile.weaponClass),
-      dashRechargeProgress: 0,
-      lastAttackTime: 0,
-      roundsWon: 0,
-      isDashing: false,
-      dashTimeLeft: 0,
-      dashDirX: 0,
-      dashDirY: 0,
-      stunnedUntil: 0,
-      stunCooldownUntil: 0
-    };
-
-    lastHpRef.current = weaponStats.maxHp;
 
     get(roomPath).then((snapshot) => {
       if (snapshot.exists()) {
@@ -228,6 +232,36 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           router.push('/lobby');
           return;
         }
+
+        const existingPositions = Object.values(roomData.players || {})
+          .filter(p => p.hp > 0)
+          .map(p => ({ x: p.x, y: p.y }));
+        
+        const bestSpawn = getBestSpawnPoint(SPAWN_POINTS, existingPositions);
+        
+        const initialPlayer: GamePlayer = {
+          ...profile,
+          x: bestSpawn.x,
+          y: bestSpawn.y,
+          vy: 0,
+          hp: weaponStats.maxHp,
+          stamina: STAMINA_MAX,
+          facing: 'right',
+          isJumping: false,
+          jumpCount: 0,
+          dashCharges: getMaxDashCharges(profile.weaponClass),
+          dashRechargeProgress: 0,
+          lastAttackTime: 0,
+          roundsWon: 0,
+          isDashing: false,
+          dashTimeLeft: 0,
+          dashDirX: 0,
+          dashDirY: 0,
+          stunnedUntil: 0,
+          stunCooldownUntil: 0
+        };
+
+        lastHpRef.current = weaponStats.maxHp;
         
         set(myPlayerRef, initialPlayer);
         update(roomPath, { lastUpdate: Date.now() });
@@ -626,14 +660,20 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       setTimeout(() => {
         const currentData = roomRefState.current;
         if (!currentData) return;
+        
+        const assignedSpawns: {x: number, y: number}[] = [];
+        
         Object.keys(currentData.players).forEach(pid => {
           const p = currentData.players[pid];
+          const bestSpawn = getBestSpawnPoint(SPAWN_POINTS, assignedSpawns);
+          assignedSpawns.push(bestSpawn);
+          
           const weaponStats = WEAPON_STATS[p.weaponClass as WeaponClass || 'Sword'];
           update(ref(db, `rooms/${roomId}/players/${pid}`), {
             hp: weaponStats.maxHp,
             stamina: STAMINA_MAX,
-            x: Math.random() * (ARENA_WIDTH - 5) + 2,
-            y: GROUND_Y - PLAYER_HEIGHT,
+            x: bestSpawn.x,
+            y: bestSpawn.y,
             vy: 0,
             jumpCount: 0,
             dashCharges: getMaxDashCharges(p.weaponClass as WeaponClass || 'Sword'),
