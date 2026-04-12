@@ -1,8 +1,9 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { ref, onValue, push, set } from 'firebase/database';
+import { ref, onValue, push, set, remove } from 'firebase/database';
 import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
@@ -24,7 +25,21 @@ export default function LobbyScreen() {
     if (!db) return;
     const roomsRef = ref(db, 'rooms');
     const unsubscribe = onValue(roomsRef, (snapshot) => {
-      setRooms(snapshot.val() || {});
+      const allRooms = snapshot.val() || {};
+      setRooms(allRooms);
+
+      // Automatic Room Deletion Logic (Reaper)
+      // Cleans up rooms with 0 players that aren't freshly created
+      Object.entries(allRooms).forEach(([id, room]: [string, any]) => {
+        const playerCount = Object.keys(room.players || {}).length;
+        const timeSinceUpdate = Date.now() - (room.lastUpdate || 0);
+        
+        // Safety: Only delete if empty AND it's been more than 10 seconds 
+        // since the room was last touched (prevents deletion during creation/join loading)
+        if (playerCount === 0 && timeSinceUpdate > 10000) {
+          remove(ref(db, `rooms/${id}`));
+        }
+      });
     });
     return () => unsubscribe();
   }, []);
@@ -40,6 +55,7 @@ export default function LobbyScreen() {
       currentRound: 1,
       lastUpdate: Date.now(),
       maxPlayers: maxPlayers,
+      players: {}
     };
     await set(newRoomRef, room);
     router.push(`/game/${newRoomRef.key}`);
@@ -170,9 +186,15 @@ export default function LobbyScreen() {
                               <Users className="w-3 h-3" />
                               {playerCount} / {room.maxPlayers || 4}
                             </div>
-                            <span className={`px-4 py-1 rounded-full border-2 border-black text-[10px] font-headline uppercase ${isFull ? 'bg-destructive text-white font-bold' : room.status === 'playing' ? 'bg-orange-500 text-white' : 'bg-primary text-white'}`}>
-                              {isFull ? 'FULL' : room.status}
-                            </span>
+                            {isFull ? (
+                              <span className="px-4 py-1 rounded-full border-2 border-black text-[10px] font-headline uppercase bg-black text-destructive font-bold">
+                                FULL
+                              </span>
+                            ) : (
+                              <span className={`px-4 py-1 rounded-full border-2 border-black text-[10px] font-headline uppercase ${room.status === 'playing' ? 'bg-orange-500 text-white' : 'bg-primary text-white'}`}>
+                                {room.status}
+                              </span>
+                            )}
                           </div>
                         </div>
                         <Button 

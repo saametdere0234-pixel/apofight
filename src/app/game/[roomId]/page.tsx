@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -52,12 +53,10 @@ const WeaponIcon = ({ weapon, className = "w-6 h-6" }: { weapon: WeaponClass; cl
     return (
       <div className={className}>
         <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-          <path d="M12 20L28 4L30 6L14 22L12 20Z" fill="#38bdf8" stroke="black" strokeWidth="2.5" strokeLinejoin="round"/>
-          <path d="M14 22L16 24L28 12L26 10L14 22Z" fill="#0ea5e9" stroke="black" strokeWidth="2.5" strokeLinejoin="round"/>
-          <path d="M10 18L18 26" stroke="black" strokeWidth="5" strokeLinecap="round"/>
-          <path d="M10 18L18 26" stroke="#facc15" strokeWidth="2.5" strokeLinecap="round"/>
-          <path d="M10 22L4 28" stroke="black" strokeWidth="5" strokeLinecap="round"/>
-          <path d="M10 22L4 28" stroke="#78350f" strokeWidth="2.5" strokeLinecap="round"/>
+          <path d="M14 22L12 20L28 4L32 8L14 22Z" fill="#cbd5e1" stroke="black" strokeWidth="2.5" />
+          <path d="M12 24L10 22L14 18L16 20L12 24Z" fill="#facc15" stroke="black" strokeWidth="2.5" />
+          <path d="M10 22L4 28" stroke="black" strokeWidth="5" strokeLinecap="round" />
+          <path d="M10 22L4 28" stroke="#451a03" strokeWidth="2.5" strokeLinecap="round" />
         </svg>
       </div>
     );
@@ -66,12 +65,9 @@ const WeaponIcon = ({ weapon, className = "w-6 h-6" }: { weapon: WeaponClass; cl
     return (
       <div className={className}>
         <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-          <path d="M16 16L24 8L28 12L20 20L16 16Z" fill="#d946ef" stroke="black" strokeWidth="2.5" strokeLinejoin="round"/>
-          <path d="M16 16L20 20L26 14L22 10L16 16Z" fill="#f5d0fe" stroke="black" strokeWidth="2.5" strokeLinejoin="round"/>
-          <path d="M14 14L20 20" stroke="black" strokeWidth="5" strokeLinecap="round"/>
-          <path d="M14 14L20 20" stroke="#701a75" strokeWidth="2.5" strokeLinecap="round"/>
-          <path d="M14 18L8 24" stroke="black" strokeWidth="5" strokeLinecap="round"/>
-          <path d="M14 18L8 24" stroke="#1e293b" strokeWidth="2.5" strokeLinecap="round"/>
+          <path d="M16 16L24 8L28 12L20 20L16 16Z" fill="#94a3b8" stroke="black" strokeWidth="2.5" />
+          <path d="M14 18L8 24" stroke="black" strokeWidth="5" strokeLinecap="round" />
+          <path d="M14 18L8 24" stroke="#1e293b" strokeWidth="2.5" strokeLinecap="round" />
         </svg>
       </div>
     );
@@ -80,10 +76,8 @@ const WeaponIcon = ({ weapon, className = "w-6 h-6" }: { weapon: WeaponClass; cl
     return (
       <div className={className}>
         <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-          <path d="M8 8C16 8 24 16 24 24" stroke="black" strokeWidth="5" strokeLinecap="round" fill="none"/>
-          <path d="M8 8C16 8 24 16 24 24" stroke="#f97316" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-          <path d="M8 8L24 24" stroke="black" strokeWidth="1.5" strokeDasharray="2 2" />
-          <circle cx="16" cy="16" r="3" fill="#ca8a04" stroke="black" strokeWidth="1.5" />
+          <path d="M8 8C16 8 24 16 24 24" stroke="#78350f" strokeWidth="3" fill="none" />
+          <path d="M8 8L24 24" stroke="rgba(255,255,255,0.3)" strokeWidth="1" />
         </svg>
       </div>
     );
@@ -223,6 +217,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
         
         set(myPlayerRef, initialPlayer);
+        update(roomPath, { lastUpdate: Date.now() });
         onDisconnect(myPlayerRef).remove();
       }
     });
@@ -237,9 +232,39 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     return () => {
       unsubscribe();
-      remove(myPlayerRef);
+      // Manual cleanup if we're navigating away
+      get(roomPath).then(s => {
+        if (s.exists()) {
+          const r = s.val();
+          const pIds = Object.keys(r.players || {}).filter(id => id !== profile.id);
+          if (pIds.length === 0) {
+            remove(roomPath);
+          } else {
+            remove(myPlayerRef);
+          }
+        }
+      });
     };
   }, [profile, profileLoading, roomId, router]);
+
+  const handleQuit = async () => {
+    if (!db || !roomId || !profile) return;
+    const roomPath = ref(db, `rooms/${roomId}`);
+    const myPlayerRef = ref(db, `rooms/${roomId}/players/${profile.id}`);
+    
+    const snapshot = await get(roomPath);
+    if (snapshot.exists()) {
+      const roomData = snapshot.val() as GameRoom;
+      const otherPlayers = Object.keys(roomData.players || {}).filter(id => id !== profile.id);
+      
+      if (otherPlayers.length === 0) {
+        await remove(roomPath);
+      } else {
+        await remove(myPlayerRef);
+      }
+    }
+    router.push('/lobby');
+  };
 
   const updateGameLogic = useCallback((dt: number) => {
     const currentRoom = roomRefState.current;
@@ -908,7 +933,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
       <header className="w-full p-4 flex justify-center items-center bg-black/60 backdrop-blur-xl border-b-8 border-black z-50">
         <div className="absolute left-4">
-          <Button variant="ghost" onClick={() => router.push('/lobby')} className="cartoon-button bg-destructive text-white h-12 px-6">
+          <Button variant="ghost" onClick={handleQuit} className="cartoon-button bg-destructive text-white h-12 px-6">
             <ArrowLeft className="w-5 h-5 mr-2" />
             QUIT
           </Button>
@@ -971,7 +996,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                     </Button>
                   ) : (
                     <div className="flex flex-col items-center animate-pulse">
-                      <span className="font-headline text-2xl text-white/40 uppercase tracking-widest">
+                      <span className="font-headline text-2xl text-white/40 uppercase tracking-widest text-center">
                         WAITING FOR CHALLENGERS...
                       </span>
                       <span className="text-xs font-bold text-primary uppercase mt-2">
@@ -991,7 +1016,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
              <div className="absolute inset-0 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center z-50 p-10 text-center space-y-10">
                 <Trophy className="w-32 h-32 text-yellow-500 animate-pulse drop-shadow-[8px_8px_0px_rgba(0,0,0,1)]" />
                 <h2 className="text-8xl font-headline text-white italic">CHAMPION!</h2>
-                <Button onClick={() => router.push('/lobby')} size="lg" className="cartoon-button bg-primary text-white text-2xl h-16 px-16">LOBBY</Button>
+                <Button onClick={handleQuit} size="lg" className="cartoon-button bg-primary text-white text-2xl h-16 px-16">LOBBY</Button>
              </div>
           )}
         </div>
