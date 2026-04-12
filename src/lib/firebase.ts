@@ -7,16 +7,14 @@ import { getDatabase } from 'firebase/database';
  * We use process.env as per Next.js standards.
  */
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+apiKey: "AIzaSyCnAituTyyU2JtWPnL1L1mYBzX45xKV1uI"
+authDomain: "studio-1664944821-7e3d5.firebaseapp.com"
+databaseURL: "https://studio-1664944821-7e3d5-default-rtdb.firebaseio.com"
+projectId: "studio-1664944821-7e3d5"
+ storageBucket: "studio-1664944821-7e3d5.firebasestorage.app"
+ messagingSenderId: "1002608889303"
+ appId: "1:1002608889303:web:51a341e375c883cb648f92"
 };
-
-/**
  * Validates the configuration and identifies missing keys for easier debugging.
  */
 const getMissingKeys = () => {
