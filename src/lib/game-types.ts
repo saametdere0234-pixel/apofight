@@ -44,10 +44,10 @@ export interface GameRoom {
 
 export const WEAPON_STATS = {
   Sword: {
-    damage: 250,
+    damage: 200,
     range: 5.0, 
     angle: 70, 
-    delay: 2.0, 
+    delay: 3.5, 
     maxHp: 1000,
     dashCooldown: 4.0
   },
