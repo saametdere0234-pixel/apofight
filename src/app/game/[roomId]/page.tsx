@@ -32,7 +32,7 @@ import {
   SPAWN_POINTS
 } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
-import { Trophy, ArrowLeft, Play, Zap, Heart, Users, ShieldAlert, Crown } from 'lucide-react';
+import { Trophy, ArrowLeft, Play, Zap, Heart, Users, ShieldAlert, Crown, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface GameEffectNumber {
@@ -166,6 +166,23 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     }
     router.push('/lobby');
   }, [profile, roomId, router]);
+
+  const handlePlayAgain = useCallback(async () => {
+    if (!db || !roomId || !room) return;
+    
+    const updates: any = {
+      status: 'lobby',
+      lastWinnerName: null,
+      startTime: null
+    };
+
+    // Reset rounds won for all players so the match starts clean
+    Object.keys(room.players).forEach(pid => {
+      updates[`players/${pid}/roundsWon`] = 0;
+    });
+
+    update(ref(db, `rooms/${roomId}`), updates);
+  }, [roomId, room]);
 
   useEffect(() => {
     roomRefState.current = room;
@@ -1244,7 +1261,15 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                 <h2 className="text-8xl font-headline text-white italic">
                   {room.lastWinnerName ? `${room.lastWinnerName.toUpperCase()} IS CHAMPION!` : 'CHAMPION!'}
                 </h2>
-                <Button onClick={handleQuit} size="lg" className="cartoon-button bg-primary text-white text-2xl h-16 px-16">LOBBY</Button>
+                <div className="flex gap-4">
+                  <Button onClick={handlePlayAgain} size="lg" className="cartoon-button bg-accent text-black text-2xl h-16 px-16 flex items-center gap-3">
+                    <RotateCcw className="w-6 h-6" />
+                    PLAY AGAIN
+                  </Button>
+                  <Button onClick={handleQuit} size="lg" className="cartoon-button bg-primary text-white text-2xl h-16 px-16">
+                    LOBBY
+                  </Button>
+                </div>
              </div>
           )}
         </div>
@@ -1265,7 +1290,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             <div className="juicy-bar h-6 bg-black/40">
               <div 
                 className="juicy-bar-fill bg-destructive transition-all duration-300"
-                style={{ width: `${(myP?.hp || 0) / (myWeaponStats.maxHp / 100)}%` }}
+                style={{ width: `${(myP?.hp || 0) / ((myWeaponStats?.maxHp || 1000) / 100)}%` }}
               />
             </div>
           </div>
@@ -1295,7 +1320,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
               <span className="font-headline text-sm text-accent drop-shadow-[1px_1px_0px_rgba(0,0,0,1)]">
                 {myP && myP.dashCharges === maxDash 
                   ? 'READY' 
-                  : `${(myWeaponStats.dashCooldown - (myP?.dashRechargeProgress || 0)).toFixed(1)}s`
+                  : `${((myWeaponStats?.dashCooldown || 4.0) - (myP?.dashRechargeProgress || 0)).toFixed(1)}s`
                 }
               </span>
             </div>
