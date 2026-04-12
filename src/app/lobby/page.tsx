@@ -7,7 +7,7 @@ import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Plus, Users, ArrowRight, Home, LayoutGrid, ShieldAlert } from 'lucide-react';
+import { Plus, Users, ArrowRight, Home, LayoutGrid, ShieldAlert, Crown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { GameRoom } from '@/lib/game-types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -165,14 +165,20 @@ export default function LobbyScreen() {
                 {Object.values(rooms).map((room) => {
                   const playerCount = Object.keys(room.players || {}).length;
                   const isFull = playerCount >= (room.maxPlayers || 4);
+                  const hostName = room.players?.[room.createdBy]?.name || 'Unknown';
                   
                   return (
                     <Card key={room.id} className={`cartoon-card hover:border-primary transition-opacity ${isFull ? 'opacity-90' : ''}`}>
                       <CardContent className="p-6 flex items-center justify-between">
                         <div className="space-y-2">
-                          <h4 className="text-3xl font-headline text-white group-hover:text-primary">
-                            {room.name}
-                          </h4>
+                          <div className="flex items-baseline gap-3">
+                            <h4 className="text-3xl font-headline text-white group-hover:text-primary">
+                              {room.name}
+                            </h4>
+                            <span className="text-xs font-bold text-white/40 uppercase tracking-tight flex items-center gap-1">
+                              host:{hostName}
+                            </span>
+                          </div>
                           <div className="flex items-center gap-4">
                             <div className="flex items-center gap-2 bg-black/20 px-3 py-1 rounded-full border-2 border-black text-[10px] font-bold text-white/60 uppercase">
                               <Users className="w-3 h-3" />
