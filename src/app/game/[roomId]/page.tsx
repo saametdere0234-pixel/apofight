@@ -490,6 +490,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const my = mouseRef.current.y;
     const attackAngle = Math.atan2(my - py, mx - px);
 
+    let stunAppliedThisSwing = false;
+    const canStun = weapon === 'Sword' && now > (p.stunCooldownUntil || 0);
+
     update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
       lastAttackTime: now,
       lastAttackAngle: attackAngle,
@@ -510,8 +513,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const dy = ey - py;
       const distToEnemyCenter = Math.sqrt(dx * dx + dy * dy);
 
+      let hit = false;
       if (weapon === 'Dagger') {
-        if (distToEnemyCenter <= stats.range) thisHit(id, enemy);
+        if (distToEnemyCenter <= stats.range) hit = true;
       } else if (weapon === 'Sword') {
         if (distToEnemyCenter <= stats.range + 2) {
           const enemyAngle = Math.atan2(dy, dx);
@@ -519,7 +523,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           if (diff > Math.PI) diff = 2 * Math.PI - diff;
           const angleInDegrees = diff * (180 / Math.PI);
           if (angleInDegrees <= stats.angle / 2) {
-            thisHit(id, enemy);
+            hit = true;
           }
         }
       } else if (weapon === 'Bow') {
@@ -527,10 +531,21 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         const y2 = py + Math.sin(attackAngle) * stats.range;
         
         if (checkLineRect(px, py, x2, y2, exMin, eyMin, exMax, eyMax)) {
-          thisHit(id, enemy);
+          hit = true;
         }
       }
+
+      if (hit) {
+        thisHit(id, enemy, canStun);
+        if (canStun) stunAppliedThisSwing = true;
+      }
     });
+
+    if (stunAppliedThisSwing) {
+      update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
+        stunCooldownUntil: now + STUN_COOLDOWN
+      });
+    }
   };
 
   const checkLineRect = (x1: number, y1: number, x2: number, y2: number, minX: number, minY: number, maxX: number, maxY: number) => {
@@ -551,7 +566,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     return ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1;
   };
 
-  const thisHit = (id: string, enemy: GamePlayer) => {
+  const thisHit = (id: string, enemy: GamePlayer, shouldStun: boolean = false) => {
     if (!db || !roomId || !profile) return;
     const p = roomRefState.current?.players?.[profile.id];
     if (!p) return;
@@ -564,10 +579,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     
     if (p.weaponClass === 'Sword') {
       updates.slowUntil = now + 400;
-      // Stun check
-      if (now > (enemy.stunCooldownUntil || 0)) {
+      if (shouldStun) {
         updates.stunnedUntil = now + STUN_DURATION;
-        updates.stunCooldownUntil = now + STUN_COOLDOWN;
       }
     }
 
@@ -1124,7 +1137,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                   />
                 ))}
               </div>
-              {stunCDRemaining > 0 && (
+              {myP?.weaponClass === 'Sword' && stunCDRemaining > 0 && (
                 <span className="font-headline text-[8px] text-white/40 uppercase">STUN CD: {(stunCDRemaining / 1000).toFixed(1)}s</span>
               )}
             </div>
