@@ -596,7 +596,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     if (p.weaponClass === 'Bow') {
       const healAmount = stats.damage * 0.3;
-      const myWeaponStats = WEAPON_STATS[p.weaponClass as WeaponClass];
+      const myWeaponStats = WEAPON_STATS[p.weaponClass as WeaponClass || 'Sword'];
       const newMyHp = Math.min(myWeaponStats.maxHp, p.hp + healAmount);
       update(ref(db, `rooms/${roomId}/players/${profile.id}`), { hp: newMyHp });
     }
@@ -899,12 +899,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.textAlign = 'center';
       ctx.strokeText(p.name, px + pw/2, py - 25);
       ctx.fillText(p.name, px + pw/2, py - 25);
-
-      if (isStunned) {
-        ctx.fillStyle = 'yellow';
-        ctx.font = 'bold 10px Fredoka';
-        ctx.fillText('STUNNED!', px + pw/2, py - 40);
-      }
     });
 
     effectNumbersRef.current.forEach((en) => {
@@ -1123,11 +1117,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           </div>
 
           {isStunned && (
-            <div className="absolute inset-0 flex items-center justify-center z-[60]">
-               <div className="bg-yellow-500/90 border-4 border-black px-4 py-1 rounded-xl flex items-center gap-2 shadow-[4px_4px_0px_rgba(0,0,0,1)]">
-                 <Ban className="w-5 h-5 text-black" />
-                 <span className="font-headline text-black text-lg">STUNNED: {(stunRemaining / 1000).toFixed(1)}s</span>
-               </div>
+            <div className="absolute inset-0 flex items-center justify-center z-[60] pointer-events-none">
+               <span className="font-headline text-6xl text-white drop-shadow-[4px_4px_0px_rgba(0,0,0,1)]">
+                 {(stunRemaining / 1000).toFixed(1)}
+               </span>
             </div>
           )}
           
@@ -1153,7 +1146,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                 ))}
               </div>
               {myP?.weaponClass === 'Sword' && stunCDRemaining > 0 && (
-                <span className="font-headline text-[8px] text-white/40 uppercase">STUN CD: {(stunCDRemaining / 1000).toFixed(1)}s</span>
+                <span className="font-headline text-xl text-white drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]">
+                  {(stunCDRemaining / 1000).toFixed(1)}
+                </span>
               )}
             </div>
           </div>
