@@ -24,7 +24,6 @@ export function useLocalPlayer() {
         name: '',
         color: '#2B72EE',
         weaponClass: 'Sword',
-        medals: 0,
       };
     }
 
@@ -34,14 +33,14 @@ export function useLocalPlayer() {
       return;
     }
 
-    // Sync medals from Firebase if they exist
-    const medalRef = ref(db, `players/${initialProfile.id}/medals`);
-    const unsubscribe = onValue(medalRef, (snapshot) => {
+    // Sync profile data from Firebase if needed
+    const playerRef = ref(db, `players/${initialProfile.id}`);
+    const unsubscribe = onValue(playerRef, (snapshot) => {
       const val = snapshot.val();
       if (val !== null) {
-        initialProfile.medals = val;
-        setProfile({ ...initialProfile });
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(initialProfile));
+        const syncedProfile = { ...initialProfile, ...val };
+        setProfile(syncedProfile);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(syncedProfile));
       } else {
         setProfile(initialProfile);
       }
@@ -59,8 +58,9 @@ export function useLocalPlayer() {
     
     if (db) {
       // Sync to Firebase
-      set(ref(db, `players/${profile.id}/medals`), newProfile.medals);
       set(ref(db, `players/${profile.id}/name`), newProfile.name);
+      set(ref(db, `players/${profile.id}/color`), newProfile.color);
+      set(ref(db, `players/${profile.id}/weaponClass`), newProfile.weaponClass);
     }
   };
 

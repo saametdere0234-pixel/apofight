@@ -128,16 +128,6 @@ export default function EntryScreen() {
                   />
                 </div>
               </div>
-              
-              <div className="flex items-center justify-between p-4 bg-black/30 rounded-[20px] border-2 border-white/5">
-                <div className="flex items-center gap-3">
-                  <div className="bg-yellow-500 p-2 rounded-lg border-2 border-black">
-                    <Trophy className="w-6 h-6 text-black" />
-                  </div>
-                  <span className="font-headline text-xl">MEDALS</span>
-                </div>
-                <span className="text-4xl font-headline text-accent">{profile.medals}</span>
-              </div>
 
               <div className="space-y-3">
                 <Label className="font-bold text-sm uppercase">BATTLE AURA</Label>

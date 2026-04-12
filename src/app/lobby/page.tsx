@@ -92,11 +92,6 @@ export default function LobbyScreen() {
               <span className="text-[10px] font-bold text-white/40 uppercase">WARRIOR</span>
               <span className="font-headline text-xl text-accent">{profile.name || 'ANON'}</span>
             </div>
-            <div className="w-1 h-10 bg-white/10 rounded-full" />
-            <div className="flex flex-col items-center">
-              <span className="text-[10px] font-bold text-white/40 uppercase">MEDALS</span>
-              <span className="font-headline text-xl text-yellow-500">{profile.medals}</span>
-            </div>
             <Button variant="ghost" size="icon" onClick={() => router.push('/')} className="cartoon-button bg-white/10 p-2 ml-4">
               <Home className="w-6 h-6 text-white" />
             </Button>

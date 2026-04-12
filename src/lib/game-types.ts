@@ -5,7 +5,6 @@ export interface PlayerProfile {
   name: string;
   color: string;
   weaponClass: WeaponClass;
-  medals: number;
 }
 
 export interface GamePlayer extends PlayerProfile {
