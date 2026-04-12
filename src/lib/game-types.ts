@@ -43,20 +43,20 @@ export interface GameRoom {
 export const WEAPON_STATS = {
   Sword: {
     damage: 300,
-    range: 5.0, // Optimized for 2m-ish radius feel
-    angle: 70, // Slightly wider cone for consistency
+    range: 5.0, 
+    angle: 70, 
     delay: 2.0, 
   },
   Dagger: {
     damage: 200,
-    range: 2.8, // Tight circular AoE
+    range: 2.8, 
     angle: 360,
     delay: 0.5,
   },
   Bow: {
-    damage: 200, // Buffed to 200
-    range: 14.0, // High range
-    angle: 12, // Precise line
+    damage: 200,
+    range: 14.0,
+    angle: 5, // Tightened angle for precise line detection
     delay: 2.0,
   },
 };
@@ -68,10 +68,10 @@ export const PIXELS_PER_METER = 25;
 export const PLAYER_WIDTH = 1.2;
 export const PLAYER_HEIGHT = 2.2;
 export const GRAVITY = 25;
-export const JUMP_FORCE = -11.2; // 2.5m jump height
+export const JUMP_FORCE = -11.2; 
 export const MOVE_SPEED = 8;
 export const DASH_DISTANCE = 5.0; 
-export const DASH_DURATION = 0.2; // Duration of the slide in seconds
+export const DASH_DURATION = 0.2; 
 export const DASH_COOLDOWN_TIME = 4.0;
 export const FAST_FALL_SPEED = 40;
 

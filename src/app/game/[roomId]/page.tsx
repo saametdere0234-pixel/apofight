@@ -80,7 +80,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       Object.entries(room.players).forEach(([id, p]) => {
         const prevHp = prevPlayersHpRef.current[id];
         
-        // Damage Tracking
         if (prevHp !== undefined && p.hp < prevHp) {
           const diff = prevHp - p.hp;
           const newDN: GameEffectNumber = {
@@ -95,7 +94,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           effectNumbersRef.current.push(newDN);
         }
         
-        // Global Heal Tracking (Visible to everyone)
         if (prevHp !== undefined && p.hp > prevHp) {
           const diff = p.hp - prevHp;
           const newHN: GameEffectNumber = {
@@ -109,7 +107,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           setEffectNumbers(prev => [...prev, newHN]);
           effectNumbersRef.current.push(newHN);
           
-          // HUD Update for self
           if (id === profile?.id) {
             setRecentHeal({ amount: Math.round(diff), time: Date.now() });
           }
@@ -596,13 +593,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           ctx.fill();
           ctx.stroke();
         } else if (weapon === 'Bow') {
-          // Fixed Bow Aim: Visual is now a thin sector matching the 12 degree hitbox
-          const halfAngle = (stats.angle / 2) * (Math.PI / 180);
+          // Reverted Bow Aim: Simple thin line segment aligned perfectly with cursor
           ctx.beginPath();
           ctx.moveTo(centerX, centerY);
-          ctx.arc(centerX, centerY, stats.range * PIXELS_PER_METER, angle - halfAngle, angle + halfAngle);
-          ctx.closePath();
-          ctx.fill();
+          const endX = centerX + Math.cos(angle) * stats.range * PIXELS_PER_METER;
+          const endY = centerY + Math.sin(angle) * stats.range * PIXELS_PER_METER;
+          ctx.lineTo(endX, endY);
+          ctx.lineWidth = 6;
           ctx.stroke();
         }
         ctx.restore();
