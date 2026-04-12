@@ -169,11 +169,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const handlePlayAgain = useCallback(async () => {
     if (!db || !roomId || !room || !profile) return;
     
-    // Set current player as ready
     const myPlayerRef = ref(db, `rooms/${roomId}/players/${profile.id}`);
     update(myPlayerRef, { isReady: true });
 
-    // Check if everyone is ready to transition the global room state
     const players = Object.values(room.players);
     const allReady = players.every(p => p.id === profile.id ? true : (p.isReady === true));
 
@@ -184,7 +182,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         startTime: null
       };
 
-      // Reset rounds won for everyone
       players.forEach(p => {
         updates[`players/${p.id}/roundsWon`] = 0;
       });
@@ -268,7 +265,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         const alivePlayers = players.filter(p => p.hp > 0);
         
         if (players.length >= 2 && alivePlayers.length === 1) {
-          handleKill(alivePlayers[0].id);
+          if (profile?.id === alivePlayers[0].id) {
+            handleKill(alivePlayers[0].id);
+          }
         }
       }
 
@@ -359,7 +358,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           dashDirY: 0,
           stunnedUntil: 0,
           stunCooldownUntil: 0,
-          isReady: true // New players join ready for lobby
+          isReady: true
         };
 
         lastHpRef.current = weaponStats.maxHp;
@@ -745,7 +744,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       lastWinnerName: winner.name
     };
     
-    // When game finishes, everyone is marked as not ready for the results screen
     if (winnersRounds >= 3) {
       Object.keys(currentRoom.players).forEach(pid => {
         updates[`players/${pid}/isReady`] = false;
@@ -785,7 +783,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           });
         });
         
-        update(roomRef, { status: 'lobby' });
+        update(roomRef, { 
+          status: 'starting', 
+          startTime: Date.now() 
+        });
       }, 3000);
     }
   };
@@ -1117,7 +1118,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     }
   }
 
-  // Determine if we should show the results screen or the standby screen
   const isLocalReady = myP?.isReady ?? false;
   const showResults = room?.status === 'finished' && !isLocalReady;
   const showLobby = room?.status === 'lobby' || (room?.status === 'finished' && isLocalReady);
@@ -1220,7 +1220,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                         {p.id === room?.createdBy && (
                           <Crown className="absolute -top-6 -right-6 w-10 h-10 text-yellow-500 fill-yellow-500 rotate-12 drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]" />
                         )}
-                        {/* Waiting Indicator for results screen or initial join */}
                         {!p.isReady && (
                           <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center rounded-2xl">
                              <div className="w-6 h-6 border-2 border-white border-t-transparent animate-spin rounded-full mb-1" />
