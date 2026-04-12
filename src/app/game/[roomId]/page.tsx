@@ -39,6 +39,13 @@ interface DamageNumber {
   startTime: number;
 }
 
+interface FeedbackState {
+  lastReloadFail: number;
+  lastStaminaFail: number;
+  lastDashFail: number;
+  staminaMsg: string;
+}
+
 export default function GamePage({ params }: { params: Promise<{ roomId: string }> }) {
   const { roomId } = use(params);
   const { profile, loading: profileLoading, updateProfile } = useLocalPlayer();
@@ -52,7 +59,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   
   const [flash, setFlash] = useState<{ type: 'taken' | 'dealt' | null, time: number }>({ type: null, time: 0 });
   const [shakeUntil, setShakeUntil] = useState(0);
-  const [staminaError, setStaminaError] = useState<{ msg: string, time: number } | null>(null);
+  const [feedback, setFeedback] = useState<FeedbackState>({
+    lastReloadFail: 0,
+    lastStaminaFail: 0,
+    lastDashFail: 0,
+    staminaMsg: ''
+  });
+
   const [dashTrail, setDashTrail] = useState<{ x1: number, y1: number, x2: number, y2: number, color: string, time: number } | null>(null);
   const [damageNumbers, setDamageNumbers] = useState<DamageNumber[]>([]);
   const damageNumbersRef = useRef<DamageNumber[]>([]);
@@ -229,30 +242,37 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       
       if (e.code === 'Space') {
         const now = Date.now();
-        if (p.dashCharges > 0) {
-          if ((p.stamina || 0) < STAMINA_DASH_COST) {
-            setStaminaError({ msg: `NEED ${STAMINA_DASH_COST} STAMINA`, time: now });
-            setShakeUntil(now + 80);
-          } else {
-            const dx = mouseRef.current.x - (p.x + PLAYER_WIDTH/2);
-            const dy = mouseRef.current.y - (p.y + PLAYER_HEIGHT/2);
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            
-            if (dist > 0.1) {
-              const dashX = (dx / dist) * DASH_DISTANCE;
-              const dashY = (dy / dist) * DASH_DISTANCE;
-              const newX = Math.max(0, Math.min(ARENA_WIDTH - PLAYER_WIDTH, p.x + dashX));
-              const newY = Math.max(0, Math.min(GROUND_Y - PLAYER_HEIGHT, p.y + dashY));
-              
-              setDashTrail({ x1: p.x, y1: p.y, x2: newX, y2: newY, color: p.color, time: now });
-              update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
-                x: newX,
-                y: newY,
-                dashCharges: p.dashCharges - 1,
-                stamina: (p.stamina || 0) - STAMINA_DASH_COST
-              });
-            }
-          }
+        const hasCharges = p.dashCharges > 0;
+        const hasStamina = (p.stamina || 0) >= STAMINA_DASH_COST;
+
+        if (!hasCharges || !hasStamina) {
+          setShakeUntil(now + 100);
+          setFeedback(prev => ({
+            ...prev,
+            lastDashFail: !hasCharges ? now : prev.lastDashFail,
+            lastStaminaFail: !hasStamina ? now : prev.lastStaminaFail,
+            staminaMsg: !hasStamina ? `${STAMINA_DASH_COST}` : prev.staminaMsg
+          }));
+          return;
+        }
+
+        const dx = mouseRef.current.x - (p.x + PLAYER_WIDTH/2);
+        const dy = mouseRef.current.y - (p.y + PLAYER_HEIGHT/2);
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist > 0.1) {
+          const dashX = (dx / dist) * DASH_DISTANCE;
+          const dashY = (dy / dist) * DASH_DISTANCE;
+          const newX = Math.max(0, Math.min(ARENA_WIDTH - PLAYER_WIDTH, p.x + dashX));
+          const newY = Math.max(0, Math.min(GROUND_Y - PLAYER_HEIGHT, p.y + dashY));
+          
+          setDashTrail({ x1: p.x, y1: p.y, x2: newX, y2: newY, color: p.color, time: now });
+          update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
+            x: newX,
+            y: newY,
+            dashCharges: p.dashCharges - 1,
+            stamina: (p.stamina || 0) - STAMINA_DASH_COST
+          });
         }
       }
     };
@@ -301,24 +321,21 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const stats = WEAPON_STATS[weapon];
     const now = Date.now();
     
-    const staminaNeeded = STAMINA_ATTACK_COST;
-    const cooldownRemaining = (stats.delay * 1000) - (now - (p.lastAttackTime || 0));
-    const onCooldown = cooldownRemaining > 0;
+    const reloadRemaining = (stats.delay * 1000) - (now - (p.lastAttackTime || 0));
+    const onCooldown = reloadRemaining > 0;
+    const hasStamina = (p.stamina || 0) >= STAMINA_ATTACK_COST;
 
-    // Check Cooldown First (Highest Priority)
-    if (onCooldown) {
+    if (onCooldown || !hasStamina) {
       setShakeUntil(now + 100);
+      setFeedback(prev => ({
+        ...prev,
+        lastReloadFail: onCooldown ? now : prev.lastReloadFail,
+        lastStaminaFail: !hasStamina ? now : prev.lastStaminaFail,
+        staminaMsg: !hasStamina ? `${STAMINA_ATTACK_COST}` : prev.staminaMsg
+      }));
       return;
     }
 
-    // Check Stamina Second
-    if ((p.stamina || 0) < staminaNeeded) {
-      setStaminaError({ msg: `NEED ${staminaNeeded} STAMINA`, time: now });
-      setShakeUntil(now + 80);
-      return;
-    }
-
-    // Success logic starts here
     const px = p.x + PLAYER_WIDTH / 2;
     const py = p.y + PLAYER_HEIGHT / 2;
     const mx = mouseRef.current.x;
@@ -556,30 +573,60 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.restore();
     });
 
-    // Feedback Warnings and Cooldowns at cursor
+    // Cursor Feedback Logic
     const myP = currentRoom.players[profile.id];
     if (myP) {
       const stats = WEAPON_STATS[myP.weaponClass as WeaponClass];
-      const cooldownRemaining = (stats.delay * 1000) - (now - (myP.lastAttackTime || 0));
-      const hasStaminaErr = staminaError && (now - staminaError.time < 500);
+      const reloadRemaining = (stats.delay * 1000) - (now - (myP.lastAttackTime || 0));
+      const dashRemaining = DASH_COOLDOWN_TIME - myP.dashRechargeProgress;
+      
+      const alerts: { text: string, color: string, alpha: number }[] = [];
 
-      ctx.save();
-      ctx.font = 'bold 14px Inter';
-      ctx.textAlign = 'center';
-      ctx.shadowBlur = 4;
-      ctx.shadowColor = 'black';
-
-      // Priority Logic: Reload (Red) text takes priority first
-      if (cooldownRemaining > 0) {
-        ctx.fillStyle = '#ff4444'; // Red for reload
-        ctx.fillText(`${(cooldownRemaining / 1000).toFixed(1)}s`, mouseRef.current.x * PIXELS_PER_METER, mouseRef.current.y * PIXELS_PER_METER + 25);
-      } else if (hasStaminaErr) {
-        const alpha = 1 - (now - staminaError!.time) / 500;
-        ctx.globalAlpha = alpha;
-        ctx.fillStyle = '#409cff'; // Light Blue for stamina as requested
-        ctx.fillText(staminaError!.msg, mouseRef.current.x * PIXELS_PER_METER, mouseRef.current.y * PIXELS_PER_METER + 25);
+      // Reload Alert (Red)
+      if (now - feedback.lastReloadFail < 500 && reloadRemaining > 0) {
+        alerts.push({ 
+          text: `${(reloadRemaining / 1000).toFixed(1)}s`, 
+          color: '#ef4444', 
+          alpha: 1 - (now - feedback.lastReloadFail) / 500 
+        });
       }
-      ctx.restore();
+
+      // Dash Cooldown Alert (Yellow)
+      if (now - feedback.lastDashFail < 500 && myP.dashCharges === 0) {
+        alerts.push({ 
+          text: `${dashRemaining.toFixed(1)}s`, 
+          color: '#eab308', 
+          alpha: 1 - (now - feedback.lastDashFail) / 500 
+        });
+      }
+
+      // Stamina Alert (Light Blue)
+      if (now - feedback.lastStaminaFail < 500) {
+        alerts.push({ 
+          text: feedback.staminaMsg, 
+          color: '#3b82f6', 
+          alpha: 1 - (now - feedback.lastStaminaFail) / 500 
+        });
+      }
+
+      if (alerts.length > 0) {
+        ctx.save();
+        ctx.font = 'bold 16px Space Grotesk';
+        ctx.textAlign = 'center';
+        ctx.shadowBlur = 4;
+        ctx.shadowColor = 'black';
+        
+        alerts.forEach((alert, i) => {
+          ctx.globalAlpha = alert.alpha;
+          ctx.fillStyle = alert.color;
+          ctx.fillText(
+            alert.text, 
+            mouseRef.current.x * PIXELS_PER_METER, 
+            mouseRef.current.y * PIXELS_PER_METER + 25 + (i * 18)
+          );
+        });
+        ctx.restore();
+      }
     }
 
     ctx.strokeStyle = 'rgba(191, 90, 60, 0.5)';
