@@ -445,7 +445,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             y: GROUND_Y - PLAYER_HEIGHT,
             vy: 0,
             jumpCount: 0,
-            dashCharges: getMaxDashCharges(p.weaponClass as WeaponClass),
+            dashCharges: getMaxDashCharges(p.weaponClass as WeaponClass || 'Sword'),
             dashRechargeProgress: 0,
             lastAttackTime: 0,
             slowUntil: 0,
@@ -675,7 +675,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         alpha: 1 - (now - feedback.lastReloadFail) / 500 
       });
     }
-    if (now - feedback.lastDashFail < 500 && myP.dashCharges === 0) {
+    if (now - feedback.lastDashFail < 500 && dashRemaining > 0) {
       alerts.push({ 
         text: `${dashRemaining.toFixed(1)}s`, 
         color: '#fbbf24', 
@@ -778,14 +778,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           )}
         </div>
 
-        {/* Juicy Stats HUD */}
-        <div className="absolute bottom-10 left-10 p-6 cartoon-card bg-black/60 backdrop-blur-md min-w-[320px] space-y-4">
+        {/* Optimized HUD */}
+        <div className="absolute bottom-6 left-6 p-4 cartoon-card bg-black/60 backdrop-blur-md min-w-[220px] space-y-3 z-50">
           <div className="space-y-1">
-            <div className="flex justify-between items-center px-2">
-              <span className="font-headline text-sm text-white/80 flex items-center gap-1"><Heart className="w-4 h-4 fill-current text-destructive" /> HEALTH</span>
-              <span className="font-headline text-lg text-white">{Math.floor(myP?.hp || 0)}</span>
+            <div className="flex justify-between items-center px-1">
+              <span className="font-headline text-[10px] text-white/80 flex items-center gap-1 uppercase tracking-tight"><Heart className="w-3 h-3 fill-current text-destructive" /> HEALTH</span>
+              <span className="font-headline text-sm text-white">{Math.floor(myP?.hp || 0)}</span>
             </div>
-            <div className="juicy-bar h-10 bg-black/40">
+            <div className="juicy-bar h-6 bg-black/40">
               <div 
                 className="juicy-bar-fill bg-destructive transition-all duration-300"
                 style={{ width: `${(myP?.hp || 0) / 10}%` }}
@@ -793,28 +793,20 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             </div>
           </div>
           
-          <div className="space-y-1">
-            <div className="flex justify-between items-center px-2">
-              <span className="font-headline text-sm text-white/80 flex items-center gap-1"><Zap className="w-4 h-4 fill-current text-primary" /> ENERGY</span>
-              <span className="font-headline text-lg text-white">{Math.floor(myP?.stamina || 0)}</span>
-            </div>
-            <div className="juicy-bar h-8 bg-black/40">
-              <div 
-                className="juicy-bar-fill bg-primary transition-all duration-300"
-                style={{ width: `${(myP?.stamina || 0)}%` }}
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-2">
-            <div className="flex items-center gap-2 bg-black/40 border-4 border-black px-4 py-2 rounded-2xl">
-              <Shield className="w-5 h-5 text-accent" />
-              <span className="font-headline text-lg text-white">DASH: {myP?.dashCharges || 0}</span>
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <span className="font-headline text-[10px] text-white/80 uppercase tracking-tight">DASH</span>
+              <div className="flex gap-1.5">
+                {Array.from({ length: maxDash }).map((_, i) => (
+                  <div 
+                    key={i} 
+                    className={`w-4 h-4 rounded-full border-2 border-black transition-all duration-300 ${i < (myP?.dashCharges || 0) ? 'bg-accent shadow-[0_0_8px_rgba(255,255,0,0.5)] scale-110' : 'bg-black/60 scale-90'}`}
+                  />
+                ))}
+              </div>
             </div>
             {myP && myP.dashCharges < maxDash && (
-              <span className="font-headline text-accent animate-pulse">
-                RECHARGING...
-              </span>
+              <Zap className="w-3 h-3 text-accent animate-pulse" />
             )}
           </div>
         </div>
