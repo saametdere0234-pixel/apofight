@@ -53,6 +53,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mouseRef = useRef({ x: 0, y: 0 });
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [room, setRoom] = useState<GameRoom | null>(null);
   const roomRefState = useRef<GameRoom | null>(null);
   const [keys] = useState<Set<string>>(new Set());
@@ -303,13 +304,20 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     };
   }, [profile, updateGameLogic, keys, roomId]);
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    // UI coordinates for fixed overlay
+    setMousePos({ x: e.clientX, y: e.clientY });
+
+    // Game coordinates for combat logic
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / (rect.width / (ARENA_WIDTH * PIXELS_PER_METER)) / PIXELS_PER_METER;
-    const y = (e.clientY - rect.top) / (rect.height / (ARENA_HEIGHT * PIXELS_PER_METER)) / PIXELS_PER_METER;
-    mouseRef.current = { x, y };
+    const gameX = (x / (rect.width / (ARENA_WIDTH * PIXELS_PER_METER))) / PIXELS_PER_METER;
+    const gameY = (y / (rect.height / (ARENA_HEIGHT * PIXELS_PER_METER))) / PIXELS_PER_METER;
+    mouseRef.current = { x: gameX, y: gameY };
   };
 
   const handleAttack = () => {
@@ -573,62 +581,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.restore();
     });
 
-    // Cursor Feedback Logic
-    const myP = currentRoom.players[profile.id];
-    if (myP) {
-      const stats = WEAPON_STATS[myP.weaponClass as WeaponClass];
-      const reloadRemaining = (stats.delay * 1000) - (now - (myP.lastAttackTime || 0));
-      const dashRemaining = DASH_COOLDOWN_TIME - myP.dashRechargeProgress;
-      
-      const alerts: { text: string, color: string, alpha: number }[] = [];
-
-      // Reload Alert (Red)
-      if (now - feedback.lastReloadFail < 500 && reloadRemaining > 0) {
-        alerts.push({ 
-          text: `${(reloadRemaining / 1000).toFixed(1)}s`, 
-          color: '#ef4444', 
-          alpha: 1 - (now - feedback.lastReloadFail) / 500 
-        });
-      }
-
-      // Dash Cooldown Alert (Yellow)
-      if (now - feedback.lastDashFail < 500 && myP.dashCharges === 0) {
-        alerts.push({ 
-          text: `${dashRemaining.toFixed(1)}s`, 
-          color: '#eab308', 
-          alpha: 1 - (now - feedback.lastDashFail) / 500 
-        });
-      }
-
-      // Stamina Alert (Light Blue)
-      if (now - feedback.lastStaminaFail < 500) {
-        alerts.push({ 
-          text: feedback.staminaMsg, 
-          color: '#3b82f6', 
-          alpha: 1 - (now - feedback.lastStaminaFail) / 500 
-        });
-      }
-
-      if (alerts.length > 0) {
-        ctx.save();
-        ctx.font = 'bold 16px Space Grotesk';
-        ctx.textAlign = 'center';
-        ctx.shadowBlur = 4;
-        ctx.shadowColor = 'black';
-        
-        alerts.forEach((alert, i) => {
-          ctx.globalAlpha = alert.alpha;
-          ctx.fillStyle = alert.color;
-          ctx.fillText(
-            alert.text, 
-            mouseRef.current.x * PIXELS_PER_METER, 
-            mouseRef.current.y * PIXELS_PER_METER + 25 + (i * 18)
-          );
-        });
-        ctx.restore();
-      }
-    }
-
     ctx.strokeStyle = 'rgba(191, 90, 60, 0.5)';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -642,8 +594,65 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const flashActive = Date.now() - flash.time < 200;
   const isShaking = Date.now() < shakeUntil;
 
+  // Derived Alerts for the high-priority DOM overlay
+  const now = Date.now();
+  const alerts: { text: string, color: string, alpha: number }[] = [];
+  if (myP) {
+    const stats = WEAPON_STATS[myP.weaponClass as WeaponClass];
+    const reloadRemaining = (stats.delay * 1000) - (now - (myP.lastAttackTime || 0));
+    const dashRemaining = DASH_COOLDOWN_TIME - myP.dashRechargeProgress;
+
+    // Reload (Red) - Priority 1
+    if (now - feedback.lastReloadFail < 500 && reloadRemaining > 0) {
+      alerts.push({ 
+        text: `${(reloadRemaining / 1000).toFixed(1)}s`, 
+        color: '#ff4444', 
+        alpha: 1 - (now - feedback.lastReloadFail) / 500 
+      });
+    }
+    // Dash (Yellow) - Priority 2
+    if (now - feedback.lastDashFail < 500 && myP.dashCharges === 0) {
+      alerts.push({ 
+        text: `${dashRemaining.toFixed(1)}s`, 
+        color: '#fbbf24', 
+        alpha: 1 - (now - feedback.lastDashFail) / 500 
+      });
+    }
+    // Stamina (Blue) - Priority 3
+    if (now - feedback.lastStaminaFail < 500) {
+      alerts.push({ 
+        text: feedback.staminaMsg, 
+        color: '#60a5fa', 
+        alpha: 1 - (now - feedback.lastStaminaFail) / 500 
+      });
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-background overflow-hidden flex flex-col items-center select-none">
+    <div className="min-h-screen bg-background overflow-hidden flex flex-col items-center select-none" onMouseMove={handleMouseMove}>
+      {/* High-Priority Cursor Feedback Overlay */}
+      <div 
+        className="fixed pointer-events-none z-[9999] flex flex-col items-center gap-1 select-none"
+        style={{ 
+          left: mousePos.x, 
+          top: mousePos.y + 25, 
+          transform: 'translateX(-50%)'
+        }}
+      >
+        {alerts.map((alert, i) => (
+          <span 
+            key={i} 
+            className="font-headline font-bold text-lg drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
+            style={{ 
+              color: alert.color, 
+              opacity: alert.alpha 
+            }}
+          >
+            {alert.text}
+          </span>
+        ))}
+      </div>
+
       {flashActive && (
         <div className={`fixed inset-0 pointer-events-none z-[100] border-[24px] ${flash.type === 'taken' ? 'border-red-500/20' : 'border-blue-500/20'} animate-in fade-in duration-200`} />
       )}
@@ -675,7 +684,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
       <main className="flex-1 w-full relative flex items-center justify-center p-4">
         <div className={`relative game-canvas-container border border-white/10 shadow-2xl bg-slate-950 ${isShaking ? 'animate-shake' : ''}`}>
-          <canvas ref={canvasRef} width={ARENA_WIDTH * PIXELS_PER_METER} height={ARENA_HEIGHT * PIXELS_PER_METER} className="w-full h-auto cursor-crosshair" onMouseMove={handleMouseMove} onClick={handleAttack} />
+          <canvas ref={canvasRef} width={ARENA_WIDTH * PIXELS_PER_METER} height={ARENA_HEIGHT * PIXELS_PER_METER} className="w-full h-auto cursor-crosshair" onClick={handleAttack} />
           {room?.status === 'lobby' && (
              <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center z-50 space-y-8">
                 <h2 className="text-4xl font-headline font-bold text-white uppercase italic tracking-tighter">WAITING FOR COMBATANTS</h2>
