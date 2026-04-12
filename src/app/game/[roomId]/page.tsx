@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -28,7 +29,7 @@ import {
   STAMINA_ATTACK_COST
 } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
-import { Trophy, ArrowLeft, Play, Zap, Shield, Heart, Plus, Users } from 'lucide-react';
+import { Trophy, ArrowLeft, Play, Zap, Shield, Heart, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface GameEffectNumber {
@@ -425,12 +426,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const dy = ey - py;
       const distToEnemyCenter = Math.sqrt(dx * dx + dy * dy);
 
-      if (distToEnemyCenter > stats.range + 2) return; 
-
       if (weapon === 'Dagger') {
         if (distToEnemyCenter <= stats.range) thisHit(id, enemy);
       } else if (weapon === 'Sword') {
-        if (distToEnemyCenter <= stats.range) {
+        if (distToEnemyCenter <= stats.range + 2) {
           const enemyAngle = Math.atan2(dy, dx);
           let diff = Math.abs(enemyAngle - attackAngle);
           if (diff > Math.PI) diff = 2 * Math.PI - diff;
@@ -671,7 +670,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
       ctx.save();
       const flip = p.facing === 'right' ? 1 : -1;
-      const handX = p.facing === 'right' ? px + pw - 8 : px + 8;
+      // Anchor hand slightly outside to avoid overlap
+      const handX = p.facing === 'right' ? px + pw - 5 : px + 5;
       const handY = py + ph * 0.55;
 
       ctx.translate(handX, handY);
@@ -682,51 +682,64 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.lineCap = 'round';
 
       if (p.weaponClass === 'Sword') {
-        ctx.fillStyle = '#cbd5e1';
+        ctx.fillStyle = '#cbd5e1'; // Blade
         ctx.beginPath();
-        ctx.moveTo(4, -2);
-        ctx.lineTo(32, -2);
-        ctx.lineTo(36, 0);
-        ctx.lineTo(32, 2);
-        ctx.lineTo(4, 2);
+        ctx.moveTo(4, -2.5);
+        ctx.lineTo(34, -2.5);
+        ctx.lineTo(38, 0);
+        ctx.lineTo(34, 2.5);
+        ctx.lineTo(4, 2.5);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
         
-        ctx.fillStyle = '#451a03';
-        ctx.fillRect(4, -8, 3, 16);
-        ctx.strokeRect(4, -8, 3, 16);
+        ctx.fillStyle = '#451a03'; // Guard
+        ctx.fillRect(4, -10, 4, 20);
+        ctx.strokeRect(4, -10, 4, 20);
         
-        ctx.fillStyle = '#78350f';
-        ctx.fillRect(-6, -2.5, 10, 5);
-        ctx.strokeRect(-6, -2.5, 10, 5);
+        ctx.fillStyle = '#78350f'; // Grip
+        ctx.fillRect(-10, -3, 14, 6);
+        ctx.strokeRect(-10, -3, 14, 6);
       } else if (p.weaponClass === 'Dagger') {
-        ctx.fillStyle = '#94a3b8';
+        // Redesigned Dagger Sprite
+        ctx.fillStyle = '#94a3b8'; // Blade Base
         ctx.beginPath();
-        ctx.moveTo(3, -1.5);
-        ctx.lineTo(14, -1.5);
-        ctx.lineTo(18, 0);
-        ctx.lineTo(14, 1.5);
-        ctx.lineTo(3, 1.5);
+        ctx.moveTo(3, -5);
+        ctx.lineTo(16, -2);
+        ctx.lineTo(24, 0);
+        ctx.lineTo(16, 2);
+        ctx.lineTo(3, 5);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
 
-        ctx.fillStyle = '#451a03';
-        ctx.fillRect(-4, -2.5, 7, 5);
-        ctx.strokeRect(-4, -2.5, 7, 5);
+        ctx.fillStyle = '#f1f5f9'; // Sharp edge accent
+        ctx.beginPath();
+        ctx.moveTo(3, -4);
+        ctx.lineTo(22, 0);
+        ctx.lineTo(3, 4);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = '#334155'; // Guard
+        ctx.fillRect(2, -8, 3, 16);
+        ctx.strokeRect(2, -8, 3, 16);
+
+        ctx.fillStyle = '#1e293b'; // Handle
+        ctx.fillRect(-8, -3, 10, 6);
+        ctx.strokeRect(-8, -3, 10, 6);
       } else if (p.weaponClass === 'Bow') {
         ctx.strokeStyle = '#78350f';
         ctx.lineWidth = 4;
         ctx.beginPath();
-        ctx.arc(0, 0, 15, -Math.PI/2, Math.PI/2);
+        ctx.arc(5, 0, 18, -Math.PI/2, Math.PI/2);
         ctx.stroke();
         
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(0, -14);
-        ctx.lineTo(0, 14);
+        ctx.moveTo(5, -16);
+        ctx.lineTo(5, 16);
         ctx.stroke();
       }
       ctx.restore();
