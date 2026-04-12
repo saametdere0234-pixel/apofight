@@ -414,16 +414,25 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     Object.entries(currentRoom.players).forEach(([id, enemy]) => {
       if (id === profile.id || enemy.hp <= 0) return;
       
+      // Bounding box for accurate hitbox
+      const exMin = enemy.x;
+      const exMax = enemy.x + PLAYER_WIDTH;
+      const eyMin = enemy.y;
+      const eyMax = enemy.y + PLAYER_HEIGHT;
       const ex = enemy.x + PLAYER_WIDTH / 2;
       const ey = enemy.y + PLAYER_HEIGHT / 2;
+      
       const dx = ex - px;
       const dy = ey - py;
-      const distToEnemy = Math.sqrt(dx * dx + dy * dy);
+      const distToEnemyCenter = Math.sqrt(dx * dx + dy * dy);
 
-      if (distToEnemy <= stats.range) {
-        if (weapon === 'Dagger') {
-          thisHit(id, enemy);
-        } else {
+      // Early range check
+      if (distToEnemyCenter > stats.range + 2) return; 
+
+      if (weapon === 'Dagger') {
+        if (distToEnemyCenter <= stats.range) thisHit(id, enemy);
+      } else if (weapon === 'Sword') {
+        if (distToEnemyCenter <= stats.range) {
           const enemyAngle = Math.atan2(dy, dx);
           let diff = Math.abs(enemyAngle - attackAngle);
           if (diff > Math.PI) diff = 2 * Math.PI - diff;
@@ -432,8 +441,37 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             thisHit(id, enemy);
           }
         }
+      } else if (weapon === 'Bow') {
+        // Hitscan Line-to-Rectangle Segment Check
+        const x2 = px + Math.cos(attackAngle) * stats.range;
+        const y2 = py + Math.sin(attackAngle) * stats.range;
+        
+        if (checkLineRect(px, py, x2, y2, exMin, eyMin, exMax, eyMax)) {
+          thisHit(id, enemy);
+        }
       }
     });
+  };
+
+  // Helper for line segment vs rectangle intersection
+  const checkLineRect = (x1: number, y1: number, x2: number, y2: number, minX: number, minY: number, maxX: number, maxY: number) => {
+    // Check if either end is inside
+    if (x1 >= minX && x1 <= maxX && y1 >= minY && y1 <= maxY) return true;
+    if (x2 >= minX && x2 <= maxX && y2 >= minY && y2 <= maxY) return true;
+
+    // Check intersection with all 4 sides
+    return lineIntersect(x1, y1, x2, y2, minX, minY, minX, maxY) ||
+           lineIntersect(x1, y1, x2, y2, maxX, minY, maxX, maxY) ||
+           lineIntersect(x1, y1, x2, y2, minX, minY, maxX, minY) ||
+           lineIntersect(x1, y1, x2, y2, minX, maxY, maxX, maxY);
+  };
+
+  const lineIntersect = (x1: number, y1: number, x2: number, y2: number, x3: number, y3: number, x4: number, y4: number) => {
+    const den = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1);
+    if (den === 0) return false;
+    const ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / den;
+    const ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / den;
+    return ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1;
   };
 
   const thisHit = (id: string, enemy: GamePlayer) => {
@@ -593,7 +631,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           ctx.fill();
           ctx.stroke();
         } else if (weapon === 'Bow') {
-          // Reverted Bow Aim: Simple thin line segment aligned perfectly with cursor
           ctx.beginPath();
           ctx.moveTo(centerX, centerY);
           const endX = centerX + Math.cos(angle) * stats.range * PIXELS_PER_METER;
