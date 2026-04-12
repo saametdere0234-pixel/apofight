@@ -172,7 +172,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const pIds = Object.keys(room.players);
       const playerCount = pIds.length;
 
-      // Close room and kick if only one player is left during an active game
       if (playerCount === 1 && room.status !== 'lobby') {
         handleQuit();
         return;
@@ -216,7 +215,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         prevPlayersHpRef.current[id] = p.hp;
       });
 
-      // Status check for Last Man Standing
       if (room.status === 'playing') {
         const players = Object.values(room.players);
         const alivePlayers = players.filter(p => p.hp > 0);
@@ -226,7 +224,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
 
-      // Check for countdown finish
       if (room.status === 'starting' && room.startTime) {
         const elapsed = Date.now() - room.startTime;
         const remaining = 3500 - elapsed;
@@ -275,7 +272,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const roomPath = ref(db, `rooms/${roomId}`);
     const myPlayerRef = ref(db, `rooms/${roomId}/players/${profile.id}`);
     
-    const weaponStats = WEAPON_STATS[profile.weaponClass];
+    const weaponStats = WEAPON_STATS[profile.weaponClass] || WEAPON_STATS.Sword;
 
     get(roomPath).then((snapshot) => {
       if (snapshot.exists()) {
@@ -355,8 +352,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (currentRoom.status === 'starting') return;
 
     const p = currentRoom.players[profile.id];
-    const weapon = p.weaponClass as WeaponClass;
-    const stats = WEAPON_STATS[weapon];
+    const weapon = (p.weaponClass as WeaponClass) || 'Sword';
+    const stats = WEAPON_STATS[weapon] || WEAPON_STATS.Sword;
     const maxCharges = getMaxDashCharges(weapon);
     const now = Date.now();
     const isStunned = now < (p.stunnedUntil || 0);
@@ -553,8 +550,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     if (isStunned) return;
 
-    const weapon = p.weaponClass as WeaponClass;
-    const stats = WEAPON_STATS[weapon];
+    const weapon = (p.weaponClass as WeaponClass) || 'Sword';
+    const stats = WEAPON_STATS[weapon] || WEAPON_STATS.Sword;
     
     const reloadRemaining = (stats.delay * 1000) - (now - (p.lastAttackTime || 0));
     const onCooldown = reloadRemaining > 0;
@@ -659,7 +656,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (!p) return;
     
     const now = Date.now();
-    const stats = WEAPON_STATS[p.weaponClass as WeaponClass];
+    const stats = WEAPON_STATS[p.weaponClass as WeaponClass || 'Sword'];
     const enemyRef = ref(db, `rooms/${roomId}/players/${id}`);
     const newHp = Math.max(0, enemy.hp - stats.damage);
     const updates: any = { hp: newHp };
@@ -806,8 +803,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.strokeStyle = `rgba(${baseColor}, ${opacity})`;
         ctx.lineWidth = 4;
 
-        const weapon = p.weaponClass as WeaponClass;
-        const stats = WEAPON_STATS[weapon];
+        const weapon = (p.weaponClass as WeaponClass) || 'Sword';
+        const stats = WEAPON_STATS[weapon] || WEAPON_STATS.Sword;
         const angle = p.lastAttackAngle || 0;
 
         if (weapon === 'Dagger') {
@@ -1018,7 +1015,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const stunCDRemaining = myP ? Math.max(0, (myP.stunCooldownUntil || 0) - now) : 0;
 
   if (myP) {
-    const stats = WEAPON_STATS[myP.weaponClass as WeaponClass];
+    const stats = WEAPON_STATS[myP.weaponClass as WeaponClass] || WEAPON_STATS.Sword;
     const reloadRemaining = (stats.delay * 1000) - (now - (myP.lastAttackTime || 0));
     const dashRemaining = stats.dashCooldown - myP.dashRechargeProgress;
 
@@ -1049,9 +1046,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const canStart = playerCount >= 2;
   const isHost = room?.createdBy === profile.id;
 
-  const myWeaponStats = myP ? WEAPON_STATS[myP.weaponClass as WeaponClass] : WEAPON_STATS.Sword;
+  const myWeaponStats = (myP && WEAPON_STATS[myP.weaponClass as WeaponClass]) ? WEAPON_STATS[myP.weaponClass as WeaponClass] : WEAPON_STATS.Sword;
 
-  // Countdown logic
   let countdownText = '';
   let showCountdown = false;
   if (room?.startTime) {
