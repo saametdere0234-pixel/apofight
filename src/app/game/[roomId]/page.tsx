@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -216,7 +217,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       // Sync Effects
       if (room.effects) {
         const now = Date.now();
-        const effects = Object.values(room.effects).filter(e => now - e.timestamp < 1000);
+        // Window slightly larger than 800ms to ensure the fading animation completes
+        const effects = Object.values(room.effects).filter(e => Math.abs(now - e.timestamp) < 1500);
         setLocalEffects(effects);
       } else {
         setLocalEffects([]);
@@ -393,7 +395,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           let hitId: string | null = null;
           Object.entries(currentRoom.players).forEach(([eid, enemy]) => {
             if (eid === profile.id || enemy.hp <= 0) return;
-            // Buffer to ensure projectiles feel fair
             const buffer = 0.5;
             if (
               projX >= enemy.x - buffer &&
@@ -670,7 +671,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const my = mouseRef.current.y;
     const attackAngle = Math.atan2(my - py, mx - px);
 
-    const speed = weaponStats.range / 1.5; // reaches range in 1.5s
+    const speed = weaponStats.range / 1.5; 
     const vx = Math.cos(attackAngle) * speed;
     const vy = Math.sin(attackAngle) * speed;
 
@@ -706,7 +707,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (isStunned) return;
 
     const weapon = (p.weaponClass as WeaponClass) || 'Sword';
-    if (weapon === 'Bow') return; // Handled by mouseDown/Up
+    if (weapon === 'Bow') return; 
 
     const weaponStats = WEAPON_STATS[weapon] || WEAPON_STATS.Sword;
     
@@ -941,7 +942,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     const playersToDraw = Object.values(interpPlayersRef.current);
 
-    // Render Trajectory and Reticle (Local Only)
     if (isCharging && profile) {
       const myP = currentRoom.players[profile.id];
       if (myP) {
@@ -960,7 +960,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.lineTo(rx, ry);
         ctx.stroke();
 
-        // Reticle tracking the cursor
         const mx = mouseRef.current.x * PIXELS_PER_METER;
         const my = mouseRef.current.y * PIXELS_PER_METER;
         ctx.setLineDash([]);
@@ -969,7 +968,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.beginPath();
         ctx.arc(mx, my, 10, 0, Math.PI * 2);
         ctx.stroke();
-        // Inner crosshair
         ctx.beginPath();
         ctx.moveTo(mx - 15, my); ctx.lineTo(mx + 15, my);
         ctx.moveTo(mx, my - 15); ctx.lineTo(mx, my + 15);
@@ -979,7 +977,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     }
 
-    // Render Projectiles
     if (currentRoom.projectiles) {
       Object.values(currentRoom.projectiles).forEach(proj => {
         const elapsed = now - proj.startTime;
@@ -995,7 +992,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.fill();
         ctx.stroke();
         
-        // Trail
         ctx.beginPath();
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
         ctx.lineWidth = 2;
@@ -1203,22 +1199,29 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     });
 
     localEffects.forEach((en) => {
-      const elapsed = now - en.timestamp;
+      // Math.max(0, ...) handles cases where timestamps might be slightly ahead due to clock skew
+      const elapsed = Math.max(0, now - en.timestamp);
       if (elapsed > 800) return;
+      
       const alpha = 1 - (elapsed / 800);
       const dy = (elapsed / 800) * 60;
+      
       ctx.save();
       ctx.globalAlpha = alpha;
       ctx.fillStyle = en.type === 'damage' ? '#ff4444' : '#4ade80';
       ctx.strokeStyle = 'black';
-      ctx.lineWidth = 4;
-      ctx.font = 'bold 28px "Luckiest Guy"';
+      ctx.lineWidth = 5;
+      ctx.font = 'bold 32px "Luckiest Guy"';
       ctx.textAlign = 'center';
+      
       const textX = en.x * PIXELS_PER_METER;
-      const textY = en.y * PIXELS_PER_METER - 40 - dy;
+      const textY = en.y * PIXELS_PER_METER - 45 - dy;
+      
       const prefix = en.type === 'heal' ? '+' : '';
-      ctx.strokeText(prefix + en.amount.toString(), textX, textY);
-      ctx.fillText(prefix + en.amount.toString(), textX, textY);
+      const text = prefix + en.amount.toString();
+      
+      ctx.strokeText(text, textX, textY);
+      ctx.fillText(text, textX, textY);
       ctx.restore();
     });
   };
