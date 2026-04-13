@@ -49,12 +49,13 @@ const WeaponIcon = ({ weapon, className = "w-6 h-6" }: { weapon: WeaponClass; cl
     return (
       <div className={className}>
         <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-          <path d="M12 20L28 4L30 6L14 22L12 20Z" fill="#38bdf8" stroke="black" strokeWidth="2.5" strokeLinejoin="round"/>
-          <path d="M14 22L16 24L28 12L26 10L14 22Z" fill="#0ea5e9" stroke="black" strokeWidth="2.5" strokeLinejoin="round"/>
-          <path d="M10 18L18 26" stroke="black" strokeWidth="5" strokeLinecap="round"/>
-          <path d="M10 18L18 26" stroke="#facc15" strokeWidth="2.5" strokeLinecap="round"/>
-          <path d="M10 22L4 28" stroke="black" strokeWidth="5" strokeLinecap="round"/>
-          <path d="M10 22L4 28" stroke="#78350f" strokeWidth="2.5" strokeLinecap="round"/>
+          <path d="M10 22L28 4L30 6L12 24L10 22Z" fill="#38bdf8" stroke="black" strokeWidth="2" strokeLinejoin="round"/>
+          <path d="M12 24L14 26L28 12L26 10L12 24Z" fill="#0ea5e9" stroke="black" strokeWidth="2" strokeLinejoin="round"/>
+          <path d="M8 20L18 30" stroke="black" strokeWidth="4" strokeLinecap="round"/>
+          <path d="M8 20L18 30" stroke="#facc15" strokeWidth="2" strokeLinecap="round"/>
+          <path d="M10 22L4 28" stroke="black" strokeWidth="4" strokeLinecap="round"/>
+          <path d="M10 22L4 28" stroke="#78350f" strokeWidth="2" strokeLinecap="round"/>
+          <circle cx="4" cy="28" r="2" fill="#451a03" stroke="black" strokeWidth="1" />
         </svg>
       </div>
     );
@@ -63,12 +64,12 @@ const WeaponIcon = ({ weapon, className = "w-6 h-6" }: { weapon: WeaponClass; cl
     return (
       <div className={className}>
         <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-          <path d="M16 16L24 8L28 12L20 20L16 16Z" fill="#d946ef" stroke="black" strokeWidth="2.5" strokeLinejoin="round"/>
-          <path d="M16 16L20 20L26 14L22 10L16 16Z" fill="#f5d0fe" stroke="black" strokeWidth="2.5" strokeLinejoin="round"/>
-          <path d="M14 14L20 20" stroke="black" strokeWidth="5" strokeLinecap="round"/>
-          <path d="M14 14L20 20" stroke="#701a75" strokeWidth="2.5" strokeLinecap="round"/>
-          <path d="M14 18L8 24" stroke="black" strokeWidth="5" strokeLinecap="round"/>
-          <path d="M14 18L8 24" stroke="#1e293b" strokeWidth="2.5" strokeLinecap="round"/>
+          <path d="M14 18L24 8L28 12L18 22L14 18Z" fill="#d946ef" stroke="black" strokeWidth="2" strokeLinejoin="round"/>
+          <path d="M14 18L18 22L24 16L20 12L14 18Z" fill="#f5d0fe" stroke="black" strokeWidth="2" strokeLinejoin="round"/>
+          <path d="M12 16L20 24" stroke="black" strokeWidth="4" strokeLinecap="round"/>
+          <path d="M12 16L20 24" stroke="#701a75" strokeWidth="2" strokeLinecap="round"/>
+          <path d="M12 20L6 26" stroke="black" strokeWidth="4" strokeLinecap="round"/>
+          <path d="M12 20L6 26" stroke="#1e293b" strokeWidth="2" strokeLinecap="round"/>
         </svg>
       </div>
     );
@@ -77,9 +78,10 @@ const WeaponIcon = ({ weapon, className = "w-6 h-6" }: { weapon: WeaponClass; cl
     return (
       <div className={className}>
         <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-          <path d="M8 8C16 8 24 16 24 24" stroke="black" strokeWidth="5" strokeLinecap="round" fill="none"/>
-          <path d="M8 8C16 8 24 16 24 24" stroke="#f97316" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
-          <path d="M8 8L24 24" stroke="black" strokeWidth="1.5" strokeDasharray="2 2" />
+          <path d="M6 6C14 6 26 18 26 26" stroke="black" strokeWidth="4" strokeLinecap="round" fill="none"/>
+          <path d="M6 6C14 6 26 18 26 26" stroke="#f97316" strokeWidth="2" strokeLinecap="round" fill="none"/>
+          <path d="M6 6L26 26" stroke="black" strokeWidth="1" strokeDasharray="3 3" />
+          <path d="M12 12L16 16" stroke="black" strokeWidth="3" strokeLinecap="round" />
           <circle cx="16" cy="16" r="3" fill="#ca8a04" stroke="black" strokeWidth="1.5" />
         </svg>
       </div>
@@ -187,7 +189,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     return () => unsubscribe();
   }, []);
 
-  // Effect Sync - High Visibility Logic using Refs to bypass closures
+  // Effect Sync - Optimized for Visibility
   useEffect(() => {
     if (!db || !roomId) return;
     const effectsDbRef = ref(db, `rooms/${roomId}/effects`);
@@ -1180,58 +1182,85 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
       ctx.restore();
 
-      // Draw Weapon in Hand
+      // Draw Weapon in Hand (Aesthetically Pleasing)
       ctx.save();
+      const isWinner = p.name === currentRoom.lastWinnerName && (currentRoom.status === 'celebrating' || currentRoom.status === 'round_over' || currentRoom.status === 'finished');
       const weaponX = p.facing === 'right' ? px + pw - 5 : px + 5;
       const weaponY = py + ph / 2 + 5;
       ctx.translate(weaponX, weaponY);
       if (p.facing === 'left') ctx.scale(-1, 1);
       
-      const weapon = p.weaponClass as WeaponClass;
-      if (weapon === 'Sword') {
+      const weaponClass = p.weaponClass as WeaponClass;
+      if (weaponClass === 'Sword') {
         ctx.rotate(-Math.PI / 4);
+        // Blade
         ctx.fillStyle = '#38bdf8';
         ctx.strokeStyle = 'black';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.rect(0, -3, 20, 6);
+        ctx.rect(0, -3, 22, 6);
         ctx.fill();
         ctx.stroke();
+        // Highlight
+        ctx.fillStyle = 'white';
+        ctx.globalAlpha = 0.3;
+        ctx.fillRect(2, -1.5, 18, 1);
+        ctx.globalAlpha = 1.0;
+        // Guard
         ctx.fillStyle = '#facc15';
         ctx.beginPath();
-        ctx.rect(-3, -6, 3, 12);
+        ctx.rect(-2, -7, 3, 14);
         ctx.fill();
         ctx.stroke();
-      } else if (weapon === 'Dagger') {
+        // Handle
+        ctx.fillStyle = '#78350f';
+        ctx.beginPath();
+        ctx.rect(-6, -2, 5, 4);
+        ctx.fill();
+        ctx.stroke();
+      } else if (weaponClass === 'Dagger') {
         ctx.rotate(-Math.PI / 4);
+        // Blade
         ctx.fillStyle = '#d946ef';
         ctx.strokeStyle = 'black';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.rect(0, -2, 12, 4);
+        ctx.rect(0, -2.5, 14, 5);
         ctx.fill();
         ctx.stroke();
+        // Guard
         ctx.fillStyle = '#701a75';
         ctx.beginPath();
-        ctx.rect(-2, -4, 2, 8);
+        ctx.rect(-1, -5, 2, 10);
         ctx.fill();
         ctx.stroke();
-      } else if (weapon === 'Bow') {
-        ctx.strokeStyle = '#f97316';
-        ctx.lineWidth = 2;
+        // Handle
+        ctx.fillStyle = '#1e293b';
         ctx.beginPath();
-        ctx.arc(0, 0, 12, -Math.PI/2, Math.PI/2);
+        ctx.rect(-4, -1.5, 4, 3);
+        ctx.fill();
         ctx.stroke();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-        ctx.lineWidth = 0.5;
+      } else if (weaponClass === 'Bow') {
+        ctx.strokeStyle = '#f97316';
+        ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.moveTo(0, -12);
-        ctx.lineTo(0, 12);
+        ctx.arc(0, 0, 14, -Math.PI/2, Math.PI/2);
+        ctx.stroke();
+        // String
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, -14);
+        ctx.lineTo(0, 14);
+        ctx.stroke();
+        // Grip
+        ctx.fillStyle = '#ca8a04';
+        ctx.beginPath();
+        ctx.arc(0, 0, 3, 0, Math.PI * 2);
+        ctx.fill();
         ctx.stroke();
       }
       ctx.restore();
-
-      const isWinner = p.name === currentRoom.lastWinnerName && (currentRoom.status === 'celebrating' || currentRoom.status === 'round_over' || currentRoom.status === 'finished');
 
       // Draw Eyes (Hidden when wearing sunglasses)
       if (!isWinner) {
@@ -1298,9 +1327,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.fillText(p.name, px + pw/2, py - 25);
     });
 
-    // Draw Effects (Damage & Lifesteal) - TOP LAYER with correct positioning
+    // Draw Effects (Damage & Lifesteal) - Sized bit smaller than characters
     ctx.save();
-    ctx.font = 'bold 36px Luckiest Guy'; // Sized just a bit smaller than character height (55px)
+    ctx.font = 'bold 36px Luckiest Guy'; // 36px is smaller than 55px (char height)
     ctx.textAlign = 'center';
     ctx.lineWidth = 6;
     effectsRef.current.forEach(fx => {
@@ -1309,7 +1338,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const opacity = Math.max(0, 1 - elapsed / 1000);
       const drift = (elapsed / 1000) * 60;
       const fxX = fx.x * PIXELS_PER_METER;
-      // Position clearly above character head and name tags
       const fxY = (fx.y * PIXELS_PER_METER) - 60 - drift;
 
       ctx.globalAlpha = opacity;
