@@ -1,13 +1,13 @@
-
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
 import { useLocalPlayer } from '@/hooks/use-local-player';
 import { db } from '@/lib/firebase';
-import { ref, onValue, set, update, onDisconnect, remove, get } from 'firebase/database';
+import { ref, onValue, set, update, onDisconnect, remove, get, push } from 'firebase/database';
 import { 
   GamePlayer, 
   GameRoom, 
+  GameEffect,
   ARENA_WIDTH, 
   ARENA_HEIGHT, 
   GROUND_Y, 
@@ -34,15 +34,6 @@ import {
 import { useRouter } from 'next/navigation';
 import { Trophy, ArrowLeft, Play, Zap, Heart, Users, Crown, RotateCcw, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-
-interface GameEffectNumber {
-  id: string;
-  x: number;
-  y: number;
-  amount: number;
-  type: 'damage' | 'heal';
-  startTime: number;
-}
 
 interface FeedbackState {
   lastReloadFail: number;
@@ -143,10 +134,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     staminaMsg: ''
   });
 
-  const [effectNumbers, setEffectNumbers] = useState<GameEffectNumber[]>([]);
-  const effectNumbersRef = useRef<GameEffectNumber[]>([]);
+  const [localEffects, setLocalEffects] = useState<GameEffect[]>([]);
   const lastHpRef = useRef<number>(1000);
-  const prevPlayersHpRef = useRef<Record<string, number>>({});
   const [recentHeal, setRecentHeal] = useState<{ amount: number, time: number } | null>(null);
 
   // Network Optimization State
@@ -173,13 +162,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   }, [profile, roomId, router]);
 
   const handlePlayAgain = useCallback(async () => {
-    if (!db || !roomId || !room || !profile) return;
-    
+    if (!db || !roomId || !profile) return;
     const myPlayerRef = ref(db, `rooms/${roomId}/players/${profile.id}`);
     update(myPlayerRef, { isReady: true });
-
-    // Room status will be reset automatically once everyone is ready
-  }, [roomId, room, profile]);
+  }, [roomId, profile]);
 
   useEffect(() => {
     if (!db) return;
@@ -206,23 +192,32 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
 
-      // SINGLE PLAYER RESET: When only one player remains, return room to start screen (lobby)
+      // SINGLE PLAYER RESET
       if (playerCount === 1 && room.status !== 'lobby') {
         const onlyPlayerId = pIds[0];
         if (onlyPlayerId === profile?.id) {
           const updates: any = {
             status: 'lobby',
             lastWinnerName: null,
-            startTime: null
+            startTime: null,
+            effects: null // Clear synced effects on reset
           };
-          // Reset their stats too
           updates[`players/${onlyPlayerId}/roundsWon`] = 0;
           updates[`players/${onlyPlayerId}/isReady`] = true;
           update(ref(db, `rooms/${roomId}`), updates);
         }
       }
 
-      // Check Readiness for "Play Again" reset
+      // Sync Effects from DB
+      if (room.effects) {
+        const now = Date.now();
+        const effects = Object.values(room.effects).filter(e => now - e.timestamp < 1000);
+        setLocalEffects(effects);
+      } else {
+        setLocalEffects([]);
+      }
+
+      // "Play Again" Ready Sync
       if (room.status === 'finished') {
         const players = Object.values(room.players);
         const allReady = players.every(p => p.isReady);
@@ -230,7 +225,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           const updates: any = {
             status: 'lobby',
             lastWinnerName: null,
-            startTime: null
+            startTime: null,
+            effects: null
           };
           players.forEach(p => {
             updates[`players/${p.id}/roundsWon`] = 0;
@@ -239,80 +235,25 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
 
-      // Round & Combat Feedback Logic
-      Object.entries(room.players).forEach(([id, p]) => {
-        const prevHp = prevPlayersHpRef.current[id];
-        
-        if (prevHp !== undefined && p.hp < prevHp) {
-          const diff = prevHp - p.hp;
-          const newDN: GameEffectNumber = {
-            id: Math.random().toString(),
-            x: p.x + PLAYER_WIDTH / 2,
-            y: p.y,
-            amount: Math.round(diff),
-            type: 'damage',
-            startTime: Date.now()
-          };
-          setEffectNumbers(prev => [...prev, newDN]);
-          effectNumbersRef.current.push(newDN);
-        }
-        
-        if (prevHp !== undefined && p.hp > prevHp) {
-          const diff = p.hp - prevHp;
-          const newHN: GameEffectNumber = {
-            id: Math.random().toString(),
-            x: p.x + PLAYER_WIDTH / 2,
-            y: p.y,
-            amount: Math.round(diff),
-            type: 'heal',
-            startTime: Date.now()
-          };
-          setEffectNumbers(prev => [...prev, newHN]);
-          effectNumbersRef.current.push(newHN);
-          
-          if (id === profile?.id) {
-            setRecentHeal({ amount: Math.round(diff), time: Date.now() });
-          }
-        }
-
-        prevPlayersHpRef.current[id] = p.hp;
-      });
-
-      // Round Management (Only Host handles the transition to prevent race conditions)
+      // Host handles round-over/finish logic
       if (room.status === 'playing' && isHost) {
         const players = Object.values(room.players);
         const alivePlayers = players.filter(p => p.hp > 0);
         
-        if (players.length >= 2 && alivePlayers.length === 1) {
-          handleKill(alivePlayers[0].id);
-        } else if (players.length >= 2 && alivePlayers.length === 0) {
-          // It was a draw! Reset round
-          update(ref(db, `rooms/${roomId}`), { status: 'round_over', lastWinnerName: 'DRAW' });
-          setTimeout(() => {
-            const updates: any = { status: 'starting', startTime: Date.now() };
-            players.forEach(p => {
-              const stats = WEAPON_STATS[p.weaponClass as WeaponClass] || WEAPON_STATS.Sword;
-              updates[`players/${p.id}/hp`] = stats.maxHp;
-              updates[`players/${p.id}/stamina`] = STAMINA_MAX;
-            });
-            update(ref(db, `rooms/${roomId}`), updates);
-          }, 3000);
+        if (players.length >= 2) {
+          if (alivePlayers.length === 1) {
+            handleKill(alivePlayers[0].id);
+          } else if (alivePlayers.length === 0) {
+            handleDraw();
+          }
         }
       }
 
-      if (room.status === 'starting' && room.startTime) {
+      // Countdown handling
+      if (room.status === 'starting' && room.startTime && isHost) {
         const elapsed = Date.now() - room.startTime;
-        const remaining = 3500 - elapsed;
-        
-        if (isHost) {
-          if (remaining <= 0) {
-            update(ref(db, `rooms/${roomId}`), { status: 'playing' });
-          } else {
-            const timer = setTimeout(() => {
-               update(ref(db, `rooms/${roomId}`), { status: 'playing' });
-            }, remaining);
-            return () => clearTimeout(timer);
-          }
+        if (elapsed >= 3500) {
+          update(ref(db, `rooms/${roomId}`), { status: 'playing' });
         }
       }
     }
@@ -321,9 +262,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now();
-      setEffectNumbers(prev => prev.filter(en => now - en.startTime < 800));
-      effectNumbersRef.current = effectNumbersRef.current.filter(en => now - en.startTime < 800);
-      
       if (recentHeal && now - recentHeal.time > 1000) {
         setRecentHeal(null);
       }
@@ -430,7 +368,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (currentRoom.status === 'starting' || currentRoom.status === 'round_over' || currentRoom.status === 'finished') return;
 
     const p = currentRoom.players[profile.id];
-    if (p.hp <= 0) return; // Dead players don't move
+    if (p.hp <= 0) return;
 
     const weapon = (p.weaponClass as WeaponClass) || 'Sword';
     const stats = WEAPON_STATS[weapon] || WEAPON_STATS.Sword;
@@ -504,7 +442,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       nextDashRechargeProgress = 0;
     }
 
-    // Apply Local State Immediately (Prediction)
     const updatedLocalPlayer = {
       ...p,
       x: nextX,
@@ -523,7 +460,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     currentRoom.players[profile.id] = updatedLocalPlayer;
     interpPlayersRef.current[profile.id] = updatedLocalPlayer;
 
-    // Network Throttling: Sync to Firebase every ~33ms (30fps)
     if (now - lastSyncTimeRef.current > 33) {
       lastSyncTimeRef.current = now;
       const myPlayerRef = ref(db, `rooms/${roomId}/players/${profile.id}`);
@@ -553,7 +489,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       
       const now = Date.now();
       const isStunned = now < (p.stunnedUntil || 0);
-
       if (isStunned) return;
 
       if ((e.code === 'KeyW' || e.code === 'ArrowUp') && !p.isDashing) {
@@ -654,7 +589,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     const now = Date.now();
     const isStunned = now < (p.stunnedUntil || 0);
-
     if (isStunned) return;
 
     const weapon = (p.weaponClass as WeaponClass) || 'Sword';
@@ -720,7 +654,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       } else if (weapon === 'Bow') {
         const x2 = px + Math.cos(attackAngle) * weaponStats.range;
         const y2 = py + Math.sin(attackAngle) * weaponStats.range;
-        
         if (checkLineRect(px, py, x2, y2, exMin, eyMin, exMax, eyMax)) {
           hit = true;
         }
@@ -742,7 +675,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const checkLineRect = (x1: number, y1: number, x2: number, y2: number, minX: number, minY: number, maxX: number, maxY: number) => {
     if (x1 >= minX && x1 <= maxX && y1 >= minY && y1 <= maxY) return true;
     if (x2 >= minX && x2 <= maxX && y2 >= minY && y2 <= maxY) return true;
-
     return lineIntersect(x1, y1, x2, y2, minX, minY, minX, maxY) ||
            lineIntersect(x1, y1, x2, y2, maxX, minY, maxX, maxY) ||
            lineIntersect(x1, y1, x2, y2, minX, minY, maxX, minY) ||
@@ -775,11 +707,33 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     }
 
+    // Push damage effect to DB
+    const effectsRef = ref(db, `rooms/${roomId}/effects`);
+    push(effectsRef, {
+      id: Math.random().toString(),
+      x: enemy.x + PLAYER_WIDTH / 2,
+      y: enemy.y,
+      amount: Math.round(weaponStats.damage),
+      type: 'damage',
+      timestamp: now
+    });
+
     if (p.weaponClass === 'Bow') {
       const healAmount = weaponStats.damage * 0.3;
       const myWeaponStats = (WEAPON_STATS[p.weaponClass as WeaponClass] || WEAPON_STATS.Sword);
       const newMyHp = Math.min(myWeaponStats.maxHp, p.hp + healAmount);
       update(ref(db, `rooms/${roomId}/players/${profile.id}`), { hp: newMyHp });
+      
+      // Push heal effect to DB
+      push(effectsRef, {
+        id: Math.random().toString(),
+        x: p.x + PLAYER_WIDTH / 2,
+        y: p.y,
+        amount: Math.round(healAmount),
+        type: 'heal',
+        timestamp: now
+      });
+      setRecentHeal({ amount: Math.round(healAmount), time: now });
     }
 
     update(enemyRef, updates);
@@ -794,12 +748,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (!winner) return;
 
     const winnersRounds = (winner.roundsWon || 0) + 1;
-    
     update(ref(db, `rooms/${roomId}/players/${winnerId}`), { roundsWon: winnersRounds });
 
     const updates: any = { 
       status: winnersRounds >= 3 ? 'finished' : 'round_over',
-      lastWinnerName: winner.name
+      lastWinnerName: winner.name,
+      effects: null // Clear effects for next round
     };
     
     if (winnersRounds >= 3) {
@@ -814,44 +768,64 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       setTimeout(() => {
         const currentData = roomRef.current;
         if (!currentData || currentData.status !== 'round_over') return;
-        
-        const assignedSpawns: {x: number, y: number}[] = [];
-        const nextRoundUpdates: any = {
-          status: 'starting', 
-          startTime: Date.now() 
-        };
-
-        Object.keys(currentData.players).forEach(pid => {
-          const p = currentData.players[pid];
-          const bestSpawn = getBestSpawnPoint(SPAWN_POINTS, assignedSpawns);
-          assignedSpawns.push(bestSpawn);
-          
-          const weaponStats = (WEAPON_STATS[p.weaponClass as WeaponClass] || WEAPON_STATS.Sword);
-          const pUpdates = {
-            hp: weaponStats.maxHp,
-            stamina: STAMINA_MAX,
-            x: bestSpawn.x,
-            y: bestSpawn.y,
-            vy: 0,
-            jumpCount: 0,
-            dashCharges: getMaxDashCharges(p.weaponClass as WeaponClass || 'Sword'),
-            dashRechargeProgress: 0,
-            lastAttackTime: 0,
-            slowUntil: 0,
-            stunnedUntil: 0,
-            stunCooldownUntil: 0,
-            isDashing: false,
-            dashTimeLeft: 0
-          };
-          
-          Object.entries(pUpdates).forEach(([key, val]) => {
-            nextRoundUpdates[`players/${pid}/${key}`] = val;
-          });
-        });
-        
-        update(ref(db, `rooms/${roomId}`), nextRoundUpdates);
+        prepareNextRound(currentData);
       }, 3000);
     }
+  };
+
+  const handleDraw = () => {
+    const currentRoom = roomRef.current;
+    if (!currentRoom || !db || currentRoom.status !== 'playing') return;
+    
+    update(ref(db, `rooms/${roomId}`), { 
+      status: 'round_over', 
+      lastWinnerName: 'DRAW',
+      effects: null 
+    });
+
+    setTimeout(() => {
+      const currentData = roomRef.current;
+      if (!currentData || currentData.status !== 'round_over') return;
+      prepareNextRound(currentData);
+    }, 3000);
+  };
+
+  const prepareNextRound = (currentData: GameRoom) => {
+    const assignedSpawns: {x: number, y: number}[] = [];
+    const nextRoundUpdates: any = {
+      status: 'starting', 
+      startTime: Date.now() 
+    };
+
+    Object.keys(currentData.players).forEach(pid => {
+      const p = currentData.players[pid];
+      const bestSpawn = getBestSpawnPoint(SPAWN_POINTS, assignedSpawns);
+      assignedSpawns.push(bestSpawn);
+      
+      const weaponStats = (WEAPON_STATS[p.weaponClass as WeaponClass] || WEAPON_STATS.Sword);
+      const pUpdates = {
+        hp: weaponStats.maxHp,
+        stamina: STAMINA_MAX,
+        x: bestSpawn.x,
+        y: bestSpawn.y,
+        vy: 0,
+        jumpCount: 0,
+        dashCharges: getMaxDashCharges(p.weaponClass as WeaponClass || 'Sword'),
+        dashRechargeProgress: 0,
+        lastAttackTime: 0,
+        slowUntil: 0,
+        stunnedUntil: 0,
+        stunCooldownUntil: 0,
+        isDashing: false,
+        dashTimeLeft: 0
+      };
+      
+      Object.entries(pUpdates).forEach(([key, val]) => {
+        nextRoundUpdates[`players/${pid}/${key}`] = val;
+      });
+    });
+    
+    update(ref(db, `rooms/${roomId}`), nextRoundUpdates);
   };
 
   const startMatch = () => {
@@ -870,21 +844,17 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (!ctx) return;
 
     const now = Date.now();
-
     ctx.fillStyle = '#000035';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-
     ctx.fillStyle = '#333333'; 
     ctx.fillRect(0, GROUND_Y * PIXELS_PER_METER, canvas.width, (ARENA_HEIGHT - GROUND_Y) * PIXELS_PER_METER);
 
-    // Apply Interpolation to remote players
     Object.values(currentRoom.players || {}).forEach(p => {
       if (p.id === profile?.id) {
-        interpPlayersRef.current[p.id] = p; // Autoritative local
+        interpPlayersRef.current[p.id] = p;
       } else {
         const currentInterp = interpPlayersRef.current[p.id] || p;
         const lerpFactor = 0.25; 
-        
         interpPlayersRef.current[p.id] = {
           ...p,
           x: currentInterp.x + (p.x - currentInterp.x) * lerpFactor,
@@ -903,11 +873,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           const offset = i * 0.04;
           const ghostProgress = Math.max(0, progress - offset);
           if (ghostProgress <= 0) continue;
-          
           const dashSpeed = DASH_DISTANCE / DASH_DURATION;
           const gx = (p.x - (p.dashDirX || 0) * dashSpeed * (progress - ghostProgress)) * PIXELS_PER_METER;
           const gy = (p.y - (p.dashDirY || 0) * dashSpeed * (progress - ghostProgress)) * PIXELS_PER_METER;
-          
           ctx.save();
           ctx.globalAlpha = 0.3 * (1 - (i / ghostCount));
           ctx.fillStyle = p.color;
@@ -920,27 +888,22 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     playersToDraw.forEach(p => {
       const attackDuration = 500;
       const timeSinceAttack = now - (p.lastAttackTime || 0);
-
       if (timeSinceAttack < attackDuration) {
         const isLocal = p.id === profile?.id;
         const baseColor = isLocal ? '38, 114, 238' : '238, 43, 43'; 
         let opacity = 0.7;
         if (timeSinceAttack > 400) opacity = 0.7 * (1 - (timeSinceAttack - 400) / 100);
-
         const px = p.x * PIXELS_PER_METER;
         const py = p.y * PIXELS_PER_METER;
         const centerX = px + (PLAYER_WIDTH * PIXELS_PER_METER) / 2;
         const centerY = py + (PLAYER_HEIGHT * PIXELS_PER_METER) / 2;
-
         ctx.save();
         ctx.fillStyle = `rgba(${baseColor}, ${opacity * 0.4})`;
         ctx.strokeStyle = `rgba(${baseColor}, ${opacity})`;
         ctx.lineWidth = 4;
-
         const weapon = (p.weaponClass as WeaponClass) || 'Sword';
         const weaponStats = (WEAPON_STATS[weapon] || WEAPON_STATS.Sword);
         const angle = p.lastAttackAngle || 0;
-
         if (weapon === 'Dagger') {
           ctx.beginPath();
           ctx.arc(centerX, centerY, weaponStats.range * PIXELS_PER_METER, 0, Math.PI * 2);
@@ -979,7 +942,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.fillStyle = p.color;
       ctx.strokeStyle = 'black';
       ctx.lineWidth = 4;
-      
       const radius = 10;
       ctx.beginPath();
       ctx.moveTo(px + radius, py);
@@ -998,7 +960,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.fillStyle = 'rgba(100, 100, 255, 0.4)';
         ctx.fill();
       }
-      
       if (isStunned) {
         ctx.fillStyle = 'rgba(255, 255, 0, 0.3)';
         ctx.fill();
@@ -1012,7 +973,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const flip = p.facing === 'right' ? 1 : -1;
       const handX = p.facing === 'right' ? px + pw - 5 : px + 5;
       const handY = py + ph * 0.55;
-
       ctx.translate(handX, handY);
       ctx.scale(flip, 1);
       ctx.strokeStyle = 'black';
@@ -1031,11 +991,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
-        
         ctx.fillStyle = '#451a03'; 
         ctx.fillRect(4, -10, 4, 20);
         ctx.strokeRect(4, -10, 4, 20);
-        
         ctx.fillStyle = '#78350f'; 
         ctx.fillRect(-10, -3, 14, 6);
         ctx.strokeRect(-10, -3, 14, 6);
@@ -1050,7 +1008,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
-
         ctx.fillStyle = '#f1f5f9'; 
         ctx.beginPath();
         ctx.moveTo(3, -4);
@@ -1058,11 +1015,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.lineTo(3, 4);
         ctx.closePath();
         ctx.fill();
-
         ctx.fillStyle = '#334155'; 
         ctx.fillRect(2, -8, 3, 16);
         ctx.strokeRect(2, -8, 3, 16);
-
         ctx.fillStyle = '#1e293b'; 
         ctx.fillRect(-8, -3, 10, 6);
         ctx.strokeRect(-8, -3, 10, 6);
@@ -1072,7 +1027,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.beginPath();
         ctx.arc(5, 0, 18, -Math.PI/2, Math.PI/2);
         ctx.stroke();
-        
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
         ctx.lineWidth = 1;
         ctx.beginPath();
@@ -1115,8 +1069,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.fillText(p.name, px + pw/2, py - 25);
     });
 
-    effectNumbersRef.current.forEach((en) => {
-      const elapsed = now - en.startTime;
+    localEffects.forEach((en) => {
+      const elapsed = now - en.timestamp;
       if (elapsed > 800) return;
       const alpha = 1 - (elapsed / 800);
       const dy = (elapsed / 800) * 50;
@@ -1154,25 +1108,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const dashRemaining = (myWeaponStats.dashCooldown || 4.0) - (myP.dashRechargeProgress || 0);
 
     if (now - feedback.lastReloadFail < 500 && reloadRemaining > 0) {
-      alerts.push({ 
-        text: `${(reloadRemaining / 1000).toFixed(1)}s`, 
-        color: '#ff4444', 
-        alpha: 1 - (now - feedback.lastReloadFail) / 500 
-      });
+      alerts.push({ text: `${(reloadRemaining / 1000).toFixed(1)}s`, color: '#ff4444', alpha: 1 - (now - feedback.lastReloadFail) / 500 });
     }
     if (now - feedback.lastDashFail < 500 && dashRemaining > 0) {
-      alerts.push({ 
-        text: `${dashRemaining.toFixed(1)}s`, 
-        color: '#fbbf24', 
-        alpha: 1 - (now - feedback.lastDashFail) / 500 
-      });
+      alerts.push({ text: `${dashRemaining.toFixed(1)}s`, color: '#fbbf24', alpha: 1 - (now - feedback.lastDashFail) / 500 });
     }
     if (now - feedback.lastStaminaFail < 500) {
-      alerts.push({ 
-        text: Math.floor(myP.stamina || 0).toString(), 
-        color: '#60a5fa', 
-        alpha: 1 - (now - feedback.lastStaminaFail) / 500 
-      });
+      alerts.push({ text: Math.floor(myP.stamina || 0).toString(), color: '#60a5fa', alpha: 1 - (now - feedback.lastStaminaFail) / 500 });
     }
   }
 
@@ -1203,24 +1145,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   return (
     <div className="min-h-screen bg-[#000035] overflow-hidden flex flex-col items-center select-none" onMouseMove={handleMouseMove}>
-      <div 
-        className="fixed pointer-events-none z-[9999] flex flex-col items-center gap-1 select-none"
-        style={{ 
-          left: mousePos.x, 
-          top: mousePos.y + 35, 
-          transform: 'translateX(-50%)'
-        }}
-      >
+      <div className="fixed pointer-events-none z-[9999] flex flex-col items-center gap-1 select-none" style={{ left: mousePos.x, top: mousePos.y + 35, transform: 'translateX(-50%)' }}>
         {alerts.map((alert, i) => (
-          <span 
-            key={i} 
-            className="font-headline text-2xl drop-shadow-[4px_4px_0px_rgba(0,0,0,1)]"
-            style={{ 
-              color: alert.color, 
-              opacity: alert.alpha,
-              WebkitTextStroke: '2px black'
-            }}
-          >
+          <span key={i} className="font-headline text-2xl drop-shadow-[4px_4px_0px_rgba(0,0,0,1)]" style={{ color: alert.color, opacity: alert.alpha, WebkitTextStroke: '2px black' }}>
             {alert.text}
           </span>
         ))}
@@ -1261,10 +1188,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
               <div className="flex flex-col items-start gap-0.5 flex-1">
                 <div className="flex items-center gap-2">
                   <WeaponIcon weapon={p.weaponClass as WeaponClass} className="w-7 h-7" />
-                  <span 
-                    className="font-headline text-lg truncate max-w-[100px]"
-                    style={{ color: p.color, WebkitTextStroke: '1px black' }}
-                  >
+                  <span className="font-headline text-lg truncate max-w-[100px]" style={{ color: p.color, WebkitTextStroke: '1px black' }}>
                     {p.name}
                   </span>
                   {p.id === room?.createdBy && (
@@ -1273,10 +1197,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                 </div>
                 <div className="flex gap-1.5 mt-1">
                   {[1, 2, 3].map(i => (
-                    <div 
-                      key={i} 
-                      className={`w-3.5 h-3.5 rounded-full border-2 border-black transition-all duration-300 ${i <= (p.roundsWon || 0) ? 'bg-yellow-500 shadow-[0_0_8px_rgba(255,215,0,0.6)]' : 'bg-white/10'}`} 
-                    />
+                    <div key={i} className={`w-3.5 h-3.5 rounded-full border-2 border-black transition-all duration-300 ${i <= (p.roundsWon || 0) ? 'bg-yellow-500 shadow-[0_0_8px_rgba(255,215,0,0.6)]' : 'bg-white/10'}`} />
                   ))}
                 </div>
               </div>
@@ -1305,9 +1226,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                     <div key={p.id} className="flex flex-col items-center gap-3">
                       <div className="relative">
                         <div className="w-16 h-16 rounded-2xl border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]" style={{ backgroundColor: p.color }} />
-                        {p.id === room?.createdBy && (
-                          <Crown className="absolute -top-6 -right-6 w-10 h-10 text-yellow-500 fill-yellow-500 rotate-12 drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]" />
-                        )}
+                        {p.id === room?.createdBy && <Crown className="absolute -top-6 -right-6 w-10 h-10 text-yellow-500 fill-yellow-500 rotate-12 drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]" />}
                         {!p.isReady && (
                           <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center rounded-2xl">
                              <div className="w-6 h-6 border-2 border-white border-t-transparent animate-spin rounded-full mb-1" />
@@ -1323,34 +1242,24 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                 <div className="flex flex-col items-center gap-4">
                   <div className="flex items-center gap-2 bg-black/40 px-6 py-2 rounded-full border-2 border-white/10">
                     <Users className="w-6 h-6 text-primary" />
-                    <span className="font-headline text-2xl text-white">
-                      {playerCount} / {room.maxPlayers || 4}
-                    </span>
+                    <span className="font-headline text-2xl text-white">{playerCount} / {room.maxPlayers || 4}</span>
                   </div>
-                  
                   {isHost ? (
                     canStart ? (
                       <Button onClick={startMatch} size="lg" className="cartoon-button bg-primary text-white text-3xl px-20 h-24">
-                        <Play className="w-10 h-10 mr-4 fill-current" />
-                        START!
+                        <Play className="w-10 h-10 mr-4 fill-current" /> START!
                       </Button>
                     ) : (
                       <div className="flex flex-col items-center animate-pulse">
                         <span className="font-headline text-2xl text-white/40 uppercase tracking-widest text-center">
                           {playerCount < 2 ? 'WAITING FOR CHALLENGERS...' : 'WAITING FOR WARRIORS...'}
                         </span>
-                        <span className="text-xs font-bold text-primary uppercase mt-2">
-                          {playerCount < 2 
-                            ? 'Need at least 2 warriors to begin' 
-                            : 'All players must be ready to start'}
-                        </span>
+                        <span className="text-xs font-bold text-primary uppercase mt-2">All players must be ready to start</span>
                       </div>
                     )
                   ) : (
                     <div className="flex flex-col items-center animate-pulse">
-                      <span className="font-headline text-2xl text-white/40 uppercase tracking-widest text-center">
-                        WAITING FOR HOST...
-                      </span>
+                      <span className="font-headline text-2xl text-white/40 uppercase tracking-widest text-center">WAITING FOR HOST...</span>
                     </div>
                   )}
                 </div>
@@ -1378,8 +1287,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                 </h2>
                 <div className="flex gap-4">
                   <Button onClick={handlePlayAgain} size="lg" className="cartoon-button bg-accent text-black text-2xl h-16 px-16 flex items-center gap-3">
-                    <RotateCcw className="w-6 h-6" />
-                    PLAY AGAIN
+                    <RotateCcw className="w-6 h-6" /> PLAY AGAIN
                   </Button>
                   <Button onClick={handleQuit} size="lg" className="cartoon-button bg-primary text-white text-2xl h-16 px-16">
                     LOBBY
@@ -1396,9 +1304,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                 <Heart className="w-3 h-3 fill-current text-destructive" /> HEALTH
               </span>
               <div className="flex items-center gap-2">
-                {recentHeal && (
-                  <span className="font-headline text-sm text-[#4ade80] animate-bounce-subtle">+{recentHeal.amount}</span>
-                )}
+                {recentHeal && <span className="font-headline text-sm text-[#4ade80] animate-bounce-subtle">+{recentHeal.amount}</span>}
                 <span className="font-headline text-sm text-white">{Math.floor(myP?.hp || 0)}</span>
               </div>
             </div>
@@ -1414,9 +1320,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             <span className="font-headline text-[10px] text-white/80 uppercase tracking-tight flex items-center gap-1">
                <Zap className="w-3 h-3 fill-current text-[#60a5fa]" /> STAMINA
             </span>
-            <span className="font-headline text-sm text-[#60a5fa] drop-shadow-[1px_1px_0px_rgba(0,0,0,1)]">
-              {Math.floor(myP?.stamina || 0)}
-            </span>
+            <span className="font-headline text-sm text-[#60a5fa] drop-shadow-[1px_1px_0px_rgba(0,0,0,1)]">{Math.floor(myP?.stamina || 0)}</span>
           </div>
 
           {isStunned && (
@@ -1433,25 +1337,17 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                  <WeaponIcon weapon={myP?.weaponClass as WeaponClass || 'Sword'} className="w-3 h-3" /> DASH
               </span>
               <span className="font-headline text-sm text-accent drop-shadow-[1px_1px_0px_rgba(0,0,0,1)]">
-                {myP && myP.dashCharges === maxDash 
-                  ? 'READY' 
-                  : `${((myWeaponStats?.dashCooldown || 4.0) - (myP?.dashRechargeProgress || 0)).toFixed(1)}s`
-                }
+                {myP && myP.dashCharges === maxDash ? 'READY' : `${((myWeaponStats?.dashCooldown || 4.0) - (myP?.dashRechargeProgress || 0)).toFixed(1)}s`}
               </span>
             </div>
             <div className="flex justify-between items-center px-1">
                <div className="flex gap-1.5">
                 {Array.from({ length: maxDash }).map((_, i) => (
-                  <div 
-                    key={i} 
-                    className={`w-4 h-4 rounded-full border-2 border-black transition-all duration-300 ${i < (myP?.dashCharges || 0) ? 'bg-accent shadow-[0_0_8px_rgba(255,255,0,0.5)] scale-110' : 'bg-black/60 scale-90'}`}
-                  />
+                  <div key={i} className={`w-4 h-4 rounded-full border-2 border-black transition-all duration-300 ${i < (myP?.dashCharges || 0) ? 'bg-accent shadow-[0_0_8px_rgba(255,255,0,0.5)] scale-110' : 'bg-black/60 scale-90'}`} />
                 ))}
               </div>
               {myP?.weaponClass === 'Sword' && stunCDRemaining > 0 && (
-                <span className="font-headline text-xl text-white drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]">
-                  {(stunCDRemaining / 1000).toFixed(1)}
-                </span>
+                <span className="font-headline text-xl text-white drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]">{(stunCDRemaining / 1000).toFixed(1)}</span>
               )}
             </div>
           </div>

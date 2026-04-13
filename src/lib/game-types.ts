@@ -32,11 +32,21 @@ export interface GamePlayer extends PlayerProfile {
   dashDirY?: number;
 }
 
+export interface GameEffect {
+  id: string;
+  x: number;
+  y: number;
+  amount: number;
+  type: 'damage' | 'heal';
+  timestamp: number;
+}
+
 export interface GameRoom {
   id: string;
   name: string;
   createdBy: string; // The ID of the host
   players: Record<string, GamePlayer>;
+  effects?: Record<string, GameEffect>; // Synced combat effects
   status: 'lobby' | 'starting' | 'playing' | 'round_over' | 'finished';
   currentRound: number;
   lastUpdate: number;
