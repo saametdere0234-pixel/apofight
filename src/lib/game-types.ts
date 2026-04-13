@@ -37,6 +37,7 @@ export interface GamePlayer extends PlayerProfile {
   stunnedUntil?: number; // Timestamp until which the player is stunned
   stunCooldownUntil?: number; // Timestamp until which the player is immune to stun
   isReady?: boolean; // For Play Again synchronization
+  deathTime?: number; // Timestamp when HP reached 0
   // Dash Physics
   isDashing?: boolean;
   dashTimeLeft?: number;

@@ -180,14 +180,15 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     return () => unsubscribe();
   }, []);
 
-  // Effect Sync
+  // Effect Sync - High Visibility Logic
   useEffect(() => {
     if (!db || !roomId) return;
     const effectsRef = ref(db, `rooms/${roomId}/effects`);
     return onValue(effectsRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        const effectsList = Object.values(data) as GameEffect[];
+        const now = Date.now();
+        const effectsList = (Object.values(data) as GameEffect[]).filter(fx => now - fx.timestamp < 2000);
         setLocalEffects(effectsList);
       } else {
         setLocalEffects([]);
@@ -339,9 +340,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const currentHp = room.players[profile.id].hp;
     if (currentHp < lastHpRef.current) {
       setFlash({ type: 'taken', time: Date.now() });
+      if (currentHp <= 0) {
+        update(ref(db, `rooms/${roomId}/players/${profile.id}`), { deathTime: Date.now() });
+      }
     }
     lastHpRef.current = currentHp;
-  }, [room?.players, profile]);
+  }, [room?.players, profile, roomId]);
 
   const getMaxDashCharges = (weapon: WeaponClass) => (weapon === 'Dagger' ? 4 : 1);
 
@@ -866,6 +870,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       } as GameEffect);
     }
 
+    if (newHp <= 0) {
+      updates.deathTime = now;
+    }
+
     update(enemyRef, updates);
     setFlash({ type: 'dealt', time: Date.now() });
   };
@@ -932,7 +940,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         stunnedUntil: 0,
         stunCooldownUntil: 0,
         isDashing: false,
-        dashTimeLeft: 0
+        dashTimeLeft: 0,
+        deathTime: 0
       };
       
       Object.entries(pUpdates).forEach(([key, val]) => {
@@ -1077,19 +1086,22 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
       // Draw Death Animation
       if (p.hp <= 0 && currentRoom.status !== 'lobby') {
-        ctx.save();
-        ctx.fillStyle = '#cbd5e1';
-        ctx.globalAlpha = 0.6;
-        const cx = px + pw / 2;
-        const cy = py + ph / 2;
-        for (let i = 0; i < 8; i++) {
-          const ox = Math.cos(i * (Math.PI / 4) + (now / 500)) * 12;
-          const oy = Math.sin(i * (Math.PI / 4) + (now / 500)) * 12;
-          ctx.beginPath();
-          ctx.arc(cx + ox, cy + oy, 15, 0, Math.PI * 2);
-          ctx.fill();
+        const timeSinceDeath = now - (p.deathTime || 0);
+        if (timeSinceDeath < 1500) {
+          ctx.save();
+          ctx.fillStyle = '#cbd5e1';
+          ctx.globalAlpha = 0.6 * (1 - timeSinceDeath / 1500);
+          const cx = px + pw / 2;
+          const cy = py + ph / 2;
+          for (let i = 0; i < 8; i++) {
+            const ox = Math.cos(i * (Math.PI / 4) + (now / 500)) * (12 + (timeSinceDeath / 50));
+            const oy = Math.sin(i * (Math.PI / 4) + (now / 500)) * (12 + (timeSinceDeath / 50));
+            ctx.beginPath();
+            ctx.arc(cx + ox, cy + oy, 15 * (1 - timeSinceDeath / 1500), 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
         }
-        ctx.restore();
         return;
       }
 
@@ -1159,8 +1171,28 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
       ctx.restore();
 
+      const isWinner = p.name === currentRoom.lastWinnerName && (currentRoom.status === 'celebrating' || currentRoom.status === 'round_over' || currentRoom.status === 'finished');
+
+      // Draw Eyes (Only if not winner with sunglasses)
+      if (!isWinner) {
+        ctx.save();
+        ctx.fillStyle = 'white';
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 1;
+        const eyeX = p.facing === 'right' ? px + pw - 12 : px + 4;
+        ctx.beginPath();
+        ctx.arc(eyeX + 4, py + 12, 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = 'black';
+        ctx.beginPath();
+        ctx.arc(eyeX + 5, py + 12, 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
       // Draw Winner Sunglasses
-      if ((currentRoom.status === 'celebrating' || currentRoom.status === 'round_over' || currentRoom.status === 'finished') && p.name === currentRoom.lastWinnerName) {
+      if (isWinner) {
         ctx.save();
         const sx = px + (pw / 2);
         const finalEyeY = py + 12;
@@ -1254,19 +1286,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
       ctx.restore();
 
-      ctx.fillStyle = 'white';
-      ctx.strokeStyle = 'black';
-      ctx.lineWidth = 1;
-      const eyeX = p.facing === 'right' ? px + pw - 12 : px + 4;
-      ctx.beginPath();
-      ctx.arc(eyeX + 4, py + 12, 4, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-      ctx.fillStyle = 'black';
-      ctx.beginPath();
-      ctx.arc(eyeX + 5, py + 12, 2, 0, Math.PI * 2);
-      ctx.fill();
-
       if (currentRoom.status !== 'lobby') {
         const hpWidth = pw * 1.2;
         const hpX = px - (hpWidth - pw) / 2;
@@ -1287,7 +1306,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.fillText(p.name, px + pw/2, py - 25);
     });
 
-    // Draw Effects (Damage & Lifesteal) - Positioned CLEARLY ABOVE characters
+    // Draw Effects (Damage & Lifesteal) - TOP LAYER
     ctx.save();
     ctx.font = 'bold 24px Luckiest Guy';
     ctx.textAlign = 'center';
@@ -1298,7 +1317,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const opacity = 1 - elapsed / 800;
       const drift = (elapsed / 800) * 100;
       const fxX = fx.x * PIXELS_PER_METER;
-      const fxY = fx.y * PIXELS_PER_METER - drift - 80;
+      const fxY = (fx.y * PIXELS_PER_METER) - drift - 80;
 
       ctx.globalAlpha = opacity;
       ctx.strokeStyle = 'black';
