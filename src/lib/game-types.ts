@@ -7,6 +7,18 @@ export interface PlayerProfile {
   weaponClass: WeaponClass;
 }
 
+export interface Projectile {
+  id: string;
+  ownerId: string;
+  startX: number;
+  startY: number;
+  vx: number;
+  vy: number;
+  startTime: number;
+  range: number;
+  damage: number;
+}
+
 export interface GamePlayer extends PlayerProfile {
   x: number;
   y: number;
@@ -47,6 +59,7 @@ export interface GameRoom {
   createdBy: string; // The ID of the host
   players: Record<string, GamePlayer>;
   effects?: Record<string, GameEffect>; // Synced combat effects
+  projectiles?: Record<string, Projectile>;
   status: 'lobby' | 'starting' | 'playing' | 'round_over' | 'finished';
   currentRound: number;
   lastUpdate: number;
@@ -81,7 +94,8 @@ export const WEAPON_STATS = {
     delay: 2.0,
     maxHp: 1000,
     dashCooldown: 4.0,
-    staminaAttackCost: 25
+    staminaAttackCost: 25,
+    projectileDuration: 1500 // 1.5 seconds to travel max range
   },
 };
 

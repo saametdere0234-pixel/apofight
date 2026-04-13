@@ -8,6 +8,7 @@ import {
   GamePlayer, 
   GameRoom, 
   GameEffect,
+  Projectile,
   ARENA_WIDTH, 
   ARENA_HEIGHT, 
   GROUND_Y, 
@@ -124,6 +125,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const roomRef = useRef<GameRoom | null>(null);
   const [keys] = useState<Set<string>>(new Set());
   const [isConnected, setIsConnected] = useState(true);
+  const [isCharging, setIsCharging] = useState(false);
   
   const [flash, setFlash] = useState<{ type: 'taken' | 'dealt' | null, time: number }>({ type: null, time: 0 });
   const [shakeUntil, setShakeUntil] = useState(0);
@@ -202,7 +204,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             status: 'lobby',
             lastWinnerName: null,
             startTime: null,
-            effects: null
+            effects: null,
+            projectiles: null
           };
           updates[`players/${onlyPlayerId}/roundsWon`] = 0;
           updates[`players/${onlyPlayerId}/isReady`] = true;
@@ -228,7 +231,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             status: 'lobby',
             lastWinnerName: null,
             startTime: null,
-            effects: null
+            effects: null,
+            projectiles: null
           };
           players.forEach(p => {
             updates[`players/${p.id}/roundsWon`] = 0;
@@ -375,13 +379,46 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     
     if (currentRoom.status === 'starting' || currentRoom.status === 'round_over' || currentRoom.status === 'finished') return;
 
+    const now = Date.now();
     const p = currentRoom.players[profile.id];
+
+    // Projectile Movement & Collision (Owner Authority)
+    if (currentRoom.projectiles) {
+      Object.entries(currentRoom.projectiles).forEach(([pid, proj]) => {
+        if (proj.ownerId === profile.id) {
+          const elapsed = now - proj.startTime;
+          const projX = proj.startX + proj.vx * (elapsed / 1000);
+          const projY = proj.startY + proj.vy * (elapsed / 1000);
+
+          let hitId: string | null = null;
+          Object.entries(currentRoom.players).forEach(([eid, enemy]) => {
+            if (eid === profile.id || enemy.hp <= 0) return;
+            const buffer = 0.5;
+            if (
+              projX >= enemy.x - buffer &&
+              projX <= enemy.x + PLAYER_WIDTH + buffer &&
+              projY >= enemy.y - buffer &&
+              projY <= enemy.y + PLAYER_HEIGHT + buffer
+            ) {
+              hitId = eid;
+            }
+          });
+
+          if (hitId) {
+            thisHit(hitId, currentRoom.players[hitId], false);
+            remove(ref(db, `rooms/${roomId}/projectiles/${pid}`));
+          } else if (elapsed > 1500) {
+            remove(ref(db, `rooms/${roomId}/projectiles/${pid}`));
+          }
+        }
+      });
+    }
+
     if (p.hp <= 0) return;
 
     const weapon = (p.weaponClass as WeaponClass) || 'Sword';
     const stats = WEAPON_STATS[weapon] || WEAPON_STATS.Sword;
     const maxCharges = getMaxDashCharges(weapon);
-    const now = Date.now();
     const isStunned = now < (p.stunnedUntil || 0);
     
     let nextX = p.x;
@@ -588,6 +625,74 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     mouseRef.current = { x: gameX, y: gameY };
   };
 
+  const handleMouseDown = () => {
+    const p = room?.players?.[profile?.id || ''];
+    if (p?.weaponClass === 'Bow' && p.hp > 0 && room?.status === 'playing') {
+      setIsCharging(true);
+    } else {
+      handleAttack();
+    }
+  };
+
+  const handleMouseUp = () => {
+    if (isCharging) {
+      fireBow();
+      setIsCharging(false);
+    }
+  };
+
+  const fireBow = () => {
+    const currentRoom = roomRef.current;
+    if (!profile || !currentRoom || !currentRoom.players?.[profile.id] || !db || currentRoom.status !== 'playing') return;
+    
+    const p = currentRoom.players[profile.id];
+    const now = Date.now();
+    const weaponStats = WEAPON_STATS.Bow;
+    
+    const onCooldown = (weaponStats.delay * 1000) - (now - (p.lastAttackTime || 0)) > 0;
+    const hasStamina = (p.stamina || 0) >= weaponStats.staminaAttackCost;
+
+    if (onCooldown || !hasStamina) {
+      setShakeUntil(now + 80);
+      setFeedback(prev => ({
+        ...prev,
+        lastReloadFail: onCooldown ? now : prev.lastReloadFail,
+        lastStaminaFail: !hasStamina ? now : prev.lastStaminaFail,
+        staminaMsg: ''
+      }));
+      return;
+    }
+
+    const px = p.x + PLAYER_WIDTH / 2;
+    const py = p.y + PLAYER_HEIGHT / 2;
+    const mx = mouseRef.current.x;
+    const my = mouseRef.current.y;
+    const attackAngle = Math.atan2(my - py, mx - px);
+
+    const speed = weaponStats.range / 1.5; // reaches range in 1.5s
+    const vx = Math.cos(attackAngle) * speed;
+    const vy = Math.sin(attackAngle) * speed;
+
+    const projRef = push(ref(db, `rooms/${roomId}/projectiles`));
+    set(projRef, {
+      id: projRef.key,
+      ownerId: profile.id,
+      startX: px,
+      startY: py,
+      vx,
+      vy,
+      startTime: now,
+      range: weaponStats.range,
+      damage: weaponStats.damage
+    });
+
+    update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
+      lastAttackTime: now,
+      lastAttackAngle: attackAngle,
+      stamina: (p.stamina || 0) - weaponStats.staminaAttackCost
+    });
+  };
+
   const handleAttack = () => {
     const currentRoom = roomRef.current;
     if (!profile || !currentRoom || !currentRoom.players?.[profile.id] || !db || currentRoom.status !== 'playing') return;
@@ -600,6 +705,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (isStunned) return;
 
     const weapon = (p.weaponClass as WeaponClass) || 'Sword';
+    if (weapon === 'Bow') return; // Handled by mouseDown/Up
+
     const weaponStats = WEAPON_STATS[weapon] || WEAPON_STATS.Sword;
     
     const reloadRemaining = (weaponStats.delay * 1000) - (now - (p.lastAttackTime || 0));
@@ -635,10 +742,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     Object.entries(currentRoom.players).forEach(([id, enemy]) => {
       if (id === profile.id || enemy.hp <= 0) return;
       
-      const exMin = enemy.x;
-      const exMax = enemy.x + PLAYER_WIDTH;
-      const eyMin = enemy.y;
-      const eyMax = enemy.y + PLAYER_HEIGHT;
       const ex = enemy.x + PLAYER_WIDTH / 2;
       const ey = enemy.y + PLAYER_HEIGHT / 2;
       
@@ -659,12 +762,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             hit = true;
           }
         }
-      } else if (weapon === 'Bow') {
-        const x2 = px + Math.cos(attackAngle) * weaponStats.range;
-        const y2 = py + Math.sin(attackAngle) * weaponStats.range;
-        if (checkLineRect(px, py, x2, y2, exMin, eyMin, exMax, eyMax)) {
-          hit = true;
-        }
       }
 
       if (hit) {
@@ -678,23 +775,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         stunCooldownUntil: now + STUN_COOLDOWN
       });
     }
-  };
-
-  const checkLineRect = (x1: number, y1: number, x2: number, y2: number, minX: number, minY: number, maxX: number, maxY: number) => {
-    if (x1 >= minX && x1 <= maxX && y1 >= minY && y1 <= maxY) return true;
-    if (x2 >= minX && x2 <= maxX && y2 >= minY && y2 <= maxY) return true;
-    return lineIntersect(x1, y1, x2, y2, minX, minY, minX, maxY) ||
-           lineIntersect(x1, y1, x2, y2, maxX, minY, maxX, maxY) ||
-           lineIntersect(x1, y1, x2, y2, minX, minY, maxX, minY) ||
-           lineIntersect(x1, y1, x2, y2, minX, maxY, maxX, maxY);
-  };
-
-  const lineIntersect = (x1: number, y1: number, x2: number, y2: number, x3: number, y3: number, x4: number, y4: number) => {
-    const den = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1);
-    if (den === 0) return false;
-    const ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / den;
-    const ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / den;
-    return ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1;
   };
 
   const thisHit = (id: string, enemy: GamePlayer, shouldStun: boolean = false) => {
@@ -727,8 +807,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     if (p.weaponClass === 'Bow') {
       const healAmount = weaponStats.damage * 0.3;
-      const myWeaponStats = (WEAPON_STATS[p.weaponClass as WeaponClass] || WEAPON_STATS.Sword);
-      const newMyHp = Math.min(myWeaponStats.maxHp, p.hp + healAmount);
+      const newMyHp = Math.min(weaponStats.maxHp, p.hp + healAmount);
       update(ref(db, `rooms/${roomId}/players/${profile.id}`), { hp: newMyHp });
       
       push(effectsRef, {
@@ -757,7 +836,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const updates: any = { 
       status: winnersRounds >= 3 ? 'finished' : 'round_over',
       lastWinnerName: winner.name,
-      effects: null 
+      effects: null,
+      projectiles: null
     };
     updates[`players/${winnerId}/roundsWon`] = winnersRounds;
     
@@ -777,7 +857,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     update(ref(db, `rooms/${roomId}`), { 
       status: 'round_over', 
       lastWinnerName: 'DRAW',
-      effects: null 
+      effects: null,
+      projectiles: null
     });
   };
 
@@ -857,6 +938,55 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     const playersToDraw = Object.values(interpPlayersRef.current);
 
+    // Render Trajectory
+    if (isCharging && profile) {
+      const myP = currentRoom.players[profile.id];
+      if (myP) {
+        const px = (myP.x + PLAYER_WIDTH/2) * PIXELS_PER_METER;
+        const py = (myP.y + PLAYER_HEIGHT/2) * PIXELS_PER_METER;
+        const angle = Math.atan2(mouseRef.current.y - (myP.y + PLAYER_HEIGHT/2), mouseRef.current.x - (myP.x + PLAYER_WIDTH/2));
+        const rx = px + Math.cos(angle) * WEAPON_STATS.Bow.range * PIXELS_PER_METER;
+        const ry = py + Math.sin(angle) * WEAPON_STATS.Bow.range * PIXELS_PER_METER;
+        
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.setLineDash([10, 5]);
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(px, py);
+        ctx.lineTo(rx, ry);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    // Render Projectiles
+    if (currentRoom.projectiles) {
+      Object.values(currentRoom.projectiles).forEach(proj => {
+        const elapsed = now - proj.startTime;
+        const px = (proj.startX + proj.vx * (elapsed / 1000)) * PIXELS_PER_METER;
+        const py = (proj.startY + proj.vy * (elapsed / 1000)) * PIXELS_PER_METER;
+        
+        ctx.save();
+        ctx.fillStyle = 'white';
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(px, py, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Trail
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 2;
+        ctx.moveTo(px, py);
+        ctx.lineTo(px - proj.vx * 0.1 * PIXELS_PER_METER, py - proj.vy * 0.1 * PIXELS_PER_METER);
+        ctx.stroke();
+        ctx.restore();
+      });
+    }
+
     playersToDraw.forEach(p => {
       if (p.isDashing && p.dashTimeLeft && p.dashTimeLeft > 0) {
         const progress = 1 - (p.dashTimeLeft / DASH_DURATION);
@@ -908,14 +1038,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           ctx.arc(centerX, centerY, weaponStats.range * PIXELS_PER_METER, angle - halfAngle, angle + halfAngle);
           ctx.closePath();
           ctx.fill();
-          ctx.stroke();
-        } else if (weapon === 'Bow') {
-          ctx.beginPath();
-          ctx.moveTo(centerX, centerY);
-          const endX = centerX + Math.cos(angle) * weaponStats.range * PIXELS_PER_METER;
-          const endY = centerY + Math.sin(angle) * weaponStats.range * PIXELS_PER_METER;
-          ctx.lineTo(endX, endY);
-          ctx.lineWidth = 6;
           ctx.stroke();
         }
         ctx.restore();
@@ -1199,7 +1321,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
       <main className="flex-1 w-full relative flex items-center justify-center p-8">
         <div className={`relative game-canvas-container ${isShaking ? 'animate-shake' : ''}`}>
-          <canvas ref={canvasRef} width={ARENA_WIDTH * PIXELS_PER_METER} height={ARENA_HEIGHT * PIXELS_PER_METER} className="w-full h-auto cursor-crosshair" onClick={handleAttack} />
+          <canvas 
+            ref={canvasRef} 
+            width={ARENA_WIDTH * PIXELS_PER_METER} 
+            height={ARENA_HEIGHT * PIXELS_PER_METER} 
+            className="w-full h-auto cursor-crosshair" 
+            onMouseDown={handleMouseDown}
+            onMouseUp={handleMouseUp}
+          />
           
           {showCountdown && (
             <div className="absolute inset-0 flex items-center justify-center z-[60] pointer-events-none">
