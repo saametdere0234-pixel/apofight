@@ -129,6 +129,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const profileRef = useRef(profile);
   const [keys] = useState<Set<string>>(new Set());
   const [isConnected, setIsConnected] = useState(true);
+  
+  const isChargingRef = useRef(false);
   const [isCharging, setIsCharging] = useState(false);
   
   const [flash, setFlash] = useState<{ type: 'taken' | 'dealt' | null, time: number }>({ type: null, time: 0 });
@@ -189,7 +191,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     return () => unsubscribe();
   }, []);
 
-  // Effect Sync - Optimized for Visibility
+  // Effect Sync
   useEffect(() => {
     if (!db || !roomId) return;
     const effectsDbRef = ref(db, `rooms/${roomId}/effects`);
@@ -289,7 +291,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   useEffect(() => {
     if (!db || !roomId || !room || !isHost) return;
 
-    // Transition: Starting -> Playing (Countdown)
     if (room.status === 'starting' && room.startTime) {
       const elapsed = Date.now() - room.startTime;
       const remaining = Math.max(0, 3500 - elapsed);
@@ -299,7 +300,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       return () => clearTimeout(timer);
     }
 
-    // Transition: Celebrating -> Result
     if (room.status === 'celebrating' && room.celebrationStartTime) {
       const elapsed = Date.now() - room.celebrationStartTime;
       const remaining = Math.max(0, 2000 - elapsed);
@@ -325,7 +325,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       return () => clearTimeout(timer);
     }
 
-    // Transition: Round Over -> Starting (Next Round)
     if (room.status === 'round_over') {
       const timer = setTimeout(() => {
         const currentData = roomRef.current;
@@ -686,15 +685,17 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const p = room?.players?.[profileRef.current?.id || ''];
     if (p?.weaponClass === 'Bow' && p.hp > 0 && room?.status === 'playing') {
       setIsCharging(true);
+      isChargingRef.current = true;
     } else {
       handleAttack();
     }
   };
 
   const handleMouseUp = () => {
-    if (isCharging) {
+    if (isChargingRef.current) {
       fireBow();
       setIsCharging(false);
+      isChargingRef.current = false;
     }
   };
 
@@ -863,24 +864,29 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     }
 
-    if (p.weaponClass === 'Bow' && p.hp < weaponStats.maxHp) {
-      const healAmount = weaponStats.damage * 0.3;
-      const actualHeal = Math.min(healAmount, weaponStats.maxHp - p.hp);
-      const newMyHp = Math.min(weaponStats.maxHp, p.hp + actualHeal);
-      
-      update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), { hp: newMyHp });
-      setRecentHeal({ amount: Math.round(actualHeal), time: now });
+    if (p.weaponClass === 'Bow') {
+      const maxHp = weaponStats.maxHp;
+      if (p.hp < maxHp) {
+        const healAmount = weaponStats.damage * 0.3;
+        const actualHeal = Math.min(healAmount, maxHp - p.hp);
+        const newMyHp = Math.min(maxHp, p.hp + actualHeal);
+        
+        if (actualHeal > 0) {
+          update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), { hp: newMyHp });
+          setRecentHeal({ amount: Math.round(actualHeal), time: now });
 
-      // Add Lifesteal Effect to Database
-      const healEffectRef = push(ref(db, `rooms/${roomId}/effects`));
-      set(healEffectRef, {
-        id: healEffectRef.key,
-        x: p.x + PLAYER_WIDTH / 2,
-        y: p.y,
-        amount: Math.round(actualHeal),
-        type: 'heal',
-        timestamp: now
-      } as GameEffect);
+          // Add Lifesteal Effect to Database
+          const healEffectRef = push(ref(db, `rooms/${roomId}/effects`));
+          set(healEffectRef, {
+            id: healEffectRef.key,
+            x: p.x + PLAYER_WIDTH / 2,
+            y: p.y,
+            amount: Math.round(actualHeal),
+            type: 'heal',
+            timestamp: now
+          } as GameEffect);
+        }
+      }
     }
 
     if (newHp <= 0) {
@@ -988,7 +994,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     ctx.fillStyle = '#333333'; 
     ctx.fillRect(0, GROUND_Y * PIXELS_PER_METER, canvas.width, (ARENA_HEIGHT - GROUND_Y) * PIXELS_PER_METER);
 
-    // Cleanup ghost players
     Object.keys(interpPlayersRef.current).forEach(id => {
       if (!currentRoom.players[id]) {
         delete interpPlayersRef.current[id];
@@ -1011,9 +1016,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     const playersToDraw = Object.values(interpPlayersRef.current);
 
-    if (isCharging && profileRef.current) {
+    // Render shooter-only Trajectory indicator
+    if (isChargingRef.current && profileRef.current) {
       const myP = currentRoom.players[profileRef.current.id];
-      if (myP) {
+      if (myP && myP.weaponClass === 'Bow' && myP.hp > 0) {
         const px = (myP.x + PLAYER_WIDTH/2) * PIXELS_PER_METER;
         const py = (myP.y + PLAYER_HEIGHT/2) * PIXELS_PER_METER;
         const angle = Math.atan2(mouseRef.current.y - (myP.y + PLAYER_HEIGHT/2), mouseRef.current.x - (myP.x + PLAYER_WIDTH/2));
@@ -1028,7 +1034,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.translate(px, py);
         ctx.rotate(angle);
         ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-        ctx.fillRect(0, -10, beamLength, 20); // 20px wide beam
+        ctx.fillRect(0, -10, beamLength, 20); 
         
         // Inner Dashed Line
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
@@ -1086,7 +1092,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.fill();
         ctx.stroke();
         
-        // Fletching (feathers)
+        // Fletching
         ctx.strokeStyle = '#f97316';
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -1126,7 +1132,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const pw = PLAYER_WIDTH * PIXELS_PER_METER;
       const ph = PLAYER_HEIGHT * PIXELS_PER_METER;
 
-      // Draw Death Animation (Cloud of Dust)
+      // Death Dust Animation
       const timeSinceDeath = now - (p.deathTime || 0);
       if (p.hp <= 0 && currentRoom.status !== 'lobby') {
         if (timeSinceDeath < 1500) {
@@ -1181,6 +1187,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
 
       const isStunned = now < (p.stunnedUntil || 0);
+      const isWinner = p.name === currentRoom.lastWinnerName && (currentRoom.status === 'celebrating' || currentRoom.status === 'round_over' || currentRoom.status === 'finished');
 
       ctx.save();
       ctx.fillStyle = p.color;
@@ -1213,9 +1220,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
       ctx.restore();
 
-      // Draw Weapon in Hand
+      // Draw Weapon
       ctx.save();
-      const isWinner = p.name === currentRoom.lastWinnerName && (currentRoom.status === 'celebrating' || currentRoom.status === 'round_over' || currentRoom.status === 'finished');
       const weaponX = p.facing === 'right' ? px + pw - 5 : px + 5;
       const weaponY = py + ph / 2 + 5;
       ctx.translate(weaponX, weaponY);
@@ -1227,75 +1233,45 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.fillStyle = '#38bdf8';
         ctx.strokeStyle = 'black';
         ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.rect(0, -3, 24, 6);
-        ctx.fill();
-        ctx.stroke();
+        ctx.beginPath(); ctx.rect(0, -3, 24, 6); ctx.fill(); ctx.stroke();
         ctx.fillStyle = '#facc15';
-        ctx.beginPath();
-        ctx.rect(-2, -8, 4, 16);
-        ctx.fill();
-        ctx.stroke();
+        ctx.beginPath(); ctx.rect(-2, -8, 4, 16); ctx.fill(); ctx.stroke();
         ctx.fillStyle = '#78350f';
-        ctx.beginPath();
-        ctx.rect(-6, -2, 6, 4);
-        ctx.fill();
-        ctx.stroke();
+        ctx.beginPath(); ctx.rect(-6, -2, 6, 4); ctx.fill(); ctx.stroke();
       } else if (weaponClass === 'Dagger') {
         ctx.rotate(-Math.PI / 4);
         const grad = ctx.createLinearGradient(0, 0, 16, 0);
-        grad.addColorStop(0, '#d946ef');
-        grad.addColorStop(1, '#701a75');
+        grad.addColorStop(0, '#d946ef'); grad.addColorStop(1, '#701a75');
         ctx.fillStyle = grad;
         ctx.strokeStyle = 'black';
         ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.rect(0, -2.5, 16, 5);
-        ctx.fill();
-        ctx.stroke();
+        ctx.beginPath(); ctx.rect(0, -2.5, 16, 5); ctx.fill(); ctx.stroke();
         ctx.fillStyle = '#1e293b';
-        ctx.beginPath();
-        ctx.rect(-1, -6, 2, 12);
-        ctx.fill();
-        ctx.stroke();
+        ctx.beginPath(); ctx.rect(-1, -6, 2, 12); ctx.fill(); ctx.stroke();
       } else if (weaponClass === 'Bow') {
         ctx.strokeStyle = '#f97316';
         ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.arc(0, 0, 16, -Math.PI/2, Math.PI/2);
-        ctx.stroke();
+        ctx.beginPath(); ctx.arc(0, 0, 16, -Math.PI/2, Math.PI/2); ctx.stroke();
         ctx.fillStyle = '#ca8a04';
-        ctx.beginPath();
-        ctx.arc(0, 0, 4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
+        ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       }
       ctx.restore();
 
-      // Draw Eyes
+      // Eyes or Sunglasses
       if (!isWinner) {
         ctx.save();
         ctx.fillStyle = 'white';
         ctx.strokeStyle = 'black';
         ctx.lineWidth = 1;
         const eyeX = p.facing === 'right' ? px + pw - 12 : px + 4;
-        ctx.beginPath();
-        ctx.arc(eyeX + 4, py + 12, 4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
+        ctx.beginPath(); ctx.arc(eyeX + 4, py + 12, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
         ctx.fillStyle = 'black';
-        ctx.beginPath();
-        ctx.arc(eyeX + 5, py + 12, 2, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.beginPath(); ctx.arc(eyeX + 5, py + 12, 2, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
-      }
-
-      // Draw Winner Sunglasses
-      if (isWinner) {
+      } else {
         ctx.save();
         const sx = px + (pw / 2);
         const finalEyeY = py + 12;
-        
         let currentY = finalEyeY;
         if (currentRoom.status === 'celebrating' && currentRoom.celebrationStartTime) {
           const celebrationDuration = 1500;
@@ -1303,15 +1279,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           const progress = Math.min(1, elapsed / celebrationDuration);
           currentY = -100 + (finalEyeY + 100) * progress;
         }
-
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = 'rgba(255, 255, 0, 0.8)';
+        ctx.shadowBlur = 15; ctx.shadowColor = 'rgba(255, 255, 0, 0.8)';
         ctx.fillStyle = 'black';
         ctx.fillRect(sx - 16, currentY - 6, 14, 10); 
         ctx.fillRect(sx + 2, currentY - 6, 14, 10);  
         ctx.fillRect(sx - 2, currentY - 2, 4, 3);   
-        ctx.fillStyle = 'white';
-        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = 'white'; ctx.globalAlpha = 0.5;
         ctx.fillRect(sx - 14, currentY - 4, 4, 4);
         ctx.fillRect(sx + 4, currentY - 4, 4, 4);
         ctx.restore();
@@ -1328,20 +1301,16 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.fillRect(hpX + 2, py - 16, fillWidth, 4);
       }
       
-      ctx.fillStyle = '#fff';
-      ctx.strokeStyle = 'black';
-      ctx.lineWidth = 3;
-      ctx.font = 'bold 12px Fredoka';
-      ctx.textAlign = 'center';
+      ctx.fillStyle = '#fff'; ctx.strokeStyle = 'black'; ctx.lineWidth = 3;
+      ctx.font = 'bold 12px Fredoka'; ctx.textAlign = 'center';
       ctx.strokeText(p.name, px + pw/2, py - 25);
       ctx.fillText(p.name, px + pw/2, py - 25);
     });
 
-    // Draw Effects (Damage & Lifesteal)
+    // Render Combat Effects
     ctx.save();
     ctx.font = 'bold 36px Luckiest Guy'; 
-    ctx.textAlign = 'center';
-    ctx.lineWidth = 6;
+    ctx.textAlign = 'center'; ctx.lineWidth = 6;
     effectsRef.current.forEach(fx => {
       const elapsed = Math.max(0, now - fx.timestamp);
       if (elapsed > 1000) return;
@@ -1354,7 +1323,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.strokeStyle = 'black';
       ctx.fillStyle = fx.type === 'damage' ? '#ff4444' : '#4ade80';
       const text = fx.type === 'damage' ? fx.amount.toString() : `+${fx.amount}`;
-      
       ctx.strokeText(text, fxX, fxY);
       ctx.fillText(text, fxX, fxY);
     });
@@ -1377,16 +1345,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   if (myP) {
     const reloadRemaining = (myWeaponStats.delay * 1000) - (now - (myP.lastAttackTime || 0));
     const dashRemaining = (myWeaponStats.dashCooldown || 4.0) - (myP.dashRechargeProgress || 0);
-
-    if (now - feedback.lastReloadFail < 500 && reloadRemaining > 0) {
-      alerts.push({ text: `${(reloadRemaining / 1000).toFixed(1)}s`, color: '#ff4444', alpha: 1 - (now - feedback.lastReloadFail) / 500 });
-    }
-    if (now - feedback.lastDashFail < 500 && dashRemaining > 0) {
-      alerts.push({ text: `${dashRemaining.toFixed(1)}s`, color: '#fbbf24', alpha: 1 - (now - feedback.lastDashFail) / 500 });
-    }
-    if (now - feedback.lastStaminaFail < 500) {
-      alerts.push({ text: Math.floor(myP.stamina || 0).toString(), color: '#60a5fa', alpha: 1 - (now - feedback.lastStaminaFail) / 500 });
-    }
+    if (now - feedback.lastReloadFail < 500 && reloadRemaining > 0) alerts.push({ text: `${(reloadRemaining / 1000).toFixed(1)}s`, color: '#ff4444', alpha: 1 - (now - feedback.lastReloadFail) / 500 });
+    if (now - feedback.lastDashFail < 500 && dashRemaining > 0) alerts.push({ text: `${dashRemaining.toFixed(1)}s`, color: '#fbbf24', alpha: 1 - (now - feedback.lastDashFail) / 500 });
+    if (now - feedback.lastStaminaFail < 500) alerts.push({ text: Math.floor(myP.stamina || 0).toString(), color: '#60a5fa', alpha: 1 - (now - feedback.lastStaminaFail) / 500 });
   }
 
   const playerCount = room?.players ? Object.keys(room.players).length : 0;
@@ -1399,13 +1360,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const elapsed = now - room.startTime;
     if (room.status === 'starting') {
       showCountdown = true;
-      if (elapsed < 1000) countdownText = '3';
-      else if (elapsed < 2000) countdownText = '2';
-      else if (elapsed < 3000) countdownText = '1';
-      else countdownText = 'GO!';
+      if (elapsed < 1000) countdownText = '3'; else if (elapsed < 2000) countdownText = '2'; else if (elapsed < 3000) countdownText = '1'; else countdownText = 'GO!';
     } else if (room.status === 'playing' && elapsed < 4000) {
-      showCountdown = true;
-      countdownText = 'GO!';
+      showCountdown = true; countdownText = 'GO!';
     }
   }
 
@@ -1425,18 +1382,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
       {playerCount === 1 && (
         <div className="w-full bg-destructive/20 py-2 border-b-4 border-black text-center z-[100]">
-          <span className="font-headline text-2xl text-white tracking-widest drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]">
-            WAITING FOR OPPONENTS
-          </span>
+          <span className="font-headline text-2xl text-white tracking-widest drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]">WAITING FOR OPPONENTS</span>
         </div>
       )}
 
       {!isConnected && (
         <div className="w-full bg-yellow-500/80 py-2 border-b-4 border-black text-center z-[101] flex items-center justify-center gap-2">
           <WifiOff className="w-6 h-6 text-black" />
-          <span className="font-headline text-2xl text-black tracking-widest drop-shadow-[1px_1px_0px_rgba(255,255,255,0.5)]">
-            RECONNECTING...
-          </span>
+          <span className="font-headline text-2xl text-black tracking-widest drop-shadow-[1px_1px_0px_rgba(255,255,255,0.5)]">RECONNECTING...</span>
         </div>
       )}
 
@@ -1447,23 +1400,17 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       <header className="w-full p-4 flex justify-center items-center bg-black/60 backdrop-blur-xl border-b-8 border-black z-50">
         <div className="absolute left-4">
           <Button variant="ghost" onClick={handleQuit} className="cartoon-button bg-destructive text-white h-12 px-6">
-            <ArrowLeft className="w-5 h-5 mr-2" />
-            QUIT
+            <ArrowLeft className="w-5 h-5 mr-2" /> QUIT
           </Button>
         </div>
-
         <div className="flex items-center gap-4 overflow-x-auto max-w-[70vw] scrollbar-hide px-4">
           {Object.values(room?.players || {}).map(p => (
             <div key={p.id} className="flex items-center gap-3 bg-black/40 border-4 border-black rounded-[20px] p-2 px-4 shadow-[4px_4px_0px_rgba(0,0,0,1)] min-w-[180px]">
               <div className="flex flex-col items-start gap-0.5 flex-1">
                 <div className="flex items-center gap-2">
                   <WeaponIcon weapon={p.weaponClass as WeaponClass} className="w-7 h-7" />
-                  <span className="font-headline text-lg truncate max-w-[100px]" style={{ color: p.color, WebkitTextStroke: '1px black' }}>
-                    {p.name}
-                  </span>
-                  {p.id === room?.createdBy && (
-                    <Crown className="w-5 h-5 text-yellow-500 fill-yellow-500" />
-                  )}
+                  <span className="font-headline text-lg truncate max-w-[100px]" style={{ color: p.color, WebkitTextStroke: '1px black' }}>{p.name}</span>
+                  {p.id === room?.createdBy && <Crown className="w-5 h-5 text-yellow-500 fill-yellow-500" />}
                 </div>
                 <div className="flex gap-1.5 mt-1">
                   {[1, 2, 3].map(i => (
@@ -1489,9 +1436,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           
           {showCountdown && (
             <div className="absolute inset-0 flex items-center justify-center z-[60] pointer-events-none">
-              <span className="text-9xl font-headline text-white drop-shadow-[8px_8px_0px_rgba(0,0,0,1)] animate-in zoom-in duration-300">
-                {countdownText}
-              </span>
+              <span className="text-9xl font-headline text-white drop-shadow-[8px_8px_0px_rgba(0,0,0,1)] animate-in zoom-in duration-300">{countdownText}</span>
             </div>
           )}
 
@@ -1515,7 +1460,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                     </div>
                   ))}
                 </div>
-                
                 <div className="flex flex-col items-center gap-4">
                   <div className="flex items-center gap-2 bg-black/40 px-6 py-2 rounded-full border-2 border-white/10">
                     <Users className="w-6 h-6 text-primary" />
@@ -1528,9 +1472,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                       </Button>
                     ) : (
                       <div className="flex flex-col items-center animate-pulse">
-                        <span className="font-headline text-2xl text-white/40 uppercase tracking-widest text-center">
-                          {playerCount < 2 ? 'WAITING FOR CHALLENGERS...' : 'WAITING FOR WARRIORS...'}
-                        </span>
+                        <span className="font-headline text-2xl text-white/40 uppercase tracking-widest text-center">{playerCount < 2 ? 'WAITING FOR CHALLENGERS...' : 'WAITING FOR WARRIORS...'}</span>
                         <span className="text-xs font-bold text-primary uppercase mt-2">All players must be ready to start</span>
                       </div>
                     )
@@ -1545,13 +1487,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
           {room?.status === 'round_over' && (
             <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center z-50">
-              <h2 className="text-9xl font-headline text-accent animate-bounce drop-shadow-[8px_8px_0px_rgba(0,0,0,1)]">
-                {room.lastWinnerName === 'DRAW' ? 'DRAW!' : 'ROUND!'}
-              </h2>
+              <h2 className="text-9xl font-headline text-accent animate-bounce drop-shadow-[8px_8px_0px_rgba(0,0,0,1)]">{room.lastWinnerName === 'DRAW' ? 'DRAW!' : 'ROUND!'}</h2>
               {room.lastWinnerName && room.lastWinnerName !== 'DRAW' && (
-                <span className="text-4xl font-headline text-white drop-shadow-[4px_4px_0px_rgba(0,0,0,1)] mt-4">
-                  {room.lastWinnerName.toUpperCase()} WINS
-                </span>
+                <span className="text-4xl font-headline text-white drop-shadow-[4px_4px_0px_rgba(0,0,0,1)] mt-4">{room.lastWinnerName.toUpperCase()} WINS</span>
               )}
             </div>
           )}
@@ -1559,16 +1497,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           {showResults && room && (
              <div className="absolute inset-0 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center z-50 p-10 text-center space-y-10">
                 <Trophy className="w-32 h-32 text-yellow-500 animate-pulse drop-shadow-[8px_8px_0px_rgba(0,0,0,1)]" />
-                <h2 className="text-8xl font-headline text-white italic">
-                  {room.lastWinnerName ? `${room.lastWinnerName.toUpperCase()} IS CHAMPION!` : 'CHAMPION!'}
-                </h2>
+                <h2 className="text-8xl font-headline text-white italic">{room.lastWinnerName ? `${room.lastWinnerName.toUpperCase()} IS CHAMPION!` : 'CHAMPION!'}</h2>
                 <div className="flex gap-4">
-                  <Button onClick={handlePlayAgain} size="lg" className="cartoon-button bg-accent text-black text-2xl h-16 px-16 flex items-center gap-3">
-                    <RotateCcw className="w-6 h-6" /> PLAY AGAIN
-                  </Button>
-                  <Button onClick={handleQuit} size="lg" className="cartoon-button bg-primary text-white text-2xl h-16 px-16">
-                    LOBBY
-                  </Button>
+                  <Button onClick={handlePlayAgain} size="lg" className="cartoon-button bg-accent text-black text-2xl h-16 px-16 flex items-center gap-3"><RotateCcw className="w-6 h-6" /> PLAY AGAIN</Button>
+                  <Button onClick={handleQuit} size="lg" className="cartoon-button bg-primary text-white text-2xl h-16 px-16">LOBBY</Button>
                 </div>
              </div>
           )}
@@ -1602,9 +1534,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
           {isStunned && (
             <div className="absolute inset-0 flex items-center justify-center z-[60] pointer-events-none">
-               <span className="font-headline text-6xl text-white drop-shadow-[4px_4px_0px_rgba(0,0,0,1)]">
-                 {(stunRemaining / 1000).toFixed(1)}
-               </span>
+               <span className="font-headline text-6xl text-white drop-shadow-[4px_4px_0px_rgba(0,0,0,1)]">{(stunRemaining / 1000).toFixed(1)}</span>
             </div>
           )}
           
