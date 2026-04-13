@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -457,7 +456,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           if (hitId) {
             thisHit(hitId, currentRoom.players[hitId], false);
             remove(ref(db, `rooms/${roomId}/projectiles/${pid}`));
-          } else if (elapsed > 1500) {
+          } else if (elapsed > (WEAPON_STATS.Bow.projectileDuration || 1000)) {
             remove(ref(db, `rooms/${roomId}/projectiles/${pid}`));
           }
         }
@@ -721,7 +720,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const my = mouseRef.current.y;
     const attackAngle = Math.atan2(my - py, mx - px);
 
-    const speed = weaponStats.range / 1.5; 
+    const speed = weaponStats.range / 1.0; 
     const vx = Math.cos(attackAngle) * speed;
     const vy = Math.sin(attackAngle) * speed;
 

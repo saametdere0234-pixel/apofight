@@ -97,7 +97,7 @@ export const WEAPON_STATS = {
     maxHp: 1000,
     dashCooldown: 4.0,
     staminaAttackCost: 25,
-    projectileDuration: 1500 // 1.5 seconds to travel max range
+    projectileDuration: 1000 // 1.0 second to travel max range (Increased speed)
   },
 };
 
