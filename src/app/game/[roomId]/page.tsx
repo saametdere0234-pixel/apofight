@@ -812,7 +812,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const newMyHp = Math.min(weaponStats.maxHp, p.hp + healAmount);
       update(ref(db, `rooms/${roomId}/players/${profile.id}`), { hp: newMyHp });
       
-      // Push heal indicator to global database
+      // Push heal indicator to global database directly over the shooter
       push(effectsRef, {
         id: Math.random().toString(),
         x: p.x + PLAYER_WIDTH / 2,
@@ -941,7 +941,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     const playersToDraw = Object.values(interpPlayersRef.current);
 
-    // Render Trajectory (Local Only)
+    // Render Trajectory and Reticle (Local Only)
     if (isCharging && profile) {
       const myP = currentRoom.players[profile.id];
       if (myP) {
@@ -959,6 +959,22 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.moveTo(px, py);
         ctx.lineTo(rx, ry);
         ctx.stroke();
+
+        // Reticle tracking the cursor
+        const mx = mouseRef.current.x * PIXELS_PER_METER;
+        const my = mouseRef.current.y * PIXELS_PER_METER;
+        ctx.setLineDash([]);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(mx, my, 10, 0, Math.PI * 2);
+        ctx.stroke();
+        // Inner crosshair
+        ctx.beginPath();
+        ctx.moveTo(mx - 15, my); ctx.lineTo(mx + 15, my);
+        ctx.moveTo(mx, my - 15); ctx.lineTo(mx, my + 15);
+        ctx.stroke();
+
         ctx.restore();
       }
     }
@@ -1180,7 +1196,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.fillStyle = '#fff';
       ctx.strokeStyle = 'black';
       ctx.lineWidth = 3;
-      ctx.font = 'bold 12px Inter';
+      ctx.font = 'bold 12px Fredoka';
       ctx.textAlign = 'center';
       ctx.strokeText(p.name, px + pw/2, py - 25);
       ctx.fillText(p.name, px + pw/2, py - 25);
@@ -1190,13 +1206,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const elapsed = now - en.timestamp;
       if (elapsed > 800) return;
       const alpha = 1 - (elapsed / 800);
-      const dy = (elapsed / 800) * 50;
+      const dy = (elapsed / 800) * 60;
       ctx.save();
       ctx.globalAlpha = alpha;
       ctx.fillStyle = en.type === 'damage' ? '#ff4444' : '#4ade80';
       ctx.strokeStyle = 'black';
       ctx.lineWidth = 4;
-      ctx.font = 'bold 24px Space Grotesk';
+      ctx.font = 'bold 28px "Luckiest Guy"';
       ctx.textAlign = 'center';
       const textX = en.x * PIXELS_PER_METER;
       const textY = en.y * PIXELS_PER_METER - 40 - dy;
