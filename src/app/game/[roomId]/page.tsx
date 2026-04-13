@@ -1015,32 +1015,41 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         const px = (myP.x + PLAYER_WIDTH/2) * PIXELS_PER_METER;
         const py = (myP.y + PLAYER_HEIGHT/2) * PIXELS_PER_METER;
         const angle = Math.atan2(mouseRef.current.y - (myP.y + PLAYER_HEIGHT/2), mouseRef.current.x - (myP.x + PLAYER_WIDTH/2));
-        const rx = px + Math.cos(angle) * WEAPON_STATS.Bow.range * PIXELS_PER_METER;
-        const ry = py + Math.sin(angle) * WEAPON_STATS.Bow.range * PIXELS_PER_METER;
-        
-        ctx.save();
-        // Dashed trajectory line
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-        ctx.setLineDash([10, 5]);
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.moveTo(px, py);
-        ctx.lineTo(rx, ry);
-        ctx.stroke();
-
-        // Target Reticle (MOBA style)
         const mx = mouseRef.current.x * PIXELS_PER_METER;
         const my = mouseRef.current.y * PIXELS_PER_METER;
-        ctx.setLineDash([]);
-        ctx.strokeStyle = `rgba(255, 255, 255, ${0.4 + Math.sin(now / 100) * 0.4})`;
+        const beamLength = WEAPON_STATS.Bow.range * PIXELS_PER_METER;
+        
+        ctx.save();
+        
+        // Aim Assist Path (Translucent White Beam)
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.rotate(angle);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.fillRect(0, -10, beamLength, 20); // 20px wide beam
+        
+        // Inner Dashed Line
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+        ctx.setLineDash([15, 10]);
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.arc(mx, my, 12 + Math.sin(now / 150) * 3, 0, Math.PI * 2);
+        ctx.moveTo(0, 0);
+        ctx.lineTo(beamLength, 0);
+        ctx.stroke();
+        ctx.restore();
+
+        // Target Reticle (MOBA style at mouse position)
+        ctx.save();
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.4 + Math.sin(now / 100) * 0.4})`;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(mx, my, 15 + Math.sin(now / 150) * 3, 0, Math.PI * 2);
         ctx.stroke();
         ctx.beginPath();
-        ctx.moveTo(mx - 20, my); ctx.lineTo(mx + 20, my);
-        ctx.moveTo(mx, my - 20); ctx.lineTo(mx, my + 20);
+        ctx.moveTo(mx - 25, my); ctx.lineTo(mx + 25, my);
+        ctx.moveTo(mx, my - 25); ctx.lineTo(mx, my + 25);
         ctx.stroke();
+        ctx.restore();
 
         ctx.restore();
       }
@@ -1326,7 +1335,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.fillText(p.name, px + pw/2, py - 25);
     });
 
-    // Draw Effects (Damage & Lifesteal) - Sized bit smaller than characters
+    // Draw Effects (Damage & Lifesteal)
     ctx.save();
     ctx.font = 'bold 36px Luckiest Guy'; 
     ctx.textAlign = 'center';
