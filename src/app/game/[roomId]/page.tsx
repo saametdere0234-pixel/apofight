@@ -49,13 +49,11 @@ const WeaponIcon = ({ weapon, className = "w-6 h-6" }: { weapon: WeaponClass; cl
     return (
       <div className={className}>
         <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-          <path d="M10 22L28 4L30 6L12 24L10 22Z" fill="#38bdf8" stroke="black" strokeWidth="2" strokeLinejoin="round"/>
-          <path d="M12 24L14 26L28 12L26 10L12 24Z" fill="#0ea5e9" stroke="black" strokeWidth="2" strokeLinejoin="round"/>
-          <path d="M8 20L18 30" stroke="black" strokeWidth="4" strokeLinecap="round"/>
-          <path d="M8 20L18 30" stroke="#facc15" strokeWidth="2" strokeLinecap="round"/>
-          <path d="M10 22L4 28" stroke="black" strokeWidth="4" strokeLinecap="round"/>
-          <path d="M10 22L4 28" stroke="#78350f" strokeWidth="2" strokeLinecap="round"/>
-          <circle cx="4" cy="28" r="2" fill="#451a03" stroke="black" strokeWidth="1" />
+          <path d="M12 20L28 4L30 6L14 22L12 20Z" fill="#38bdf8" stroke="black" strokeWidth="2" strokeLinejoin="round"/>
+          <path d="M14 22L16 24L28 12L26 10L14 22Z" fill="#e0f2fe" stroke="black" strokeWidth="2" strokeLinejoin="round"/>
+          <rect x="8" y="16" width="4" height="12" rx="1" transform="rotate(-45 8 16)" fill="#facc15" stroke="black" strokeWidth="2"/>
+          <rect x="6" y="22" width="6" height="4" rx="1" transform="rotate(-45 6 22)" fill="#78350f" stroke="black" strokeWidth="2"/>
+          <circle cx="6" cy="26" r="2.5" fill="#451a03" stroke="black" strokeWidth="1.5" />
         </svg>
       </div>
     );
@@ -64,12 +62,9 @@ const WeaponIcon = ({ weapon, className = "w-6 h-6" }: { weapon: WeaponClass; cl
     return (
       <div className={className}>
         <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-          <path d="M14 18L24 8L28 12L18 22L14 18Z" fill="#d946ef" stroke="black" strokeWidth="2" strokeLinejoin="round"/>
-          <path d="M14 18L18 22L24 16L20 12L14 18Z" fill="#f5d0fe" stroke="black" strokeWidth="2" strokeLinejoin="round"/>
-          <path d="M12 16L20 24" stroke="black" strokeWidth="4" strokeLinecap="round"/>
-          <path d="M12 16L20 24" stroke="#701a75" strokeWidth="2" strokeLinecap="round"/>
-          <path d="M12 20L6 26" stroke="black" strokeWidth="4" strokeLinecap="round"/>
-          <path d="M12 20L6 26" stroke="#1e293b" strokeWidth="2" strokeLinecap="round"/>
+          <path d="M16 16L24 8L28 12L20 20L16 16Z" fill="#d946ef" stroke="black" strokeWidth="2" strokeLinejoin="round"/>
+          <path d="M16 16L20 20L26 14L22 10L16 16Z" fill="#f5d0fe" stroke="black" strokeWidth="2" strokeLinejoin="round"/>
+          <rect x="12" y="18" width="4" height="8" rx="1" transform="rotate(-45 12 18)" fill="#1e293b" stroke="black" strokeWidth="2"/>
         </svg>
       </div>
     );
@@ -81,7 +76,6 @@ const WeaponIcon = ({ weapon, className = "w-6 h-6" }: { weapon: WeaponClass; cl
           <path d="M6 6C14 6 26 18 26 26" stroke="black" strokeWidth="4" strokeLinecap="round" fill="none"/>
           <path d="M6 6C14 6 26 18 26 26" stroke="#f97316" strokeWidth="2" strokeLinecap="round" fill="none"/>
           <path d="M6 6L26 26" stroke="black" strokeWidth="1" strokeDasharray="3 3" />
-          <path d="M12 12L16 16" stroke="black" strokeWidth="3" strokeLinecap="round" />
           <circle cx="16" cy="16" r="3" fill="#ca8a04" stroke="black" strokeWidth="1.5" />
         </svg>
       </div>
@@ -1230,24 +1224,61 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const weaponClass = p.weaponClass as WeaponClass;
       if (weaponClass === 'Sword') {
         ctx.rotate(-Math.PI / 4);
-        ctx.fillStyle = '#38bdf8';
+        // Blade
+        const bladeGrad = ctx.createLinearGradient(0, 0, 28, 0);
+        bladeGrad.addColorStop(0, '#38bdf8');
+        bladeGrad.addColorStop(1, '#e0f2fe');
+        ctx.fillStyle = bladeGrad;
         ctx.strokeStyle = 'black';
         ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.rect(0, -3, 24, 6); ctx.fill(); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, -3.5);
+        ctx.lineTo(24, -3.5);
+        ctx.lineTo(28, 0);
+        ctx.lineTo(24, 3.5);
+        ctx.lineTo(0, 3.5);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        // Guard
         ctx.fillStyle = '#facc15';
-        ctx.beginPath(); ctx.rect(-2, -8, 4, 16); ctx.fill(); ctx.stroke();
+        ctx.beginPath();
+        ctx.roundRect(-2, -9, 5, 18, 2);
+        ctx.fill(); ctx.stroke();
+        // Handle
         ctx.fillStyle = '#78350f';
-        ctx.beginPath(); ctx.rect(-6, -2, 6, 4); ctx.fill(); ctx.stroke();
+        ctx.beginPath();
+        ctx.roundRect(-8, -2.5, 8, 5, 1);
+        ctx.fill(); ctx.stroke();
+        // Pommel
+        ctx.fillStyle = '#451a03';
+        ctx.beginPath(); ctx.arc(-8, 0, 2.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       } else if (weaponClass === 'Dagger') {
         ctx.rotate(-Math.PI / 4);
-        const grad = ctx.createLinearGradient(0, 0, 16, 0);
-        grad.addColorStop(0, '#d946ef'); grad.addColorStop(1, '#701a75');
-        ctx.fillStyle = grad;
+        // Blade
+        const dagGrad = ctx.createLinearGradient(0, 0, 18, 0);
+        dagGrad.addColorStop(0, '#d946ef');
+        dagGrad.addColorStop(1, '#f5d0fe');
+        ctx.fillStyle = dagGrad;
         ctx.strokeStyle = 'black';
         ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.rect(0, -2.5, 16, 5); ctx.fill(); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, -4);
+        ctx.lineTo(14, -4);
+        ctx.lineTo(18, 0);
+        ctx.lineTo(14, 4);
+        ctx.lineTo(0, 4);
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        // Hilt/Guard
         ctx.fillStyle = '#1e293b';
-        ctx.beginPath(); ctx.rect(-1, -6, 2, 12); ctx.fill(); ctx.stroke();
+        ctx.beginPath();
+        ctx.roundRect(-1, -7, 3, 14, 1);
+        ctx.fill(); ctx.stroke();
+        // Grip
+        ctx.fillStyle = '#334155';
+        ctx.beginPath();
+        ctx.roundRect(-5, -2.5, 5, 5, 1);
+        ctx.fill(); ctx.stroke();
       } else if (weaponClass === 'Bow') {
         ctx.strokeStyle = '#f97316';
         ctx.lineWidth = 4;
