@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -123,6 +124,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [room, setRoom] = useState<GameRoom | null>(null);
   const roomRef = useRef<GameRoom | null>(null);
+  const profileRef = useRef(profile);
   const [keys] = useState<Set<string>>(new Set());
   const [isConnected, setIsConnected] = useState(true);
   const [isCharging, setIsCharging] = useState(false);
@@ -137,6 +139,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   });
 
   const [localEffects, setLocalEffects] = useState<GameEffect[]>([]);
+  const effectsRef = useRef<GameEffect[]>([]);
   const lastHpRef = useRef<number>(1000);
   const [recentHeal, setRecentHeal] = useState<{ amount: number, time: number } | null>(null);
 
@@ -145,14 +148,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const lastSyncTimeRef = useRef(0);
 
   const handleQuit = useCallback(async () => {
-    if (!db || !roomId || !profile) return;
+    if (!db || !roomId || !profileRef.current) return;
     const roomPath = ref(db, `rooms/${roomId}`);
-    const myPlayerRef = ref(db, `rooms/${roomId}/players/${profile.id}`);
+    const myPlayerRef = ref(db, `rooms/${roomId}/players/${profileRef.current.id}`);
     
     const snapshot = await get(roomPath);
     if (snapshot.exists()) {
       const roomData = snapshot.val() as GameRoom;
-      const otherPlayers = Object.keys(roomData.players || {}).filter(id => id !== profile.id);
+      const otherPlayers = Object.keys(roomData.players || {}).filter(id => id !== profileRef.current?.id);
       
       if (otherPlayers.length === 0) {
         await remove(roomPath);
@@ -161,15 +164,19 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     }
     router.push('/lobby');
-  }, [profile, roomId, router]);
+  }, [roomId, router]);
 
   const handlePlayAgain = useCallback(async () => {
-    if (!db || !roomId || !profile) return;
-    const myPlayerRef = ref(db, `rooms/${roomId}/players/${profile.id}`);
+    if (!db || !roomId || !profileRef.current) return;
+    const myPlayerRef = ref(db, `rooms/${roomId}/players/${profileRef.current.id}`);
     update(myPlayerRef, { isReady: true });
-  }, [roomId, profile]);
+  }, [roomId]);
 
-  const isHost = room && profile ? profile.id === room.createdBy : false;
+  const isHost = room && profileRef.current ? profileRef.current.id === room.createdBy : false;
+
+  useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
 
   useEffect(() => {
     if (!db) return;
@@ -180,17 +187,19 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     return () => unsubscribe();
   }, []);
 
-  // Effect Sync - High Visibility Logic
+  // Effect Sync - High Visibility Logic using Refs to bypass closures
   useEffect(() => {
     if (!db || !roomId) return;
-    const effectsRef = ref(db, `rooms/${roomId}/effects`);
-    return onValue(effectsRef, (snapshot) => {
+    const effectsDbRef = ref(db, `rooms/${roomId}/effects`);
+    return onValue(effectsDbRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
         const now = Date.now();
-        const effectsList = (Object.values(data) as GameEffect[]).filter(fx => now - fx.timestamp < 2000);
+        const effectsList = (Object.values(data) as GameEffect[]).filter(fx => Math.abs(now - fx.timestamp) < 5000);
+        effectsRef.current = effectsList;
         setLocalEffects(effectsList);
       } else {
+        effectsRef.current = [];
         setLocalEffects([]);
       }
     });
@@ -207,7 +216,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       // Host Transfer
       if (!hostPresent && playerCount > 0) {
         const nextHostId = pIds[0];
-        if (profile?.id === nextHostId) {
+        if (profileRef.current?.id === nextHostId) {
           update(ref(db, `rooms/${roomId}`), { createdBy: nextHostId });
         }
       }
@@ -215,7 +224,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       // Single Player Reset
       if (playerCount === 1 && room.status !== 'lobby') {
         const onlyPlayerId = pIds[0];
-        if (onlyPlayerId === profile?.id) {
+        if (onlyPlayerId === profileRef.current?.id) {
           const p = room.players[onlyPlayerId];
           const weaponStats = WEAPON_STATS[p.weaponClass as WeaponClass] || WEAPON_STATS.Sword;
           const updates: any = {
@@ -272,7 +281,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
     }
-  }, [room, profile?.id, roomId, isHost]);
+  }, [room, roomId, isHost]);
 
   // Transitions (Host Only)
   useEffect(() => {
@@ -288,10 +297,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       return () => clearTimeout(timer);
     }
 
-    // Transition: Celebrating -> Result (Sunglasses animation finished)
+    // Transition: Celebrating -> Result
     if (room.status === 'celebrating' && room.celebrationStartTime) {
       const elapsed = Date.now() - room.celebrationStartTime;
-      const remaining = Math.max(0, 2000 - elapsed); // 2s celebration
+      const remaining = Math.max(0, 2000 - elapsed);
       const timer = setTimeout(() => {
         const currentData = roomRef.current;
         if (!currentData || currentData.status !== 'celebrating') return;
@@ -421,24 +430,24 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   const updateGameLogic = useCallback((dt: number) => {
     const currentRoom = roomRef.current;
-    if (!profile || !currentRoom || !currentRoom.players?.[profile.id] || !db) return;
+    if (!profileRef.current || !currentRoom || !currentRoom.players?.[profileRef.current.id] || !db) return;
     
     if (currentRoom.status !== 'playing') return;
 
     const now = Date.now();
-    const p = currentRoom.players[profile.id];
+    const p = currentRoom.players[profileRef.current.id];
 
     // Projectile Movement & Collision
     if (currentRoom.projectiles) {
       Object.entries(currentRoom.projectiles).forEach(([pid, proj]) => {
-        if (proj.ownerId === profile.id) {
+        if (proj.ownerId === profileRef.current?.id) {
           const elapsed = now - proj.startTime;
           const projX = proj.startX + proj.vx * (elapsed / 1000);
           const projY = proj.startY + proj.vy * (elapsed / 1000);
 
           let hitId: string | null = null;
           Object.entries(currentRoom.players).forEach(([eid, enemy]) => {
-            if (eid === profile.id || enemy.hp <= 0) return;
+            if (eid === profileRef.current?.id || enemy.hp <= 0) return;
             const buffer = 0.5;
             if (
               projX >= enemy.x - buffer &&
@@ -548,12 +557,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       dashTimeLeft
     };
     
-    currentRoom.players[profile.id] = updatedLocalPlayer;
-    interpPlayersRef.current[profile.id] = updatedLocalPlayer;
+    currentRoom.players[profileRef.current.id] = updatedLocalPlayer;
+    interpPlayersRef.current[profileRef.current.id] = updatedLocalPlayer;
 
     if (now - lastSyncTimeRef.current > 33) {
       lastSyncTimeRef.current = now;
-      const myPlayerRef = ref(db, `rooms/${roomId}/players/${profile.id}`);
+      const myPlayerRef = ref(db, `rooms/${roomId}/players/${profileRef.current.id}`);
       update(myPlayerRef, {
         x: nextX,
         y: nextY,
@@ -568,14 +577,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         dashTimeLeft
       });
     }
-  }, [profile, roomId, keys]);
+  }, [roomId, keys]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       keys.add(e.code);
       const currentRoom = roomRef.current;
-      if (!profile || !currentRoom || !currentRoom.players?.[profile.id] || !db || currentRoom.status !== 'playing') return;
-      const p = currentRoom.players[profile.id];
+      if (!profileRef.current || !currentRoom || !currentRoom.players?.[profileRef.current.id] || !db || currentRoom.status !== 'playing') return;
+      const p = currentRoom.players[profileRef.current.id];
       if (p.hp <= 0) return;
       
       const now = Date.now();
@@ -585,7 +594,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       if ((e.code === 'KeyW' || e.code === 'ArrowUp') && !p.isDashing) {
         const currentJumpCount = p.jumpCount || 0;
         if (currentJumpCount < 2) {
-          update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
+          update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), {
             vy: JUMP_FORCE,
             isJumping: true,
             jumpCount: currentJumpCount + 1
@@ -614,7 +623,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         const dist = Math.sqrt(dx * dx + dy * dy);
         
         if (dist > 0.1) {
-          update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
+          update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), {
             isDashing: true,
             dashTimeLeft: DASH_DURATION,
             dashDirX: dx / dist,
@@ -637,7 +646,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const dt = Math.min((time - lastTime) / 1000, 0.1);
       lastTime = time;
       const currentRoom = roomRef.current;
-      if (profile && currentRoom?.players?.[profile.id] && currentRoom.status === 'playing') {
+      if (profileRef.current && currentRoom?.players?.[profileRef.current.id] && currentRoom.status === 'playing') {
         updateGameLogic(dt);
       }
       render(dt);
@@ -650,7 +659,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       window.removeEventListener('keyup', handleKeyUp);
       cancelAnimationFrame(frameId);
     };
-  }, [profile, updateGameLogic, keys, roomId]);
+  }, [updateGameLogic, keys, roomId]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
     setMousePos({ x: e.clientX, y: e.clientY });
@@ -672,7 +681,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   };
 
   const handleMouseDown = () => {
-    const p = room?.players?.[profile?.id || ''];
+    const p = room?.players?.[profileRef.current?.id || ''];
     if (p?.weaponClass === 'Bow' && p.hp > 0 && room?.status === 'playing') {
       setIsCharging(true);
     } else {
@@ -689,9 +698,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   const fireBow = () => {
     const currentRoom = roomRef.current;
-    if (!profile || !currentRoom || !currentRoom.players?.[profile.id] || !db || currentRoom.status !== 'playing') return;
+    if (!profileRef.current || !currentRoom || !currentRoom.players?.[profileRef.current.id] || !db || currentRoom.status !== 'playing') return;
     
-    const p = currentRoom.players[profile.id];
+    const p = currentRoom.players[profileRef.current.id];
     const now = Date.now();
     const weaponStats = WEAPON_STATS.Bow;
     
@@ -722,7 +731,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const projRef = push(ref(db, `rooms/${roomId}/projectiles`));
     set(projRef, {
       id: projRef.key,
-      ownerId: profile.id,
+      ownerId: profileRef.current.id,
       startX: px,
       startY: py,
       vx,
@@ -732,7 +741,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       damage: weaponStats.damage
     });
 
-    update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
+    update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), {
       lastAttackTime: now,
       lastAttackAngle: attackAngle,
       stamina: (p.stamina || 0) - weaponStats.staminaAttackCost
@@ -741,9 +750,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   const handleAttack = () => {
     const currentRoom = roomRef.current;
-    if (!profile || !currentRoom || !currentRoom.players?.[profile.id] || !db || currentRoom.status !== 'playing') return;
+    if (!profileRef.current || !currentRoom || !currentRoom.players?.[profileRef.current.id] || !db || currentRoom.status !== 'playing') return;
     
-    const p = currentRoom.players[profile.id];
+    const p = currentRoom.players[profileRef.current.id];
     if (p.hp <= 0) return;
 
     const now = Date.now();
@@ -779,14 +788,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     let stunAppliedThisSwing = false;
     const canStun = weapon === 'Sword' && now > (p.stunCooldownUntil || 0);
 
-    update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
+    update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), {
       lastAttackTime: now,
       lastAttackAngle: attackAngle,
       stamina: (p.stamina || 0) - weaponStats.staminaAttackCost
     });
 
     Object.entries(currentRoom.players).forEach(([id, enemy]) => {
-      if (id === profile.id || enemy.hp <= 0) return;
+      if (id === profileRef.current?.id || enemy.hp <= 0) return;
       
       const ex = enemy.x + PLAYER_WIDTH / 2;
       const ey = enemy.y + PLAYER_HEIGHT / 2;
@@ -817,15 +826,15 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     });
 
     if (stunAppliedThisSwing) {
-      update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
+      update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), {
         stunCooldownUntil: now + STUN_COOLDOWN
       });
     }
   };
 
   const thisHit = (id: string, enemy: GamePlayer, shouldStun: boolean = false) => {
-    if (!db || !roomId || !profile) return;
-    const p = roomRef.current?.players?.[profile.id];
+    if (!db || !roomId || !profileRef.current) return;
+    const p = roomRef.current?.players?.[profileRef.current.id];
     if (!p) return;
     
     const now = Date.now();
@@ -834,7 +843,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const newHp = Math.max(0, enemy.hp - weaponStats.damage);
     const updates: any = { hp: newHp };
     
-    // Add Damage Effect
+    // Add Damage Effect to Database
     const damageEffectRef = push(ref(db, `rooms/${roomId}/effects`));
     set(damageEffectRef, {
       id: damageEffectRef.key,
@@ -855,10 +864,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (p.weaponClass === 'Bow') {
       const healAmount = weaponStats.damage * 0.3;
       const newMyHp = Math.min(weaponStats.maxHp, p.hp + healAmount);
-      update(ref(db, `rooms/${roomId}/players/${profile.id}`), { hp: newMyHp });
+      update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), { hp: newMyHp });
       setRecentHeal({ amount: Math.round(healAmount), time: now });
 
-      // Add Lifesteal Effect
+      // Add Lifesteal Effect to Database
       const healEffectRef = push(ref(db, `rooms/${roomId}/effects`));
       set(healEffectRef, {
         id: healEffectRef.key,
@@ -983,7 +992,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     });
 
     Object.values(currentRoom.players || {}).forEach(p => {
-      if (p.id === profile?.id) {
+      if (p.id === profileRef.current?.id) {
         interpPlayersRef.current[p.id] = p;
       } else {
         const currentInterp = interpPlayersRef.current[p.id] || p;
@@ -998,8 +1007,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     const playersToDraw = Object.values(interpPlayersRef.current);
 
-    if (isCharging && profile) {
-      const myP = currentRoom.players[profile.id];
+    if (isCharging && profileRef.current) {
+      const myP = currentRoom.players[profileRef.current.id];
       if (myP) {
         const px = (myP.x + PLAYER_WIDTH/2) * PIXELS_PER_METER;
         const py = (myP.y + PLAYER_HEIGHT/2) * PIXELS_PER_METER;
@@ -1084,7 +1093,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const pw = PLAYER_WIDTH * PIXELS_PER_METER;
       const ph = PLAYER_HEIGHT * PIXELS_PER_METER;
 
-      // Draw Death Animation
+      // Draw Death Animation (Cloud of Dust)
       if (p.hp <= 0 && currentRoom.status !== 'lobby') {
         const timeSinceDeath = now - (p.deathTime || 0);
         if (timeSinceDeath < 1500) {
@@ -1108,7 +1117,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const attackDuration = 500;
       const timeSinceAttack = now - (p.lastAttackTime || 0);
       if (timeSinceAttack < attackDuration) {
-        const isLocal = p.id === profile?.id;
+        const isLocal = p.id === profileRef.current?.id;
         const baseColor = isLocal ? '38, 114, 238' : '238, 43, 43'; 
         let opacity = 0.7;
         if (timeSinceAttack > 400) opacity = 0.7 * (1 - (timeSinceAttack - 400) / 100);
@@ -1173,7 +1182,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
       const isWinner = p.name === currentRoom.lastWinnerName && (currentRoom.status === 'celebrating' || currentRoom.status === 'round_over' || currentRoom.status === 'finished');
 
-      // Draw Eyes (Only if not winner with sunglasses)
+      // Draw Eyes (Hiddens when wearing sunglasses)
       if (!isWinner) {
         ctx.save();
         ctx.fillStyle = 'white';
@@ -1191,7 +1200,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.restore();
       }
 
-      // Draw Winner Sunglasses
+      // Draw Winner Sunglasses with Fall Animation
       if (isWinner) {
         ctx.save();
         const sx = px + (pw / 2);
@@ -1199,7 +1208,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         
         let currentY = finalEyeY;
         if (currentRoom.status === 'celebrating' && currentRoom.celebrationStartTime) {
-          const celebrationDuration = 1500; // 1.5s for drop
+          const celebrationDuration = 1500;
           const elapsed = now - currentRoom.celebrationStartTime;
           const progress = Math.min(1, elapsed / celebrationDuration);
           currentY = -100 + (finalEyeY + 100) * progress;
@@ -1208,83 +1217,15 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.shadowBlur = 15;
         ctx.shadowColor = 'rgba(255, 255, 0, 0.8)';
         ctx.fillStyle = 'black';
-        ctx.fillRect(sx - 16, currentY - 6, 14, 10); // Left lens
-        ctx.fillRect(sx + 2, currentY - 6, 14, 10);  // Right lens
-        ctx.fillRect(sx - 2, currentY - 2, 4, 3);   // Bridge
-        // Shine
+        ctx.fillRect(sx - 16, currentY - 6, 14, 10); 
+        ctx.fillRect(sx + 2, currentY - 6, 14, 10);  
+        ctx.fillRect(sx - 2, currentY - 2, 4, 3);   
         ctx.fillStyle = 'white';
         ctx.globalAlpha = 0.5;
         ctx.fillRect(sx - 14, currentY - 4, 4, 4);
         ctx.fillRect(sx + 4, currentY - 4, 4, 4);
         ctx.restore();
       }
-
-      ctx.save();
-      const flip = p.facing === 'right' ? 1 : -1;
-      const handX = p.facing === 'right' ? px + pw - 5 : px + 5;
-      const handY = py + ph * 0.55;
-      ctx.translate(handX, handY);
-      ctx.scale(flip, 1);
-      ctx.strokeStyle = 'black';
-      ctx.lineWidth = 3;
-      ctx.lineJoin = 'round';
-      ctx.lineCap = 'round';
-
-      if (p.weaponClass === 'Sword') {
-        ctx.fillStyle = '#cbd5e1'; 
-        ctx.beginPath();
-        ctx.moveTo(4, -2.5);
-        ctx.lineTo(34, -2.5);
-        ctx.lineTo(38, 0);
-        ctx.lineTo(34, 2.5);
-        ctx.lineTo(4, 2.5);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-        ctx.fillStyle = '#451a03'; 
-        ctx.fillRect(4, -10, 4, 20);
-        ctx.strokeRect(4, -10, 4, 20);
-        ctx.fillStyle = '#78350f'; 
-        ctx.fillRect(-10, -3, 14, 6);
-        ctx.strokeRect(-10, -3, 14, 6);
-      } else if (p.weaponClass === 'Dagger') {
-        ctx.fillStyle = '#94a3b8'; 
-        ctx.beginPath();
-        ctx.moveTo(3, -5);
-        ctx.lineTo(16, -2);
-        ctx.lineTo(24, 0);
-        ctx.lineTo(16, 2);
-        ctx.lineTo(3, 5);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-        ctx.fillStyle = '#f1f5f9'; 
-        ctx.beginPath();
-        ctx.moveTo(3, -4);
-        ctx.lineTo(22, 0);
-        ctx.lineTo(3, 4);
-        ctx.closePath();
-        ctx.fill();
-        ctx.fillStyle = '#334155'; 
-        ctx.fillRect(2, -8, 3, 16);
-        ctx.strokeRect(2, -8, 3, 16);
-        ctx.fillStyle = '#1e293b'; 
-        ctx.fillRect(-8, -3, 10, 6);
-        ctx.strokeRect(-8, -3, 10, 6);
-      } else if (p.weaponClass === 'Bow') {
-        ctx.strokeStyle = '#78350f';
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.arc(5, 0, 18, -Math.PI/2, Math.PI/2);
-        ctx.stroke();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(5, -16);
-        ctx.lineTo(5, 16);
-        ctx.stroke();
-      }
-      ctx.restore();
 
       if (currentRoom.status !== 'lobby') {
         const hpWidth = pw * 1.2;
@@ -1306,18 +1247,19 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.fillText(p.name, px + pw/2, py - 25);
     });
 
-    // Draw Effects (Damage & Lifesteal) - TOP LAYER
+    // Draw Effects (Damage & Lifesteal) - TOP LAYER with correct positioning
     ctx.save();
-    ctx.font = 'bold 24px Luckiest Guy';
+    ctx.font = 'bold 28px Luckiest Guy';
     ctx.textAlign = 'center';
-    ctx.lineWidth = 4;
-    localEffects.forEach(fx => {
-      const elapsed = now - fx.timestamp;
-      if (elapsed > 800) return;
-      const opacity = 1 - elapsed / 800;
-      const drift = (elapsed / 800) * 100;
+    ctx.lineWidth = 6;
+    effectsRef.current.forEach(fx => {
+      const elapsed = Math.max(0, now - fx.timestamp);
+      if (elapsed > 1000) return;
+      const opacity = Math.max(0, 1 - elapsed / 1000);
+      const drift = (elapsed / 1000) * 60;
       const fxX = fx.x * PIXELS_PER_METER;
-      const fxY = (fx.y * PIXELS_PER_METER) - drift - 80;
+      // Position above character head (which is at py - 25 for name tag)
+      const fxY = (fx.y * PIXELS_PER_METER) - 40 - drift;
 
       ctx.globalAlpha = opacity;
       ctx.strokeStyle = 'black';
