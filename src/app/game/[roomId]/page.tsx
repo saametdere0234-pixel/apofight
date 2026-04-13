@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -298,7 +297,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     lastHpRef.current = currentHp;
   }, [room?.players, profile]);
 
-  const getMaxDashCharges = (weapon: WeaponClass) => (weapon === 'Dagger' ? 3 : 1);
+  const getMaxDashCharges = (weapon: WeaponClass) => (weapon === 'Dagger' ? 4 : 1);
 
   useEffect(() => {
     if (profileLoading || !profile || !db) return;
@@ -605,7 +604,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     
     const reloadRemaining = (weaponStats.delay * 1000) - (now - (p.lastAttackTime || 0));
     const onCooldown = reloadRemaining > 0;
-    const hasStamina = (p.stamina || 0) >= STAMINA_ATTACK_COST;
+    const hasStamina = (p.stamina || 0) >= weaponStats.staminaAttackCost;
 
     if (onCooldown || !hasStamina) {
       setShakeUntil(now + 80);
@@ -630,7 +629,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     update(ref(db, `rooms/${roomId}/players/${profile.id}`), {
       lastAttackTime: now,
       lastAttackAngle: attackAngle,
-      stamina: (p.stamina || 0) - STAMINA_ATTACK_COST
+      stamina: (p.stamina || 0) - weaponStats.staminaAttackCost
     });
 
     Object.entries(currentRoom.players).forEach(([id, enemy]) => {

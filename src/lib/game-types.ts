@@ -62,7 +62,8 @@ export const WEAPON_STATS = {
     angle: 70, 
     delay: 3.5, 
     maxHp: 1000,
-    dashCooldown: 4.0
+    dashCooldown: 4.0,
+    staminaAttackCost: 25
   },
   Dagger: {
     damage: 150,
@@ -70,7 +71,8 @@ export const WEAPON_STATS = {
     angle: 360,
     delay: 0.5,
     maxHp: 750,
-    dashCooldown: 2.5
+    dashCooldown: 2.5,
+    staminaAttackCost: 15
   },
   Bow: {
     damage: 200,
@@ -78,7 +80,8 @@ export const WEAPON_STATS = {
     angle: 5, 
     delay: 2.0,
     maxHp: 1000,
-    dashCooldown: 4.0
+    dashCooldown: 4.0,
+    staminaAttackCost: 25
   },
 };
 
