@@ -214,16 +214,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
 
-      // Sync Effects
-      if (room.effects) {
-        const now = Date.now();
-        // Window slightly larger than 800ms to ensure the fading animation completes
-        const effects = Object.values(room.effects).filter(e => Math.abs(now - e.timestamp) < 1500);
-        setLocalEffects(effects);
-      } else {
-        setLocalEffects([]);
-      }
-
       // Play Again Reset Sync
       if (room.status === 'finished') {
         const players = Object.values(room.players);
@@ -258,6 +248,18 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     }
   }, [room, profile?.id, roomId, isHost]);
+
+  // Dedicated Effect Monitoring Effect - Fixes Indicator Visibility Bug
+  useEffect(() => {
+    if (room?.effects) {
+      const now = Date.now();
+      // Use a wider window (5s) to handle clock drift; the render loop handles the 800ms visibility
+      const effects = Object.values(room.effects).filter(e => Math.abs(now - e.timestamp) < 5000);
+      setLocalEffects(effects);
+    } else {
+      setLocalEffects([]);
+    }
+  }, [room?.effects]);
 
   // Dedicated Countdown & Round Transition Effect (Host Only)
   useEffect(() => {
@@ -1199,12 +1201,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     });
 
     localEffects.forEach((en) => {
-      // Math.max(0, ...) handles cases where timestamps might be slightly ahead due to clock skew
-      const elapsed = Math.max(0, now - en.timestamp);
-      if (elapsed > 800) return;
+      // Handles cases where timestamps might be slightly ahead/behind due to clock skew
+      const elapsed = now - en.timestamp;
+      // Handle both future (skew) and past effects for smooth rendering
+      if (elapsed > 800 || elapsed < -200) return;
       
-      const alpha = 1 - (elapsed / 800);
-      const dy = (elapsed / 800) * 60;
+      const progress = Math.max(0, elapsed / 800);
+      const alpha = 1 - progress;
+      const dy = progress * 60;
       
       ctx.save();
       ctx.globalAlpha = alpha;
