@@ -1030,14 +1030,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         const mx = mouseRef.current.x * PIXELS_PER_METER;
         const my = mouseRef.current.y * PIXELS_PER_METER;
         ctx.setLineDash([]);
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.4 + Math.sin(now / 100) * 0.4})`;
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.arc(mx, my, 10, 0, Math.PI * 2);
+        ctx.arc(mx, my, 12 + Math.sin(now / 150) * 3, 0, Math.PI * 2);
         ctx.stroke();
         ctx.beginPath();
-        ctx.moveTo(mx - 15, my); ctx.lineTo(mx + 15, my);
-        ctx.moveTo(mx, my - 15); ctx.lineTo(mx, my + 15);
+        ctx.moveTo(mx - 20, my); ctx.lineTo(mx + 20, my);
+        ctx.moveTo(mx, my - 20); ctx.lineTo(mx, my + 20);
         ctx.stroke();
 
         ctx.restore();
@@ -1049,22 +1049,40 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         const elapsed = now - proj.startTime;
         const px = (proj.startX + proj.vx * (elapsed / 1000)) * PIXELS_PER_METER;
         const py = (proj.startY + proj.vy * (elapsed / 1000)) * PIXELS_PER_METER;
+        const angle = Math.atan2(proj.vy, proj.vx);
         
         ctx.save();
-        ctx.fillStyle = 'white';
-        ctx.strokeStyle = 'black';
+        ctx.translate(px, py);
+        ctx.rotate(angle);
+        
+        // Arrow shaft
+        ctx.strokeStyle = '#e2e8f0';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(px, py, 5, 0, Math.PI * 2);
+        ctx.moveTo(-15, 0);
+        ctx.lineTo(10, 0);
+        ctx.stroke();
+        
+        // Arrow head
+        ctx.fillStyle = '#94a3b8';
+        ctx.beginPath();
+        ctx.moveTo(10, 0);
+        ctx.lineTo(0, -5);
+        ctx.lineTo(0, 5);
+        ctx.closePath();
         ctx.fill();
         ctx.stroke();
         
-        ctx.beginPath();
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        // Fletching (feathers)
+        ctx.strokeStyle = '#f97316';
         ctx.lineWidth = 2;
-        ctx.moveTo(px, py);
-        ctx.lineTo(px - proj.vx * 0.1 * PIXELS_PER_METER, py - proj.vy * 0.1 * PIXELS_PER_METER);
+        ctx.beginPath();
+        ctx.moveTo(-15, 0); ctx.lineTo(-22, -6);
+        ctx.moveTo(-12, 0); ctx.lineTo(-19, -6);
+        ctx.moveTo(-15, 0); ctx.lineTo(-22, 6);
+        ctx.moveTo(-12, 0); ctx.lineTo(-19, 6);
         ctx.stroke();
+        
         ctx.restore();
       });
     }
@@ -1198,66 +1216,72 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.strokeStyle = 'black';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.rect(0, -3, 22, 6);
+        ctx.rect(0, -3, 24, 6);
         ctx.fill();
         ctx.stroke();
         // Highlight
         ctx.fillStyle = 'white';
-        ctx.globalAlpha = 0.3;
-        ctx.fillRect(2, -1.5, 18, 1);
+        ctx.globalAlpha = 0.4;
+        ctx.fillRect(2, -1.5, 20, 1);
         ctx.globalAlpha = 1.0;
         // Guard
         ctx.fillStyle = '#facc15';
         ctx.beginPath();
-        ctx.rect(-2, -7, 3, 14);
+        ctx.rect(-2, -8, 4, 16);
         ctx.fill();
         ctx.stroke();
         // Handle
         ctx.fillStyle = '#78350f';
         ctx.beginPath();
-        ctx.rect(-6, -2, 5, 4);
+        ctx.rect(-6, -2, 6, 4);
         ctx.fill();
         ctx.stroke();
       } else if (weaponClass === 'Dagger') {
         ctx.rotate(-Math.PI / 4);
         // Blade
-        ctx.fillStyle = '#d946ef';
+        const grad = ctx.createLinearGradient(0, 0, 16, 0);
+        grad.addColorStop(0, '#d946ef');
+        grad.addColorStop(1, '#701a75');
+        ctx.fillStyle = grad;
         ctx.strokeStyle = 'black';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.rect(0, -2.5, 14, 5);
+        ctx.rect(0, -2.5, 16, 5);
         ctx.fill();
         ctx.stroke();
         // Guard
-        ctx.fillStyle = '#701a75';
+        ctx.fillStyle = '#1e293b';
         ctx.beginPath();
-        ctx.rect(-1, -5, 2, 10);
+        ctx.rect(-1, -6, 2, 12);
         ctx.fill();
         ctx.stroke();
         // Handle
         ctx.fillStyle = '#1e293b';
         ctx.beginPath();
-        ctx.rect(-4, -1.5, 4, 3);
+        ctx.rect(-5, -2, 5, 4);
         ctx.fill();
         ctx.stroke();
       } else if (weaponClass === 'Bow') {
         ctx.strokeStyle = '#f97316';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 4;
         ctx.beginPath();
-        ctx.arc(0, 0, 14, -Math.PI/2, Math.PI/2);
-        ctx.stroke();
-        // String
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(0, -14);
-        ctx.lineTo(0, 14);
+        ctx.arc(0, 0, 16, -Math.PI/2, Math.PI/2);
         ctx.stroke();
         // Grip
-        ctx.fillStyle = '#ca8a04';
+        const gripGrad = ctx.createLinearGradient(-3, -3, 3, 3);
+        gripGrad.addColorStop(0, '#ca8a04');
+        gripGrad.addColorStop(1, '#facc15');
+        ctx.fillStyle = gripGrad;
         ctx.beginPath();
-        ctx.arc(0, 0, 3, 0, Math.PI * 2);
+        ctx.arc(0, 0, 4, 0, Math.PI * 2);
         ctx.fill();
+        ctx.stroke();
+        // String
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, -16);
+        ctx.lineTo(0, 16);
         ctx.stroke();
       }
       ctx.restore();
@@ -1329,14 +1353,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     // Draw Effects (Damage & Lifesteal) - Sized bit smaller than characters
     ctx.save();
-    ctx.font = 'bold 36px Luckiest Guy'; // 36px is smaller than 55px (char height)
+    ctx.font = 'bold 36px Luckiest Guy'; 
     ctx.textAlign = 'center';
     ctx.lineWidth = 6;
     effectsRef.current.forEach(fx => {
       const elapsed = Math.max(0, now - fx.timestamp);
       if (elapsed > 1000) return;
       const opacity = Math.max(0, 1 - elapsed / 1000);
-      const drift = (elapsed / 1000) * 60;
+      const drift = (elapsed / 1000) * 80;
       const fxX = fx.x * PIXELS_PER_METER;
       const fxY = (fx.y * PIXELS_PER_METER) - 60 - drift;
 
