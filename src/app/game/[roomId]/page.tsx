@@ -197,7 +197,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
 
-      // Single Player Reset
+      // Single Player Reset - Automatically return to lobby if 1 player left
       if (playerCount === 1 && room.status !== 'lobby') {
         const onlyPlayerId = pIds[0];
         if (onlyPlayerId === profile?.id) {
@@ -808,6 +808,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     }
 
     const effectsRef = ref(db, `rooms/${roomId}/effects`);
+    // Add Damage Indicator (Visible to everyone above the victim)
     push(effectsRef, {
       id: Math.random().toString(),
       x: enemy.x + PLAYER_WIDTH / 2,
@@ -822,6 +823,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const newMyHp = Math.min(weaponStats.maxHp, p.hp + healAmount);
       update(ref(db, `rooms/${roomId}/players/${profile.id}`), { hp: newMyHp });
       
+      // Add Lifesteal Indicator (Visible to everyone above the attacker)
       push(effectsRef, {
         id: Math.random().toString(),
         x: p.x + PLAYER_WIDTH / 2,
@@ -1213,8 +1215,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.fillText(p.name, px + pw/2, py - 25);
     });
 
+    // Render Damage and Healing Floating Indicators
     localEffects.forEach((en) => {
       const elapsed = now - en.timestamp;
+      // Allow for a bit of clock skew but filter old effects
       if (elapsed > 800 || elapsed < -200) return;
       
       const progress = Math.max(0, elapsed / 800);
@@ -1232,6 +1236,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const textX = en.x * PIXELS_PER_METER;
       const textY = en.y * PIXELS_PER_METER - 45 - dy;
       
+      // Add '+' prefix for lifesteal
       const prefix = en.type === 'heal' ? '+' : '';
       const text = prefix + en.amount.toString();
       
