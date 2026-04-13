@@ -201,6 +201,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       if (playerCount === 1 && room.status !== 'lobby') {
         const onlyPlayerId = pIds[0];
         if (onlyPlayerId === profile?.id) {
+          const p = room.players[onlyPlayerId];
+          const weaponStats = WEAPON_STATS[p.weaponClass as WeaponClass] || WEAPON_STATS.Sword;
           const updates: any = {
             status: 'lobby',
             lastWinnerName: null,
@@ -210,6 +212,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           };
           updates[`players/${onlyPlayerId}/roundsWon`] = 0;
           updates[`players/${onlyPlayerId}/isReady`] = true;
+          updates[`players/${onlyPlayerId}/hp`] = weaponStats.maxHp;
+          updates[`players/${onlyPlayerId}/stamina`] = STAMINA_MAX;
+          updates[`players/${onlyPlayerId}/dashCharges`] = p.weaponClass === 'Dagger' ? 4 : 1;
+          updates[`players/${onlyPlayerId}/dashRechargeProgress`] = 0;
+          updates[`players/${onlyPlayerId}/isDashing`] = false;
+          updates[`players/${onlyPlayerId}/dashTimeLeft`] = 0;
           update(ref(db, `rooms/${roomId}`), updates);
         }
       }
@@ -598,7 +606,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       if (profile && currentRoom?.players?.[profile.id] && currentRoom.status === 'playing') {
         updateGameLogic(dt);
       }
-      render();
+      render(dt);
       frameId = requestAnimationFrame(loop);
     };
     frameId = requestAnimationFrame(loop);
@@ -800,7 +808,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     }
 
     const effectsRef = ref(db, `rooms/${roomId}/effects`);
-    // Push damage indicator to global database
     push(effectsRef, {
       id: Math.random().toString(),
       x: enemy.x + PLAYER_WIDTH / 2,
@@ -815,7 +822,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const newMyHp = Math.min(weaponStats.maxHp, p.hp + healAmount);
       update(ref(db, `rooms/${roomId}/players/${profile.id}`), { hp: newMyHp });
       
-      // Push heal indicator to global database directly over the shooter
       push(effectsRef, {
         id: Math.random().toString(),
         x: p.x + PLAYER_WIDTH / 2,
@@ -915,7 +921,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     });
   };
 
-  const render = () => {
+  const render = (dt: number) => {
     const canvas = canvasRef.current;
     const currentRoom = roomRef.current;
     if (!canvas || !currentRoom) return;
@@ -928,12 +934,19 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     ctx.fillStyle = '#333333'; 
     ctx.fillRect(0, GROUND_Y * PIXELS_PER_METER, canvas.width, (ARENA_HEIGHT - GROUND_Y) * PIXELS_PER_METER);
 
+    // Cleanup ghost players
+    Object.keys(interpPlayersRef.current).forEach(id => {
+      if (!currentRoom.players[id]) {
+        delete interpPlayersRef.current[id];
+      }
+    });
+
     Object.values(currentRoom.players || {}).forEach(p => {
       if (p.id === profile?.id) {
         interpPlayersRef.current[p.id] = p;
       } else {
         const currentInterp = interpPlayersRef.current[p.id] || p;
-        const lerpFactor = 0.25; 
+        const lerpFactor = Math.min(1, 15 * dt); 
         interpPlayersRef.current[p.id] = {
           ...p,
           x: currentInterp.x + (p.x - currentInterp.x) * lerpFactor,
@@ -1201,9 +1214,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     });
 
     localEffects.forEach((en) => {
-      // Handles cases where timestamps might be slightly ahead/behind due to clock skew
       const elapsed = now - en.timestamp;
-      // Handle both future (skew) and past effects for smooth rendering
       if (elapsed > 800 || elapsed < -200) return;
       
       const progress = Math.max(0, elapsed / 800);
