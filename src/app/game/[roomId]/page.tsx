@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -167,6 +168,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     update(myPlayerRef, { isReady: true });
   }, [roomId, profile]);
 
+  const isHost = room && profile ? profile.id === room.createdBy : false;
+
   useEffect(() => {
     if (!db) return;
     const connectedRef = ref(db, '.info/connected');
@@ -176,13 +179,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     return () => unsubscribe();
   }, []);
 
+  // Room Monitoring Effect
   useEffect(() => {
     roomRef.current = room;
     if (room?.players) {
       const pIds = Object.keys(room.players).sort();
       const playerCount = pIds.length;
       const hostPresent = !!room.players[room.createdBy];
-      const isHost = profile?.id === room.createdBy;
 
       // Host Transfer
       if (!hostPresent && playerCount > 0) {
@@ -192,7 +195,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
 
-      // SINGLE PLAYER RESET
+      // Single Player Reset
       if (playerCount === 1 && room.status !== 'lobby') {
         const onlyPlayerId = pIds[0];
         if (onlyPlayerId === profile?.id) {
@@ -200,7 +203,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             status: 'lobby',
             lastWinnerName: null,
             startTime: null,
-            effects: null // Clear synced effects on reset
+            effects: null
           };
           updates[`players/${onlyPlayerId}/roundsWon`] = 0;
           updates[`players/${onlyPlayerId}/isReady`] = true;
@@ -208,7 +211,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
 
-      // Sync Effects from DB
+      // Sync Effects
       if (room.effects) {
         const now = Date.now();
         const effects = Object.values(room.effects).filter(e => now - e.timestamp < 1000);
@@ -217,7 +220,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         setLocalEffects([]);
       }
 
-      // "Play Again" Ready Sync
+      // Play Again Reset Sync
       if (room.status === 'finished') {
         const players = Object.values(room.players);
         const allReady = players.every(p => p.isReady);
@@ -235,7 +238,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
 
-      // Host handles round-over/finish logic
+      // Host Round Logic
       if (room.status === 'playing' && isHost) {
         const players = Object.values(room.players);
         const alivePlayers = players.filter(p => p.hp > 0);
@@ -248,16 +251,33 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           }
         }
       }
-
-      // Countdown handling
-      if (room.status === 'starting' && room.startTime && isHost) {
-        const elapsed = Date.now() - room.startTime;
-        if (elapsed >= 3500) {
-          update(ref(db, `rooms/${roomId}`), { status: 'playing' });
-        }
-      }
     }
-  }, [room, profile?.id, roomId]);
+  }, [room, profile?.id, roomId, isHost]);
+
+  // Dedicated Countdown & Round Transition Effect (Host Only)
+  useEffect(() => {
+    if (!db || !roomId || !room || !isHost) return;
+
+    // Transition: Starting -> Playing (Countdown)
+    if (room.status === 'starting' && room.startTime) {
+      const elapsed = Date.now() - room.startTime;
+      const remaining = Math.max(0, 3500 - elapsed);
+      const timer = setTimeout(() => {
+        update(ref(db, `rooms/${roomId}`), { status: 'playing' });
+      }, remaining);
+      return () => clearTimeout(timer);
+    }
+
+    // Transition: Round Over -> Starting (Next Round)
+    if (room.status === 'round_over') {
+      const timer = setTimeout(() => {
+        const currentData = roomRef.current;
+        if (!currentData || currentData.status !== 'round_over') return;
+        prepareNextRound(currentData);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [room?.status, room?.startTime, isHost, roomId]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -347,17 +367,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     return () => {
       unsubscribe();
-      get(roomPath).then(s => {
-        if (s.exists()) {
-          const r = s.val();
-          const pIds = Object.keys(r.players || {}).filter(id => id !== profile.id);
-          if (pIds.length === 0) {
-            remove(roomPath);
-          } else {
-            remove(myPlayerRef);
-          }
-        }
-      });
     };
   }, [profile, profileLoading, roomId, router]);
 
@@ -707,7 +716,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     }
 
-    // Push damage effect to DB
     const effectsRef = ref(db, `rooms/${roomId}/effects`);
     push(effectsRef, {
       id: Math.random().toString(),
@@ -724,7 +732,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const newMyHp = Math.min(myWeaponStats.maxHp, p.hp + healAmount);
       update(ref(db, `rooms/${roomId}/players/${profile.id}`), { hp: newMyHp });
       
-      // Push heal effect to DB
       push(effectsRef, {
         id: Math.random().toString(),
         x: p.x + PLAYER_WIDTH / 2,
@@ -742,19 +749,18 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   const handleKill = (winnerId: string) => {
     const currentRoom = roomRef.current;
-    if (!currentRoom || !db || currentRoom.status !== 'playing') return;
+    if (!currentRoom || !db || !isHost || currentRoom.status !== 'playing') return;
     
     const winner = currentRoom.players[winnerId];
     if (!winner) return;
 
     const winnersRounds = (winner.roundsWon || 0) + 1;
-    update(ref(db, `rooms/${roomId}/players/${winnerId}`), { roundsWon: winnersRounds });
-
     const updates: any = { 
       status: winnersRounds >= 3 ? 'finished' : 'round_over',
       lastWinnerName: winner.name,
-      effects: null // Clear effects for next round
+      effects: null 
     };
+    updates[`players/${winnerId}/roundsWon`] = winnersRounds;
     
     if (winnersRounds >= 3) {
       Object.keys(currentRoom.players).forEach(pid => {
@@ -763,34 +769,21 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     }
 
     update(ref(db, `rooms/${roomId}`), updates);
-
-    if (winnersRounds < 3) {
-      setTimeout(() => {
-        const currentData = roomRef.current;
-        if (!currentData || currentData.status !== 'round_over') return;
-        prepareNextRound(currentData);
-      }, 3000);
-    }
   };
 
   const handleDraw = () => {
     const currentRoom = roomRef.current;
-    if (!currentRoom || !db || currentRoom.status !== 'playing') return;
+    if (!currentRoom || !db || !isHost || currentRoom.status !== 'playing') return;
     
     update(ref(db, `rooms/${roomId}`), { 
       status: 'round_over', 
       lastWinnerName: 'DRAW',
       effects: null 
     });
-
-    setTimeout(() => {
-      const currentData = roomRef.current;
-      if (!currentData || currentData.status !== 'round_over') return;
-      prepareNextRound(currentData);
-    }, 3000);
   };
 
   const prepareNextRound = (currentData: GameRoom) => {
+    if (!isHost) return;
     const assignedSpawns: {x: number, y: number}[] = [];
     const nextRoundUpdates: any = {
       status: 'starting', 
@@ -829,7 +822,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   };
 
   const startMatch = () => {
-    if (!db || !roomId || !room || profile?.id !== room.createdBy) return;
+    if (!db || !roomId || !room || !isHost) return;
     update(ref(db, `rooms/${roomId}`), { 
       status: 'starting', 
       startTime: Date.now() 
@@ -1121,7 +1114,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const playerCount = room?.players ? Object.keys(room.players).length : 0;
   const allReady = room?.players ? Object.values(room.players).every(p => p.isReady) : false;
   const canStart = playerCount >= 2 && allReady;
-  const isHost = room?.createdBy === profile.id;
 
   let countdownText = '';
   let showCountdown = false;
