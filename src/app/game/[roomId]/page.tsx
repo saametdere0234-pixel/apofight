@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -8,7 +7,6 @@ import { ref, onValue, set, update, onDisconnect, remove, get, push } from 'fire
 import { 
   GamePlayer, 
   GameRoom, 
-  GameEffect,
   Projectile,
   ARENA_WIDTH, 
   ARENA_HEIGHT, 
@@ -137,7 +135,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     staminaMsg: ''
   });
 
-  const [localEffects, setLocalEffects] = useState<GameEffect[]>([]);
   const lastHpRef = useRef<number>(1000);
   const [recentHeal, setRecentHeal] = useState<{ amount: number, time: number } | null>(null);
 
@@ -207,7 +204,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             status: 'lobby',
             lastWinnerName: null,
             startTime: null,
-            effects: null,
             projectiles: null
           };
           updates[`players/${onlyPlayerId}/roundsWon`] = 0;
@@ -231,7 +227,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             status: 'lobby',
             lastWinnerName: null,
             startTime: null,
-            effects: null,
             projectiles: null
           };
           players.forEach(p => {
@@ -256,18 +251,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     }
   }, [room, profile?.id, roomId, isHost]);
-
-  // Dedicated Effect Monitoring Effect - Fixes Indicator Visibility Bug
-  useEffect(() => {
-    if (room?.effects) {
-      const now = Date.now();
-      // Use a wider window (5s) to handle clock drift; the render loop handles the 800ms visibility
-      const effectsList = Object.values(room.effects).filter(e => Math.abs(now - e.timestamp) < 5000);
-      setLocalEffects(effectsList);
-    } else {
-      setLocalEffects([]);
-    }
-  }, [room?.effects]);
 
   // Dedicated Countdown & Round Transition Effect (Host Only)
   useEffect(() => {
@@ -807,31 +790,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     }
 
-    const effectsRef = ref(db, `rooms/${roomId}/effects`);
-    // Add Damage Indicator (Visible to everyone above the victim)
-    push(effectsRef, {
-      id: Math.random().toString(),
-      x: enemy.x + PLAYER_WIDTH / 2,
-      y: enemy.y,
-      amount: Math.round(weaponStats.damage),
-      type: 'damage',
-      timestamp: now
-    });
-
     if (p.weaponClass === 'Bow') {
       const healAmount = weaponStats.damage * 0.3;
       const newMyHp = Math.min(weaponStats.maxHp, p.hp + healAmount);
       update(ref(db, `rooms/${roomId}/players/${profile.id}`), { hp: newMyHp });
-      
-      // Add Lifesteal Indicator (Visible to everyone above the attacker)
-      push(effectsRef, {
-        id: Math.random().toString(),
-        x: p.x + PLAYER_WIDTH / 2,
-        y: p.y,
-        amount: Math.round(healAmount),
-        type: 'heal',
-        timestamp: now
-      });
       setRecentHeal({ amount: Math.round(healAmount), time: now });
     }
 
@@ -850,7 +812,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const updates: any = { 
       status: winnersRounds >= 3 ? 'finished' : 'round_over',
       lastWinnerName: winner.name,
-      effects: null,
       projectiles: null
     };
     updates[`players/${winnerId}/roundsWon`] = winnersRounds;
@@ -871,7 +832,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     update(ref(db, `rooms/${roomId}`), { 
       status: 'round_over', 
       lastWinnerName: 'DRAW',
-      effects: null,
       projectiles: null
     });
   };
@@ -1213,36 +1173,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.textAlign = 'center';
       ctx.strokeText(p.name, px + pw/2, py - 25);
       ctx.fillText(p.name, px + pw/2, py - 25);
-    });
-
-    // Render Damage and Healing Floating Indicators
-    localEffects.forEach((en) => {
-      const elapsed = now - en.timestamp;
-      // Allow for more clock skew tolerance (up to 400ms in the future and 1200ms in the past for buffering)
-      if (elapsed > 1200 || elapsed < -400) return;
-      
-      const progress = Math.max(0, elapsed / 800);
-      const alpha = Math.max(0, 1 - progress);
-      const dy = progress * 60;
-      
-      ctx.save();
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = en.type === 'damage' ? '#ff4444' : '#4ade80';
-      ctx.strokeStyle = 'black';
-      ctx.lineWidth = 5;
-      ctx.font = 'bold 32px "Luckiest Guy"';
-      ctx.textAlign = 'center';
-      
-      const textX = en.x * PIXELS_PER_METER;
-      const textY = en.y * PIXELS_PER_METER - 45 - dy;
-      
-      // Add '+' prefix for lifesteal
-      const prefix = en.type === 'heal' ? '+' : '';
-      const text = prefix + en.amount.toString();
-      
-      ctx.strokeText(text, textX, textY);
-      ctx.fillText(text, textX, textY);
-      ctx.restore();
     });
   };
 
