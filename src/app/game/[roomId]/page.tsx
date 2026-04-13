@@ -1094,8 +1094,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const ph = PLAYER_HEIGHT * PIXELS_PER_METER;
 
       // Draw Death Animation (Cloud of Dust)
+      const timeSinceDeath = now - (p.deathTime || 0);
       if (p.hp <= 0 && currentRoom.status !== 'lobby') {
-        const timeSinceDeath = now - (p.deathTime || 0);
         if (timeSinceDeath < 1500) {
           ctx.save();
           ctx.fillStyle = '#cbd5e1';
@@ -1180,9 +1180,60 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
       ctx.restore();
 
+      // Draw Weapon in Hand
+      ctx.save();
+      const weaponX = p.facing === 'right' ? px + pw - 5 : px + 5;
+      const weaponY = py + ph / 2 + 5;
+      ctx.translate(weaponX, weaponY);
+      if (p.facing === 'left') ctx.scale(-1, 1);
+      
+      const weapon = p.weaponClass as WeaponClass;
+      if (weapon === 'Sword') {
+        ctx.rotate(-Math.PI / 4);
+        ctx.fillStyle = '#38bdf8';
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.rect(0, -3, 20, 6);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#facc15';
+        ctx.beginPath();
+        ctx.rect(-3, -6, 3, 12);
+        ctx.fill();
+        ctx.stroke();
+      } else if (weapon === 'Dagger') {
+        ctx.rotate(-Math.PI / 4);
+        ctx.fillStyle = '#d946ef';
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.rect(0, -2, 12, 4);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#701a75';
+        ctx.beginPath();
+        ctx.rect(-2, -4, 2, 8);
+        ctx.fill();
+        ctx.stroke();
+      } else if (weapon === 'Bow') {
+        ctx.strokeStyle = '#f97316';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 12, -Math.PI/2, Math.PI/2);
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 0.5;
+        ctx.beginPath();
+        ctx.moveTo(0, -12);
+        ctx.lineTo(0, 12);
+        ctx.stroke();
+      }
+      ctx.restore();
+
       const isWinner = p.name === currentRoom.lastWinnerName && (currentRoom.status === 'celebrating' || currentRoom.status === 'round_over' || currentRoom.status === 'finished');
 
-      // Draw Eyes (Hiddens when wearing sunglasses)
+      // Draw Eyes (Hidden when wearing sunglasses)
       if (!isWinner) {
         ctx.save();
         ctx.fillStyle = 'white';
@@ -1249,7 +1300,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     // Draw Effects (Damage & Lifesteal) - TOP LAYER with correct positioning
     ctx.save();
-    ctx.font = 'bold 28px Luckiest Guy';
+    ctx.font = 'bold 36px Luckiest Guy'; // Sized just a bit smaller than character height (55px)
     ctx.textAlign = 'center';
     ctx.lineWidth = 6;
     effectsRef.current.forEach(fx => {
@@ -1258,8 +1309,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const opacity = Math.max(0, 1 - elapsed / 1000);
       const drift = (elapsed / 1000) * 60;
       const fxX = fx.x * PIXELS_PER_METER;
-      // Position above character head (which is at py - 25 for name tag)
-      const fxY = (fx.y * PIXELS_PER_METER) - 40 - drift;
+      // Position clearly above character head and name tags
+      const fxY = (fx.y * PIXELS_PER_METER) - 60 - drift;
 
       ctx.globalAlpha = opacity;
       ctx.strokeStyle = 'black';
