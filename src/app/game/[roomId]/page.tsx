@@ -1019,6 +1019,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         const ry = py + Math.sin(angle) * WEAPON_STATS.Bow.range * PIXELS_PER_METER;
         
         ctx.save();
+        // Dashed trajectory line
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
         ctx.setLineDash([10, 5]);
         ctx.lineWidth = 4;
@@ -1027,6 +1028,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.lineTo(rx, ry);
         ctx.stroke();
 
+        // Target Reticle (MOBA style)
         const mx = mouseRef.current.x * PIXELS_PER_METER;
         const my = mouseRef.current.y * PIXELS_PER_METER;
         ctx.setLineDash([]);
@@ -1200,7 +1202,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
       ctx.restore();
 
-      // Draw Weapon in Hand (Aesthetically Pleasing)
+      // Draw Weapon in Hand
       ctx.save();
       const isWinner = p.name === currentRoom.lastWinnerName && (currentRoom.status === 'celebrating' || currentRoom.status === 'round_over' || currentRoom.status === 'finished');
       const weaponX = p.facing === 'right' ? px + pw - 5 : px + 5;
@@ -1211,7 +1213,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const weaponClass = p.weaponClass as WeaponClass;
       if (weaponClass === 'Sword') {
         ctx.rotate(-Math.PI / 4);
-        // Blade
         ctx.fillStyle = '#38bdf8';
         ctx.strokeStyle = 'black';
         ctx.lineWidth = 1.5;
@@ -1219,18 +1220,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.rect(0, -3, 24, 6);
         ctx.fill();
         ctx.stroke();
-        // Highlight
-        ctx.fillStyle = 'white';
-        ctx.globalAlpha = 0.4;
-        ctx.fillRect(2, -1.5, 20, 1);
-        ctx.globalAlpha = 1.0;
-        // Guard
         ctx.fillStyle = '#facc15';
         ctx.beginPath();
         ctx.rect(-2, -8, 4, 16);
         ctx.fill();
         ctx.stroke();
-        // Handle
         ctx.fillStyle = '#78350f';
         ctx.beginPath();
         ctx.rect(-6, -2, 6, 4);
@@ -1238,7 +1232,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.stroke();
       } else if (weaponClass === 'Dagger') {
         ctx.rotate(-Math.PI / 4);
-        // Blade
         const grad = ctx.createLinearGradient(0, 0, 16, 0);
         grad.addColorStop(0, '#d946ef');
         grad.addColorStop(1, '#701a75');
@@ -1249,16 +1242,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.rect(0, -2.5, 16, 5);
         ctx.fill();
         ctx.stroke();
-        // Guard
         ctx.fillStyle = '#1e293b';
         ctx.beginPath();
         ctx.rect(-1, -6, 2, 12);
-        ctx.fill();
-        ctx.stroke();
-        // Handle
-        ctx.fillStyle = '#1e293b';
-        ctx.beginPath();
-        ctx.rect(-5, -2, 5, 4);
         ctx.fill();
         ctx.stroke();
       } else if (weaponClass === 'Bow') {
@@ -1267,26 +1253,15 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.beginPath();
         ctx.arc(0, 0, 16, -Math.PI/2, Math.PI/2);
         ctx.stroke();
-        // Grip
-        const gripGrad = ctx.createLinearGradient(-3, -3, 3, 3);
-        gripGrad.addColorStop(0, '#ca8a04');
-        gripGrad.addColorStop(1, '#facc15');
-        ctx.fillStyle = gripGrad;
+        ctx.fillStyle = '#ca8a04';
         ctx.beginPath();
         ctx.arc(0, 0, 4, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
-        // String
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(0, -16);
-        ctx.lineTo(0, 16);
-        ctx.stroke();
       }
       ctx.restore();
 
-      // Draw Eyes (Hidden when wearing sunglasses)
+      // Draw Eyes
       if (!isWinner) {
         ctx.save();
         ctx.fillStyle = 'white';
@@ -1304,7 +1279,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.restore();
       }
 
-      // Draw Winner Sunglasses with Fall Animation
+      // Draw Winner Sunglasses
       if (isWinner) {
         ctx.save();
         const sx = px + (pw / 2);
