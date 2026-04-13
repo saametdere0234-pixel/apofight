@@ -262,8 +262,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (room?.effects) {
       const now = Date.now();
       // Use a wider window (5s) to handle clock drift; the render loop handles the 800ms visibility
-      const effects = Object.values(room.effects).filter(e => Math.abs(now - e.timestamp) < 5000);
-      setLocalEffects(effects);
+      const effectsList = Object.values(room.effects).filter(e => Math.abs(now - e.timestamp) < 5000);
+      setLocalEffects(effectsList);
     } else {
       setLocalEffects([]);
     }
@@ -1218,11 +1218,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     // Render Damage and Healing Floating Indicators
     localEffects.forEach((en) => {
       const elapsed = now - en.timestamp;
-      // Allow for a bit of clock skew but filter old effects
-      if (elapsed > 800 || elapsed < -200) return;
+      // Allow for more clock skew tolerance (up to 400ms in the future and 1200ms in the past for buffering)
+      if (elapsed > 1200 || elapsed < -400) return;
       
       const progress = Math.max(0, elapsed / 800);
-      const alpha = 1 - progress;
+      const alpha = Math.max(0, 1 - progress);
       const dy = progress * 60;
       
       ctx.save();
