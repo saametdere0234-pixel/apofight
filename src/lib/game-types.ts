@@ -60,12 +60,13 @@ export interface GameRoom {
   players: Record<string, GamePlayer>;
   effects?: Record<string, GameEffect>; // Synced combat effects
   projectiles?: Record<string, Projectile>;
-  status: 'lobby' | 'starting' | 'playing' | 'round_over' | 'finished';
+  status: 'lobby' | 'starting' | 'playing' | 'celebrating' | 'round_over' | 'finished';
   currentRound: number;
   lastUpdate: number;
   maxPlayers: number;
   startTime?: number; // Server timestamp for the start of the match
   lastWinnerName?: string; // Name of the last round winner
+  celebrationStartTime?: number; // Timestamp for the sunglasses animation
 }
 
 export const WEAPON_STATS = {

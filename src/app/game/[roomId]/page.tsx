@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -212,7 +211,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
 
-      // Single Player Reset - Automatically return to lobby if 1 player left
+      // Single Player Reset
       if (playerCount === 1 && room.status !== 'lobby') {
         const onlyPlayerId = pIds[0];
         if (onlyPlayerId === profile?.id) {
@@ -223,7 +222,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             lastWinnerName: null,
             startTime: null,
             projectiles: null,
-            effects: null
+            effects: null,
+            celebrationStartTime: null
           };
           updates[`players/${onlyPlayerId}/roundsWon`] = 0;
           updates[`players/${onlyPlayerId}/isReady`] = true;
@@ -247,7 +247,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             lastWinnerName: null,
             startTime: null,
             projectiles: null,
-            effects: null
+            effects: null,
+            celebrationStartTime: null
           };
           players.forEach(p => {
             updates[`players/${p.id}/roundsWon`] = 0;
@@ -272,7 +273,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     }
   }, [room, profile?.id, roomId, isHost]);
 
-  // Dedicated Countdown & Round Transition Effect (Host Only)
+  // Transitions (Host Only)
   useEffect(() => {
     if (!db || !roomId || !room || !isHost) return;
 
@@ -286,6 +287,32 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       return () => clearTimeout(timer);
     }
 
+    // Transition: Celebrating -> Result (Sunglasses animation finished)
+    if (room.status === 'celebrating' && room.celebrationStartTime) {
+      const elapsed = Date.now() - room.celebrationStartTime;
+      const remaining = Math.max(0, 2000 - elapsed); // 2s celebration
+      const timer = setTimeout(() => {
+        const currentData = roomRef.current;
+        if (!currentData || currentData.status !== 'celebrating') return;
+        
+        const winner = Object.values(currentData.players).find(p => p.name === currentData.lastWinnerName);
+        const isGameFinished = winner && (winner.roundsWon || 0) >= 3;
+        
+        const updates: any = { 
+          status: isGameFinished ? 'finished' : 'round_over'
+        };
+        
+        if (isGameFinished) {
+          Object.keys(currentData.players).forEach(pid => {
+            updates[`players/${pid}/isReady`] = false;
+          });
+        }
+        
+        update(ref(db, `rooms/${roomId}`), updates);
+      }, remaining);
+      return () => clearTimeout(timer);
+    }
+
     // Transition: Round Over -> Starting (Next Round)
     if (room.status === 'round_over') {
       const timer = setTimeout(() => {
@@ -295,7 +322,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [room?.status, room?.startTime, isHost, roomId]);
+  }, [room?.status, room?.startTime, room?.celebrationStartTime, isHost, roomId]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -392,12 +419,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const currentRoom = roomRef.current;
     if (!profile || !currentRoom || !currentRoom.players?.[profile.id] || !db) return;
     
-    if (currentRoom.status === 'starting' || currentRoom.status === 'round_over' || currentRoom.status === 'finished') return;
+    if (currentRoom.status !== 'playing') return;
 
     const now = Date.now();
     const p = currentRoom.players[profile.id];
 
-    // Projectile Movement & Collision (Owner Authority)
+    // Projectile Movement & Collision
     if (currentRoom.projectiles) {
       Object.entries(currentRoom.projectiles).forEach(([pid, proj]) => {
         if (proj.ownerId === profile.id) {
@@ -852,19 +879,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     const winnersRounds = (winner.roundsWon || 0) + 1;
     const updates: any = { 
-      status: winnersRounds >= 3 ? 'finished' : 'round_over',
+      status: 'celebrating',
       lastWinnerName: winner.name,
+      celebrationStartTime: Date.now(),
       projectiles: null,
       effects: null
     };
     updates[`players/${winnerId}/roundsWon`] = winnersRounds;
     
-    if (winnersRounds >= 3) {
-      Object.keys(currentRoom.players).forEach(pid => {
-        updates[`players/${pid}/isReady`] = false;
-      });
-    }
-
     update(ref(db, `rooms/${roomId}`), updates);
   };
 
@@ -886,7 +908,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const nextRoundUpdates: any = {
       status: 'starting', 
       startTime: Date.now(),
-      effects: null
+      effects: null,
+      celebrationStartTime: null
     };
 
     Object.keys(currentData.players).forEach(pid => {
@@ -925,7 +948,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     update(ref(db, `rooms/${roomId}`), { 
       status: 'starting', 
       startTime: Date.now(),
-      effects: null
+      effects: null,
+      celebrationStartTime: null
     });
   };
 
@@ -1051,7 +1075,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const pw = PLAYER_WIDTH * PIXELS_PER_METER;
       const ph = PLAYER_HEIGHT * PIXELS_PER_METER;
 
-      // Draw Death Animation (Cloud of Dust)
+      // Draw Death Animation
       if (p.hp <= 0 && currentRoom.status !== 'lobby') {
         ctx.save();
         ctx.fillStyle = '#cbd5e1';
@@ -1136,21 +1160,30 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.restore();
 
       // Draw Winner Sunglasses
-      if ((currentRoom.status === 'round_over' || currentRoom.status === 'finished') && p.name === currentRoom.lastWinnerName) {
+      if ((currentRoom.status === 'celebrating' || currentRoom.status === 'round_over' || currentRoom.status === 'finished') && p.name === currentRoom.lastWinnerName) {
         ctx.save();
         const sx = px + (pw / 2);
-        const sy = py + 12;
+        const finalEyeY = py + 12;
+        
+        let currentY = finalEyeY;
+        if (currentRoom.status === 'celebrating' && currentRoom.celebrationStartTime) {
+          const celebrationDuration = 1500; // 1.5s for drop
+          const elapsed = now - currentRoom.celebrationStartTime;
+          const progress = Math.min(1, elapsed / celebrationDuration);
+          currentY = -100 + (finalEyeY + 100) * progress;
+        }
+
         ctx.shadowBlur = 15;
         ctx.shadowColor = 'rgba(255, 255, 0, 0.8)';
         ctx.fillStyle = 'black';
-        ctx.fillRect(sx - 16, sy - 6, 14, 10); // Left lens
-        ctx.fillRect(sx + 2, sy - 6, 14, 10);  // Right lens
-        ctx.fillRect(sx - 2, sy - 2, 4, 3);   // Bridge
+        ctx.fillRect(sx - 16, currentY - 6, 14, 10); // Left lens
+        ctx.fillRect(sx + 2, currentY - 6, 14, 10);  // Right lens
+        ctx.fillRect(sx - 2, currentY - 2, 4, 3);   // Bridge
         // Shine
         ctx.fillStyle = 'white';
         ctx.globalAlpha = 0.5;
-        ctx.fillRect(sx - 14, sy - 4, 4, 4);
-        ctx.fillRect(sx + 4, sy - 4, 4, 4);
+        ctx.fillRect(sx - 14, currentY - 4, 4, 4);
+        ctx.fillRect(sx + 4, currentY - 4, 4, 4);
         ctx.restore();
       }
 
@@ -1254,7 +1287,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.fillText(p.name, px + pw/2, py - 25);
     });
 
-    // Draw Effects (Damage & Lifesteal) - Positioned ABOVE characters
+    // Draw Effects (Damage & Lifesteal) - Positioned CLEARLY ABOVE characters
     ctx.save();
     ctx.font = 'bold 24px Luckiest Guy';
     ctx.textAlign = 'center';
@@ -1263,10 +1296,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const elapsed = now - fx.timestamp;
       if (elapsed > 800) return;
       const opacity = 1 - elapsed / 800;
-      const drift = (elapsed / 800) * 80;
+      const drift = (elapsed / 800) * 100;
       const fxX = fx.x * PIXELS_PER_METER;
-      // Position clearly above the head
-      const fxY = fx.y * PIXELS_PER_METER - drift - 50;
+      const fxY = fx.y * PIXELS_PER_METER - drift - 80;
 
       ctx.globalAlpha = opacity;
       ctx.strokeStyle = 'black';
