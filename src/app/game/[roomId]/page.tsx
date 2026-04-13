@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -1045,6 +1046,29 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     });
 
     playersToDraw.forEach(p => {
+      const px = p.x * PIXELS_PER_METER;
+      const py = p.y * PIXELS_PER_METER;
+      const pw = PLAYER_WIDTH * PIXELS_PER_METER;
+      const ph = PLAYER_HEIGHT * PIXELS_PER_METER;
+
+      // Draw Death Animation (Cloud of Dust)
+      if (p.hp <= 0 && currentRoom.status !== 'lobby') {
+        ctx.save();
+        ctx.fillStyle = '#cbd5e1';
+        ctx.globalAlpha = 0.6;
+        const cx = px + pw / 2;
+        const cy = py + ph / 2;
+        for (let i = 0; i < 8; i++) {
+          const ox = Math.cos(i * (Math.PI / 4) + (now / 500)) * 12;
+          const oy = Math.sin(i * (Math.PI / 4) + (now / 500)) * 12;
+          ctx.beginPath();
+          ctx.arc(cx + ox, cy + oy, 15, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+        return;
+      }
+
       const attackDuration = 500;
       const timeSinceAttack = now - (p.lastAttackTime || 0);
       if (timeSinceAttack < attackDuration) {
@@ -1052,10 +1076,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         const baseColor = isLocal ? '38, 114, 238' : '238, 43, 43'; 
         let opacity = 0.7;
         if (timeSinceAttack > 400) opacity = 0.7 * (1 - (timeSinceAttack - 400) / 100);
-        const px = p.x * PIXELS_PER_METER;
-        const py = p.y * PIXELS_PER_METER;
-        const centerX = px + (PLAYER_WIDTH * PIXELS_PER_METER) / 2;
-        const centerY = py + (PLAYER_HEIGHT * PIXELS_PER_METER) / 2;
+        const centerX = px + pw / 2;
+        const centerY = py + ph / 2;
         ctx.save();
         ctx.fillStyle = `rgba(${baseColor}, ${opacity * 0.4})`;
         ctx.strokeStyle = `rgba(${baseColor}, ${opacity})`;
@@ -1079,14 +1101,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
         ctx.restore();
       }
-    });
 
-    playersToDraw.forEach(p => {
-      if (p.hp <= 0 && (currentRoom.status === 'playing' || currentRoom.status === 'starting')) return;
-      const px = p.x * PIXELS_PER_METER;
-      const py = p.y * PIXELS_PER_METER;
-      const pw = PLAYER_WIDTH * PIXELS_PER_METER;
-      const ph = PLAYER_HEIGHT * PIXELS_PER_METER;
       const isStunned = now < (p.stunnedUntil || 0);
 
       ctx.save();
@@ -1119,6 +1134,25 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.stroke();
       }
       ctx.restore();
+
+      // Draw Winner Sunglasses
+      if ((currentRoom.status === 'round_over' || currentRoom.status === 'finished') && p.name === currentRoom.lastWinnerName) {
+        ctx.save();
+        const sx = px + (pw / 2);
+        const sy = py + 12;
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = 'rgba(255, 255, 0, 0.8)';
+        ctx.fillStyle = 'black';
+        ctx.fillRect(sx - 16, sy - 6, 14, 10); // Left lens
+        ctx.fillRect(sx + 2, sy - 6, 14, 10);  // Right lens
+        ctx.fillRect(sx - 2, sy - 2, 4, 3);   // Bridge
+        // Shine
+        ctx.fillStyle = 'white';
+        ctx.globalAlpha = 0.5;
+        ctx.fillRect(sx - 14, sy - 4, 4, 4);
+        ctx.fillRect(sx + 4, sy - 4, 4, 4);
+        ctx.restore();
+      }
 
       ctx.save();
       const flip = p.facing === 'right' ? 1 : -1;
@@ -1220,7 +1254,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.fillText(p.name, px + pw/2, py - 25);
     });
 
-    // Draw Effects (Damage & Lifesteal)
+    // Draw Effects (Damage & Lifesteal) - Positioned ABOVE characters
     ctx.save();
     ctx.font = 'bold 24px Luckiest Guy';
     ctx.textAlign = 'center';
@@ -1229,9 +1263,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const elapsed = now - fx.timestamp;
       if (elapsed > 800) return;
       const opacity = 1 - elapsed / 800;
-      const drift = (elapsed / 800) * 60;
+      const drift = (elapsed / 800) * 80;
       const fxX = fx.x * PIXELS_PER_METER;
-      const fxY = fx.y * PIXELS_PER_METER - drift - 20;
+      // Position clearly above the head
+      const fxY = fx.y * PIXELS_PER_METER - drift - 50;
 
       ctx.globalAlpha = opacity;
       ctx.strokeStyle = 'black';
