@@ -393,6 +393,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           let hitId: string | null = null;
           Object.entries(currentRoom.players).forEach(([eid, enemy]) => {
             if (eid === profile.id || enemy.hp <= 0) return;
+            // Buffer to ensure projectiles feel fair
             const buffer = 0.5;
             if (
               projX >= enemy.x - buffer &&
@@ -796,6 +797,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     }
 
     const effectsRef = ref(db, `rooms/${roomId}/effects`);
+    // Push damage indicator to global database
     push(effectsRef, {
       id: Math.random().toString(),
       x: enemy.x + PLAYER_WIDTH / 2,
@@ -810,6 +812,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const newMyHp = Math.min(weaponStats.maxHp, p.hp + healAmount);
       update(ref(db, `rooms/${roomId}/players/${profile.id}`), { hp: newMyHp });
       
+      // Push heal indicator to global database
       push(effectsRef, {
         id: Math.random().toString(),
         x: p.x + PLAYER_WIDTH / 2,
@@ -938,7 +941,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     const playersToDraw = Object.values(interpPlayersRef.current);
 
-    // Render Trajectory
+    // Render Trajectory (Local Only)
     if (isCharging && profile) {
       const myP = currentRoom.players[profile.id];
       if (myP) {
