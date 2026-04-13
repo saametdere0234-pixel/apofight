@@ -178,22 +178,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const myPlayerRef = ref(db, `rooms/${roomId}/players/${profile.id}`);
     update(myPlayerRef, { isReady: true });
 
-    const players = Object.values(room.players);
-    const allReady = players.every(p => p.id === profile.id ? true : (p.isReady === true));
-
-    if (allReady) {
-      const updates: any = {
-        status: 'lobby',
-        lastWinnerName: null,
-        startTime: null
-      };
-
-      players.forEach(p => {
-        updates[`players/${p.id}/roundsWon`] = 0;
-      });
-
-      update(ref(db, `rooms/${roomId}`), updates);
-    }
+    // Room status will be reset automatically once everyone is ready
   }, [roomId, room, profile]);
 
   useEffect(() => {
@@ -211,7 +196,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const pIds = Object.keys(room.players).sort();
       const playerCount = pIds.length;
       const hostPresent = !!room.players[room.createdBy];
+      const isHost = profile?.id === room.createdBy;
 
+      // Host Transfer
       if (!hostPresent && playerCount > 0) {
         const nextHostId = pIds[0];
         if (profile?.id === nextHostId) {
@@ -219,24 +206,40 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
 
-      if (playerCount === 1) {
+      // SINGLE PLAYER RESET: When only one player remains, return room to start screen (lobby)
+      if (playerCount === 1 && room.status !== 'lobby') {
         const onlyPlayerId = pIds[0];
         if (onlyPlayerId === profile?.id) {
-          const roomPath = ref(db, `rooms/${roomId}`);
-          const updates: any = {};
-          let needsUpdate = false;
-          
-          if (room.status !== 'lobby' && room.status !== 'finished') {
-            updates.status = 'lobby';
-            needsUpdate = true;
-          }
-          
-          if (needsUpdate) {
-            update(roomPath, updates);
-          }
+          const updates: any = {
+            status: 'lobby',
+            lastWinnerName: null,
+            startTime: null
+          };
+          // Reset their stats too
+          updates[`players/${onlyPlayerId}/roundsWon`] = 0;
+          updates[`players/${onlyPlayerId}/isReady`] = true;
+          update(ref(db, `rooms/${roomId}`), updates);
         }
       }
 
+      // Check Readiness for "Play Again" reset
+      if (room.status === 'finished') {
+        const players = Object.values(room.players);
+        const allReady = players.every(p => p.isReady);
+        if (allReady && isHost) {
+          const updates: any = {
+            status: 'lobby',
+            lastWinnerName: null,
+            startTime: null
+          };
+          players.forEach(p => {
+            updates[`players/${p.id}/roundsWon`] = 0;
+          });
+          update(ref(db, `rooms/${roomId}`), updates);
+        }
+      }
+
+      // Round & Combat Feedback Logic
       Object.entries(room.players).forEach(([id, p]) => {
         const prevHp = prevPlayersHpRef.current[id];
         
@@ -275,14 +278,25 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         prevPlayersHpRef.current[id] = p.hp;
       });
 
-      if (room.status === 'playing') {
+      // Round Management (Only Host handles the transition to prevent race conditions)
+      if (room.status === 'playing' && isHost) {
         const players = Object.values(room.players);
         const alivePlayers = players.filter(p => p.hp > 0);
         
         if (players.length >= 2 && alivePlayers.length === 1) {
-          if (profile?.id === alivePlayers[0].id) {
-            handleKill(alivePlayers[0].id);
-          }
+          handleKill(alivePlayers[0].id);
+        } else if (players.length >= 2 && alivePlayers.length === 0) {
+          // It was a draw! Reset round
+          update(ref(db, `rooms/${roomId}`), { status: 'round_over', lastWinnerName: 'DRAW' });
+          setTimeout(() => {
+            const updates: any = { status: 'starting', startTime: Date.now() };
+            players.forEach(p => {
+              const stats = WEAPON_STATS[p.weaponClass as WeaponClass] || WEAPON_STATS.Sword;
+              updates[`players/${p.id}/hp`] = stats.maxHp;
+              updates[`players/${p.id}/stamina`] = STAMINA_MAX;
+            });
+            update(ref(db, `rooms/${roomId}`), updates);
+          }, 3000);
         }
       }
 
@@ -290,7 +304,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         const elapsed = Date.now() - room.startTime;
         const remaining = 3500 - elapsed;
         
-        if (profile?.id === room.createdBy) {
+        if (isHost) {
           if (remaining <= 0) {
             update(ref(db, `rooms/${roomId}`), { status: 'playing' });
           } else {
@@ -413,9 +427,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const currentRoom = roomRef.current;
     if (!profile || !currentRoom || !currentRoom.players?.[profile.id] || !db) return;
     
-    if (currentRoom.status === 'starting') return;
+    if (currentRoom.status === 'starting' || currentRoom.status === 'round_over' || currentRoom.status === 'finished') return;
 
     const p = currentRoom.players[profile.id];
+    if (p.hp <= 0) return; // Dead players don't move
+
     const weapon = (p.weaponClass as WeaponClass) || 'Sword';
     const stats = WEAPON_STATS[weapon] || WEAPON_STATS.Sword;
     const maxCharges = getMaxDashCharges(weapon);
@@ -533,6 +549,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const currentRoom = roomRef.current;
       if (!profile || !currentRoom || !currentRoom.players?.[profile.id] || !db || currentRoom.status !== 'playing') return;
       const p = currentRoom.players[profile.id];
+      if (p.hp <= 0) return;
+      
       const now = Date.now();
       const isStunned = now < (p.stunnedUntil || 0);
 
@@ -593,7 +611,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const dt = Math.min((time - lastTime) / 1000, 0.1);
       lastTime = time;
       const currentRoom = roomRef.current;
-      if (profile && currentRoom?.players?.[profile.id] && (currentRoom.status === 'playing' || currentRoom.status === 'starting')) {
+      if (profile && currentRoom?.players?.[profile.id] && currentRoom.status === 'playing') {
         updateGameLogic(dt);
       }
       render();
@@ -632,6 +650,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (!profile || !currentRoom || !currentRoom.players?.[profile.id] || !db || currentRoom.status !== 'playing') return;
     
     const p = currentRoom.players[profile.id];
+    if (p.hp <= 0) return;
+
     const now = Date.now();
     const isStunned = now < (p.stunnedUntil || 0);
 
@@ -793,17 +813,21 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (winnersRounds < 3) {
       setTimeout(() => {
         const currentData = roomRef.current;
-        if (!currentData) return;
+        if (!currentData || currentData.status !== 'round_over') return;
         
         const assignedSpawns: {x: number, y: number}[] = [];
-        
+        const nextRoundUpdates: any = {
+          status: 'starting', 
+          startTime: Date.now() 
+        };
+
         Object.keys(currentData.players).forEach(pid => {
           const p = currentData.players[pid];
           const bestSpawn = getBestSpawnPoint(SPAWN_POINTS, assignedSpawns);
           assignedSpawns.push(bestSpawn);
           
           const weaponStats = (WEAPON_STATS[p.weaponClass as WeaponClass] || WEAPON_STATS.Sword);
-          update(ref(db, `rooms/${roomId}/players/${pid}`), {
+          const pUpdates = {
             hp: weaponStats.maxHp,
             stamina: STAMINA_MAX,
             x: bestSpawn.x,
@@ -818,13 +842,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             stunCooldownUntil: 0,
             isDashing: false,
             dashTimeLeft: 0
+          };
+          
+          Object.entries(pUpdates).forEach(([key, val]) => {
+            nextRoundUpdates[`players/${pid}/${key}`] = val;
           });
         });
         
-        update(ref(db, `rooms/${roomId}`), { 
-          status: 'starting', 
-          startTime: Date.now() 
-        });
+        update(ref(db, `rooms/${roomId}`), nextRoundUpdates);
       }, 3000);
     }
   };
@@ -858,7 +883,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         interpPlayersRef.current[p.id] = p; // Autoritative local
       } else {
         const currentInterp = interpPlayersRef.current[p.id] || p;
-        const lerpFactor = 0.25; // How fast to catch up (higher = faster but jitterier)
+        const lerpFactor = 0.25; 
         
         interpPlayersRef.current[p.id] = {
           ...p,
@@ -1077,14 +1102,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.fillStyle = 'black';
         ctx.fillRect(hpX, py - 18, hpWidth, 8);
         ctx.fillStyle = '#ff4444';
-        const fillWidth = (p.hp / weaponStats.maxHp) * (hpWidth - 4);
+        const fillWidth = (p.hp / (weaponStats?.maxHp || 1000)) * (hpWidth - 4);
         ctx.fillRect(hpX + 2, py - 16, fillWidth, 4);
       }
       
       ctx.fillStyle = '#fff';
       ctx.strokeStyle = 'black';
       ctx.lineWidth = 3;
-      ctx.font = 'bold 12px Fredoka';
+      ctx.font = 'bold 12px Inter';
       ctx.textAlign = 'center';
       ctx.strokeText(p.name, px + pw/2, py - 25);
       ctx.fillText(p.name, px + pw/2, py - 25);
@@ -1100,7 +1125,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.fillStyle = en.type === 'damage' ? '#ff4444' : '#4ade80';
       ctx.strokeStyle = 'black';
       ctx.lineWidth = 4;
-      ctx.font = 'bold 24px Luckiest Guy';
+      ctx.font = 'bold 24px Space Grotesk';
       ctx.textAlign = 'center';
       const textX = en.x * PIXELS_PER_METER;
       const textY = en.y * PIXELS_PER_METER - 40 - dy;
@@ -1204,7 +1229,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       {playerCount === 1 && (
         <div className="w-full bg-destructive/20 py-2 border-b-4 border-black text-center z-[100]">
           <span className="font-headline text-2xl text-white tracking-widest drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]">
-            ROOM IS EMPTY
+            WAITING FOR OPPONENTS
           </span>
         </div>
       )}
@@ -1334,8 +1359,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
           {room?.status === 'round_over' && (
             <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center z-50">
-              <h2 className="text-9xl font-headline text-accent animate-bounce drop-shadow-[8px_8px_0px_rgba(0,0,0,1)]">ROUND!</h2>
-              {room.lastWinnerName && (
+              <h2 className="text-9xl font-headline text-accent animate-bounce drop-shadow-[8px_8px_0px_rgba(0,0,0,1)]">
+                {room.lastWinnerName === 'DRAW' ? 'DRAW!' : 'ROUND!'}
+              </h2>
+              {room.lastWinnerName && room.lastWinnerName !== 'DRAW' && (
                 <span className="text-4xl font-headline text-white drop-shadow-[4px_4px_0px_rgba(0,0,0,1)] mt-4">
                   {room.lastWinnerName.toUpperCase()} WINS
                 </span>
