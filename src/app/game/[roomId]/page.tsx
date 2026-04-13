@@ -8,6 +8,7 @@ import {
   GamePlayer, 
   GameRoom, 
   Projectile,
+  GameEffect,
   ARENA_WIDTH, 
   ARENA_HEIGHT, 
   GROUND_Y, 
@@ -135,6 +136,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     staminaMsg: ''
   });
 
+  const [localEffects, setLocalEffects] = useState<GameEffect[]>([]);
   const lastHpRef = useRef<number>(1000);
   const [recentHeal, setRecentHeal] = useState<{ amount: number, time: number } | null>(null);
 
@@ -178,6 +180,21 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     return () => unsubscribe();
   }, []);
 
+  // Effect Sync
+  useEffect(() => {
+    if (!db || !roomId) return;
+    const effectsRef = ref(db, `rooms/${roomId}/effects`);
+    return onValue(effectsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const effectsList = Object.values(data) as GameEffect[];
+        setLocalEffects(effectsList);
+      } else {
+        setLocalEffects([]);
+      }
+    });
+  }, [roomId]);
+
   // Room Monitoring Effect
   useEffect(() => {
     roomRef.current = room;
@@ -204,7 +221,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             status: 'lobby',
             lastWinnerName: null,
             startTime: null,
-            projectiles: null
+            projectiles: null,
+            effects: null
           };
           updates[`players/${onlyPlayerId}/roundsWon`] = 0;
           updates[`players/${onlyPlayerId}/isReady`] = true;
@@ -227,7 +245,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             status: 'lobby',
             lastWinnerName: null,
             startTime: null,
-            projectiles: null
+            projectiles: null,
+            effects: null
           };
           players.forEach(p => {
             updates[`players/${p.id}/roundsWon`] = 0;
@@ -783,6 +802,17 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const newHp = Math.max(0, enemy.hp - weaponStats.damage);
     const updates: any = { hp: newHp };
     
+    // Add Damage Effect
+    const damageEffectRef = push(ref(db, `rooms/${roomId}/effects`));
+    set(damageEffectRef, {
+      id: damageEffectRef.key,
+      x: enemy.x + PLAYER_WIDTH / 2,
+      y: enemy.y,
+      amount: Math.round(weaponStats.damage),
+      type: 'damage',
+      timestamp: now
+    } as GameEffect);
+
     if (p.weaponClass === 'Sword') {
       updates.slowUntil = now + 400;
       if (shouldStun) {
@@ -795,6 +825,17 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const newMyHp = Math.min(weaponStats.maxHp, p.hp + healAmount);
       update(ref(db, `rooms/${roomId}/players/${profile.id}`), { hp: newMyHp });
       setRecentHeal({ amount: Math.round(healAmount), time: now });
+
+      // Add Lifesteal Effect
+      const healEffectRef = push(ref(db, `rooms/${roomId}/effects`));
+      set(healEffectRef, {
+        id: healEffectRef.key,
+        x: p.x + PLAYER_WIDTH / 2,
+        y: p.y,
+        amount: Math.round(healAmount),
+        type: 'heal',
+        timestamp: now
+      } as GameEffect);
     }
 
     update(enemyRef, updates);
@@ -812,7 +853,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const updates: any = { 
       status: winnersRounds >= 3 ? 'finished' : 'round_over',
       lastWinnerName: winner.name,
-      projectiles: null
+      projectiles: null,
+      effects: null
     };
     updates[`players/${winnerId}/roundsWon`] = winnersRounds;
     
@@ -832,7 +874,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     update(ref(db, `rooms/${roomId}`), { 
       status: 'round_over', 
       lastWinnerName: 'DRAW',
-      projectiles: null
+      projectiles: null,
+      effects: null
     });
   };
 
@@ -841,7 +884,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const assignedSpawns: {x: number, y: number}[] = [];
     const nextRoundUpdates: any = {
       status: 'starting', 
-      startTime: Date.now() 
+      startTime: Date.now(),
+      effects: null
     };
 
     Object.keys(currentData.players).forEach(pid => {
@@ -879,7 +923,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (!db || !roomId || !room || !isHost) return;
     update(ref(db, `rooms/${roomId}`), { 
       status: 'starting', 
-      startTime: Date.now() 
+      startTime: Date.now(),
+      effects: null
     });
   };
 
@@ -1174,6 +1219,29 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.strokeText(p.name, px + pw/2, py - 25);
       ctx.fillText(p.name, px + pw/2, py - 25);
     });
+
+    // Draw Effects (Damage & Lifesteal)
+    ctx.save();
+    ctx.font = 'bold 24px Luckiest Guy';
+    ctx.textAlign = 'center';
+    ctx.lineWidth = 4;
+    localEffects.forEach(fx => {
+      const elapsed = now - fx.timestamp;
+      if (elapsed > 800) return;
+      const opacity = 1 - elapsed / 800;
+      const drift = (elapsed / 800) * 60;
+      const fxX = fx.x * PIXELS_PER_METER;
+      const fxY = fx.y * PIXELS_PER_METER - drift - 20;
+
+      ctx.globalAlpha = opacity;
+      ctx.strokeStyle = 'black';
+      ctx.fillStyle = fx.type === 'damage' ? '#ff4444' : '#4ade80';
+      const text = fx.type === 'damage' ? fx.amount.toString() : `+${fx.amount}`;
+      
+      ctx.strokeText(text, fxX, fxY);
+      ctx.fillText(text, fxX, fxY);
+    });
+    ctx.restore();
   };
 
   if (profileLoading || !profile) return null;
