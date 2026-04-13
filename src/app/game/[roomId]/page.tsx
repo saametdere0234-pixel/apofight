@@ -863,11 +863,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     }
 
-    if (p.weaponClass === 'Bow') {
+    if (p.weaponClass === 'Bow' && p.hp < weaponStats.maxHp) {
       const healAmount = weaponStats.damage * 0.3;
-      const newMyHp = Math.min(weaponStats.maxHp, p.hp + healAmount);
+      const actualHeal = Math.min(healAmount, weaponStats.maxHp - p.hp);
+      const newMyHp = Math.min(weaponStats.maxHp, p.hp + actualHeal);
+      
       update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), { hp: newMyHp });
-      setRecentHeal({ amount: Math.round(healAmount), time: now });
+      setRecentHeal({ amount: Math.round(actualHeal), time: now });
 
       // Add Lifesteal Effect to Database
       const healEffectRef = push(ref(db, `rooms/${roomId}/effects`));
@@ -875,7 +877,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         id: healEffectRef.key,
         x: p.x + PLAYER_WIDTH / 2,
         y: p.y,
-        amount: Math.round(healAmount),
+        amount: Math.round(actualHeal),
         type: 'heal',
         timestamp: now
       } as GameEffect);
