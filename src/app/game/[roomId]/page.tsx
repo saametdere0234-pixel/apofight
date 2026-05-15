@@ -137,7 +137,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const lastHpRef = useRef<number>(1000);
   const [recentHeal, setRecentHeal] = useState<{ amount: number, time: number } | null>(null);
 
-  // Network Optimization State
   const interpPlayersRef = useRef<Record<string, GamePlayer>>({});
   const lastSyncTimeRef = useRef(0);
 
@@ -181,7 +180,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     return () => unsubscribe();
   }, []);
 
-  // Effect Sync
   useEffect(() => {
     if (!db || !roomId) return;
     const effectsDbRef = ref(db, `rooms/${roomId}/effects`);
@@ -199,7 +197,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     });
   }, [roomId]);
 
-  // Room Monitoring Effect
   useEffect(() => {
     roomRef.current = room;
     if (room?.players) {
@@ -207,7 +204,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const playerCount = pIds.length;
       const hostPresent = !!room.players[room.createdBy];
 
-      // Host Transfer
       if (!hostPresent && playerCount > 0) {
         const nextHostId = pIds[0];
         if (profileRef.current?.id === nextHostId) {
@@ -215,7 +211,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
 
-      // Single Player Reset
       if (playerCount === 1 && room.status !== 'lobby') {
         const onlyPlayerId = pIds[0];
         if (onlyPlayerId === profileRef.current?.id) {
@@ -241,7 +236,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
 
-      // Play Again Reset Sync
       if (room.status === 'finished') {
         const players = Object.values(room.players);
         const allReady = players.every(p => p.isReady);
@@ -261,7 +255,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
 
-      // Host Round Logic
       if (room.status === 'playing' && isHost) {
         const players = Object.values(room.players);
         const alivePlayers = players.filter(p => p.hp > 0);
@@ -277,7 +270,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     }
   }, [room, roomId, isHost]);
 
-  // Transitions (Host Only)
   useEffect(() => {
     if (!db || !roomId || !room || !isHost) return;
 
@@ -428,7 +420,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const now = Date.now();
     const p = currentRoom.players[profileRef.current.id];
 
-    // Projectile Movement & Collision
     if (currentRoom.projectiles) {
       Object.entries(currentRoom.projectiles).forEach(([pid, proj]) => {
         if (proj.ownerId === profileRef.current?.id) {
@@ -451,13 +442,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           });
 
           if (hitId) {
-            // Distance-based damage calculation for Bow
             const dx = projX - proj.startX;
             const dy = projY - proj.startY;
             const dist = Math.sqrt(dx * dx + dy * dy);
             const maxRange = proj.range || WEAPON_STATS.Bow.range;
             
-            // Damage scales from 50 (at dist 0) to 200 (at maxRange)
             const scaledDamage = 50 + (150 * Math.min(1, dist / maxRange));
             
             thisHit(hitId, currentRoom.players[hitId], false, scaledDamage);
@@ -849,7 +838,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const newHp = Math.max(0, enemy.hp - damage);
     const updates: any = { hp: newHp };
     
-    // Add Damage Effect to Database
     const damageEffectRef = push(ref(db, `rooms/${roomId}/effects`));
     set(damageEffectRef, {
       id: damageEffectRef.key,
@@ -870,7 +858,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (p.weaponClass === 'Bow') {
       const maxHp = weaponStats.maxHp;
       if (p.hp < maxHp) {
-        const healAmount = damage * 0.3; // Lifesteal based on actual damage
+        const healAmount = damage * 0.3; 
         const actualHeal = Math.min(healAmount, maxHp - p.hp);
         const newMyHp = Math.min(maxHp, p.hp + actualHeal);
         
@@ -878,7 +866,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), { hp: newMyHp });
           setRecentHeal({ amount: Math.round(actualHeal), time: now });
 
-          // Add Lifesteal Effect to Database
           const healEffectRef = push(ref(db, `rooms/${roomId}/effects`));
           set(healEffectRef, {
             id: healEffectRef.key,
@@ -1019,7 +1006,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     const playersToDraw = Object.values(interpPlayersRef.current);
 
-    // Render shooter-only Trajectory indicator
     if (isChargingRef.current && profileRef.current) {
       const myP = currentRoom.players[profileRef.current.id];
       if (myP && myP.hp > 0) {
@@ -1032,15 +1018,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           const internalMy = mouseRef.current.y * PIXELS_PER_METER;
           
           ctx.save();
-          
-          // Aim Assist Path (Translucent White Beam)
           ctx.save();
           ctx.translate(px, py);
           ctx.rotate(angle);
           ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
           ctx.fillRect(0, -10, beamLength, 20); 
           
-          // Inner Dashed Line
           ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
           ctx.setLineDash([15, 10]);
           ctx.lineWidth = 3;
@@ -1050,7 +1033,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           ctx.stroke();
           ctx.restore();
 
-          // Target Reticle (MOBA style at mouse position)
           ctx.save();
           ctx.strokeStyle = `rgba(255, 255, 255, ${0.4 + Math.sin(now / 100) * 0.4})`;
           ctx.lineWidth = 4;
@@ -1106,7 +1088,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.translate(px, py);
         ctx.rotate(angle);
         
-        // Arrow shaft
         ctx.strokeStyle = '#e2e8f0';
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -1114,7 +1095,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.lineTo(10, 0);
         ctx.stroke();
         
-        // Arrow head (Glow effect)
         const isMyArrow = proj.ownerId === profileRef.current?.id;
         const glowColor = isMyArrow ? '#3b82f6' : '#ef4444';
         ctx.shadowBlur = 10;
@@ -1128,7 +1108,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.fill();
         ctx.stroke();
         
-        // Fletching
         ctx.strokeStyle = '#f97316';
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -1168,7 +1147,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const pw = PLAYER_WIDTH * PIXELS_PER_METER;
       const ph = PLAYER_HEIGHT * PIXELS_PER_METER;
 
-      // Death Dust Animation
       const timeSinceDeath = now - (p.deathTime || 0);
       if (p.hp <= 0 && currentRoom.status !== 'lobby') {
         if (timeSinceDeath < 1500) {
@@ -1256,7 +1234,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
       ctx.restore();
 
-      // Draw Weapon
       ctx.save();
       const weaponX = p.facing === 'right' ? px + pw - 5 : px + 5;
       const weaponY = py + ph / 2 + 5;
@@ -1266,7 +1243,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const weaponClass = p.weaponClass as WeaponClass;
       if (weaponClass === 'Sword') {
         ctx.rotate(-Math.PI / 4);
-        // Blade
         const bladeGrad = ctx.createLinearGradient(0, 0, 28, 0);
         bladeGrad.addColorStop(0, '#38bdf8');
         bladeGrad.addColorStop(1, '#e0f2fe');
@@ -1281,22 +1257,18 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.lineTo(0, 3.5);
         ctx.closePath();
         ctx.fill(); ctx.stroke();
-        // Guard
         ctx.fillStyle = '#facc15';
         ctx.beginPath();
         ctx.roundRect(-2, -9, 5, 18, 2);
         ctx.fill(); ctx.stroke();
-        // Handle
         ctx.fillStyle = '#78350f';
         ctx.beginPath();
         ctx.roundRect(-8, -2.5, 8, 5, 1);
         ctx.fill(); ctx.stroke();
-        // Pommel
         ctx.fillStyle = '#451a03';
         ctx.beginPath(); ctx.arc(-8, 0, 2.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       } else if (weaponClass === 'Dagger') {
         ctx.rotate(-Math.PI / 4);
-        // Blade
         const dagGrad = ctx.createLinearGradient(0, 0, 18, 0);
         dagGrad.addColorStop(0, '#d946ef');
         dagGrad.addColorStop(1, '#f5d0fe');
@@ -1311,12 +1283,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.lineTo(0, 4);
         ctx.closePath();
         ctx.fill(); ctx.stroke();
-        // Hilt/Guard
         ctx.fillStyle = '#1e293b';
         ctx.beginPath();
         ctx.roundRect(-1, -7, 3, 14, 1);
         ctx.fill(); ctx.stroke();
-        // Grip
         ctx.fillStyle = '#334155';
         ctx.beginPath();
         ctx.roundRect(-5, -2.5, 5, 5, 1);
@@ -1330,7 +1300,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
       ctx.restore();
 
-      // Eyes or Sunglasses
       if (!isWinner) {
         ctx.save();
         ctx.fillStyle = 'white';
@@ -1380,7 +1349,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.fillText(p.name, px + pw/2, py - 25);
     });
 
-    // Render Combat Effects
     ctx.save();
     ctx.font = 'bold 36px Luckiest Guy'; 
     ctx.textAlign = 'center'; ctx.lineWidth = 6;
@@ -1413,7 +1381,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const alerts: { text: string, color: string, alpha: number }[] = [];
   const isStunned = myP && now < (myP.stunnedUntil || 0);
   const stunRemaining = myP ? Math.max(0, (myP.stunnedUntil || 0) - now) : 0;
-  const stunCDRemaining = myP ? Math.max(0, (myP.stunoldownUntil || 0) - now) : 0;
+  const stunCDRemaining = myP ? Math.max(0, (myP.stunCooldownUntil || 0) - now) : 0;
 
   if (myP) {
     const reloadRemaining = (myWeaponStats.delay * 1000) - (now - (myP.lastAttackTime || 0));
@@ -1632,7 +1600,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             </div>
           </div>
         </div>
-      </header>
+      </main>
     </div>
   );
 }
