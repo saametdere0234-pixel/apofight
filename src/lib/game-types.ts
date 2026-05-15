@@ -83,7 +83,7 @@ export const WEAPON_STATS = {
     staminaAttackCost: 25
   },
   Dagger: {
-    damage: 200,
+    damage: 250, 
     range: 2.8, 
     angle: 360,
     delay: 1.1,
