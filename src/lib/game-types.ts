@@ -128,7 +128,7 @@ export const STAMINA_DASH_COST_DAGGER = 20;
 export const STAMINA_ATTACK_COST = 25;
 
 export const STUN_DURATION = 1500; // ms
-export const STUN_COOLDOWN = 8000; // ms
+export const STUN_COOLDOWN = 6000; // ms
 
 export const SPAWN_POINTS = [
   { x: 2, y: GROUND_Y - PLAYER_HEIGHT }, // Far Left

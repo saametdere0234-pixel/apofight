@@ -30,7 +30,7 @@ import {
   SPAWN_POINTS
 } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
-import { Trophy, ArrowLeft, Play, Zap, Heart, Users, Crown, RotateCcw, WifiOff } from 'lucide-react';
+import { Trophy, ArrowLeft, Play, Zap, Heart, Users, Crown, RotateCcw, WifiOff, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface FeedbackState {
@@ -1482,7 +1482,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
              <div className="absolute inset-0 bg-black/80 backdrop-blur-lg flex flex-col items-center justify-center z-50 space-y-10">
                 <h2 className="text-7xl font-headline text-white animate-bounce-subtle">ARENA STANDBY</h2>
                 <div className="flex gap-8">
-                  {Object.values(room.players || {}).map(p => (
+                  {(room.players ? Object.values(room.players) : []).map(p => (
                     <div key={p.id} className="flex flex-col items-center gap-3">
                       <div className="relative">
                         <div className="w-16 h-16 rounded-2xl border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]" style={{ backgroundColor: p.color }} />
@@ -1593,6 +1593,19 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
               </div>
             </div>
           </div>
+
+          {myP?.weaponClass === 'Sword' && (
+            <div className="space-y-1 pt-1 border-t border-white/10">
+              <div className="flex justify-between items-center px-1">
+                <span className="font-headline text-[10px] text-white/80 uppercase tracking-tight flex items-center gap-1">
+                   <ShieldAlert className="w-3 h-3 fill-current text-yellow-500" /> STUN CD
+                </span>
+                <span className="font-headline text-sm text-yellow-500 drop-shadow-[1px_1px_0px_rgba(0,0,0,1)]">
+                  {myP && now > (myP.stunCooldownUntil || 0) ? 'READY' : `${(((myP?.stunCooldownUntil || 0) - now) / 1000).toFixed(1)}s`}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>
