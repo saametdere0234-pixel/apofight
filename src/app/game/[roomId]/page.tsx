@@ -673,17 +673,20 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   const handleMouseDown = () => {
     const p = room?.players?.[profileRef.current?.id || ''];
-    if (p?.weaponClass === 'Bow' && p.hp > 0 && room?.status === 'playing') {
+    if (p && p.hp > 0 && room?.status === 'playing') {
       setIsCharging(true);
       isChargingRef.current = true;
-    } else {
-      handleAttack();
     }
   };
 
   const handleMouseUp = () => {
     if (isChargingRef.current) {
-      fireBow();
+      const p = room?.players?.[profileRef.current?.id || ''];
+      if (p?.weaponClass === 'Bow') {
+        fireBow();
+      } else {
+        handleAttack();
+      }
       setIsCharging(false);
       isChargingRef.current = false;
     }
@@ -1009,47 +1012,78 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     // Render shooter-only Trajectory indicator
     if (isChargingRef.current && profileRef.current) {
       const myP = currentRoom.players[profileRef.current.id];
-      if (myP && myP.weaponClass === 'Bow' && myP.hp > 0) {
-        const px = (myP.x + PLAYER_WIDTH/2) * PIXELS_PER_METER;
-        const py = (myP.y + PLAYER_HEIGHT/2) * PIXELS_PER_METER;
-        const angle = Math.atan2(mouseRef.current.y - (myP.y + PLAYER_HEIGHT/2), mouseRef.current.x - (myP.x + PLAYER_WIDTH/2));
-        const mx = mouseRef.current.x * PIXELS_PER_METER;
-        const my = mouseRef.current.y * PIXELS_PER_METER;
-        const beamLength = WEAPON_STATS.Bow.range * PIXELS_PER_METER;
-        
-        ctx.save();
-        
-        // Aim Assist Path (Translucent White Beam)
-        ctx.save();
-        ctx.translate(px, py);
-        ctx.rotate(angle);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-        ctx.fillRect(0, -10, beamLength, 20); 
-        
-        // Inner Dashed Line
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
-        ctx.setLineDash([15, 10]);
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(beamLength, 0);
-        ctx.stroke();
-        ctx.restore();
+      if (myP && myP.hp > 0) {
+        if (myP.weaponClass === 'Bow') {
+          const px = (myP.x + PLAYER_WIDTH/2) * PIXELS_PER_METER;
+          const py = (myP.y + PLAYER_HEIGHT/2) * PIXELS_PER_METER;
+          const angle = Math.atan2(mouseRef.current.y - (myP.y + PLAYER_HEIGHT/2), mouseRef.current.x - (myP.x + PLAYER_WIDTH/2));
+          const mx = mouseRef.current.x * PIXELS_PER_METER;
+          const my = mousePos.y; // using actual client Y to avoid jumping
+          const internalMx = mouseRef.current.x * PIXELS_PER_METER;
+          const internalMy = mouseRef.current.y * PIXELS_PER_METER;
+          const beamLength = WEAPON_STATS.Bow.range * PIXELS_PER_METER;
+          
+          ctx.save();
+          
+          // Aim Assist Path (Translucent White Beam)
+          ctx.save();
+          ctx.translate(px, py);
+          ctx.rotate(angle);
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+          ctx.fillRect(0, -10, beamLength, 20); 
+          
+          // Inner Dashed Line
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+          ctx.setLineDash([15, 10]);
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(beamLength, 0);
+          ctx.stroke();
+          ctx.restore();
 
-        // Target Reticle (MOBA style at mouse position)
-        ctx.save();
-        ctx.strokeStyle = `rgba(255, 255, 255, ${0.4 + Math.sin(now / 100) * 0.4})`;
-        ctx.lineWidth = 4;
-        ctx.beginPath();
-        ctx.arc(mx, my, 15 + Math.sin(now / 150) * 3, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(mx - 25, my); ctx.lineTo(mx + 25, my);
-        ctx.moveTo(mx, my - 25); ctx.lineTo(mx, my + 25);
-        ctx.stroke();
-        ctx.restore();
+          // Target Reticle (MOBA style at mouse position)
+          ctx.save();
+          ctx.strokeStyle = `rgba(255, 255, 255, ${0.4 + Math.sin(now / 100) * 0.4})`;
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.arc(internalMx, internalMy, 15 + Math.sin(now / 150) * 3, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(internalMx - 25, internalMy); ctx.lineTo(internalMx + 25, internalMy);
+          ctx.moveTo(internalMx, internalMy - 25); ctx.lineTo(internalMx, internalMy + 25);
+          ctx.stroke();
+          ctx.restore();
 
-        ctx.restore();
+          ctx.restore();
+        } else if (myP.weaponClass === 'Sword' || myP.weaponClass === 'Dagger') {
+          const px = (myP.x + PLAYER_WIDTH/2) * PIXELS_PER_METER;
+          const py = (myP.y + PLAYER_HEIGHT/2) * PIXELS_PER_METER;
+          const angle = Math.atan2(mouseRef.current.y - (myP.y + PLAYER_HEIGHT/2), mouseRef.current.x - (myP.x + PLAYER_WIDTH/2));
+          const weaponClass = myP.weaponClass as WeaponClass;
+          const stats = WEAPON_STATS[weaponClass];
+          
+          ctx.save();
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+          ctx.lineWidth = 3;
+          
+          if (weaponClass === 'Sword') {
+            const halfAngle = (stats.angle / 2) * (Math.PI / 180);
+            ctx.beginPath();
+            ctx.moveTo(px, py);
+            ctx.arc(px, py, stats.range * PIXELS_PER_METER, angle - halfAngle, angle + halfAngle);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+          } else if (weaponClass === 'Dagger') {
+            ctx.beginPath();
+            ctx.arc(px, py, stats.range * PIXELS_PER_METER, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
       }
     }
 
