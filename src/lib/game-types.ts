@@ -77,15 +77,19 @@ export const WEAPON_STATS = {
     angle: 70, 
     delay: 3.5, 
     maxHp: 1000,
+    maxStamina: 100,
+    moveSpeed: 8,
     dashCooldown: 4.0,
     staminaAttackCost: 25
   },
   Dagger: {
-    damage: 150,
+    damage: 300,
     range: 2.8, 
     angle: 360,
-    delay: 0.5,
-    maxHp: 750,
+    delay: 1.1,
+    maxHp: 800,
+    maxStamina: 125,
+    moveSpeed: 10.5,
     dashCooldown: 2.5,
     staminaAttackCost: 15
   },
@@ -95,9 +99,11 @@ export const WEAPON_STATS = {
     angle: 5, 
     delay: 2.0,
     maxHp: 1000,
+    maxStamina: 100,
+    moveSpeed: 8,
     dashCooldown: 4.0,
     staminaAttackCost: 25,
-    projectileDuration: 1000 // 1.0 second to travel max range (Increased speed)
+    projectileDuration: 1000 // 1.0 second to travel max range
   },
 };
 
@@ -109,19 +115,19 @@ export const PLAYER_WIDTH = 1.2;
 export const PLAYER_HEIGHT = 2.2;
 export const GRAVITY = 25;
 export const JUMP_FORCE = -11.2; 
-export const MOVE_SPEED = 8;
+export const MOVE_SPEED_DEFAULT = 8;
 export const DASH_DISTANCE = 5.0; 
 export const DASH_DURATION = 0.2; 
 export const DASH_COOLDOWN_TIME = 4.0; // Default fallback
 export const FAST_FALL_SPEED = 40;
 
-export const STAMINA_MAX = 100;
+export const STAMINA_MAX_DEFAULT = 100;
 export const STAMINA_REGEN_RATE = 10; // per second
 export const STAMINA_DASH_COST = 30;
 export const STAMINA_DASH_COST_DAGGER = 20;
 export const STAMINA_ATTACK_COST = 25;
 
-export const STUN_DURATION = 3000; // ms (Increased from 800ms)
+export const STUN_DURATION = 3000; // ms
 export const STUN_COOLDOWN = 8000; // ms
 
 export const SPAWN_POINTS = [

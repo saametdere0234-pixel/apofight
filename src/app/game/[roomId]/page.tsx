@@ -19,15 +19,12 @@ import {
   WeaponClass,
   GRAVITY,
   JUMP_FORCE,
-  MOVE_SPEED,
   DASH_DISTANCE,
   DASH_DURATION,
   FAST_FALL_SPEED,
-  STAMINA_MAX,
   STAMINA_REGEN_RATE,
   STAMINA_DASH_COST,
   STAMINA_DASH_COST_DAGGER,
-  STAMINA_ATTACK_COST,
   STUN_DURATION,
   STUN_COOLDOWN,
   SPAWN_POINTS
@@ -235,7 +232,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           updates[`players/${onlyPlayerId}/roundsWon`] = 0;
           updates[`players/${onlyPlayerId}/isReady`] = true;
           updates[`players/${onlyPlayerId}/hp`] = weaponStats.maxHp;
-          updates[`players/${onlyPlayerId}/stamina`] = STAMINA_MAX;
+          updates[`players/${onlyPlayerId}/stamina`] = weaponStats.maxStamina;
           updates[`players/${onlyPlayerId}/dashCharges`] = p.weaponClass === 'Dagger' ? 4 : 1;
           updates[`players/${onlyPlayerId}/dashRechargeProgress`] = 0;
           updates[`players/${onlyPlayerId}/isDashing`] = false;
@@ -383,7 +380,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           y: bestSpawn.y,
           vy: 0,
           hp: weaponStats.maxHp,
-          stamina: STAMINA_MAX,
+          stamina: weaponStats.maxStamina,
           facing: 'right',
           isJumping: false,
           jumpCount: 0,
@@ -477,7 +474,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     let nextDashCharges = p.dashCharges;
     let nextDashRechargeProgress = p.dashRechargeProgress || 0;
     let nextJumpCount = p.jumpCount || 0;
-    let nextStamina = Math.min(STAMINA_MAX, (p.stamina || 0) + STAMINA_REGEN_RATE * dt);
+    let nextStamina = Math.min(stats.maxStamina, (p.stamina || 0) + STAMINA_REGEN_RATE * dt);
     let isDashing = p.isDashing || false;
     let dashTimeLeft = p.dashTimeLeft || 0;
 
@@ -502,7 +499,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
       if (!isStunned) {
         const isSlowed = now < (p.slowUntil || 0);
-        const speed = isSlowed ? MOVE_SPEED * 0.5 : MOVE_SPEED;
+        const speed = isSlowed ? stats.moveSpeed * 0.5 : stats.moveSpeed;
 
         if (keys.has('KeyA') || keys.has('ArrowLeft')) {
           nextX -= speed * dt;
@@ -940,7 +937,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const weaponStats = (WEAPON_STATS[p.weaponClass as WeaponClass] || WEAPON_STATS.Sword);
       const pUpdates = {
         hp: weaponStats.maxHp,
-        stamina: STAMINA_MAX,
+        stamina: weaponStats.maxStamina,
         x: bestSpawn.x,
         y: bestSpawn.y,
         vy: 0,
@@ -1382,7 +1379,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   const playerCount = room?.players ? Object.keys(room.players).length : 0;
   const allReady = room?.players ? Object.values(room.players).every(p => p.isReady) : false;
-  const canStart = playerCount >= 2 && allReady;
+  const canStart = room?.players && Object.keys(room.players).length >= 2 && allReady;
 
   let countdownText = '';
   let showCountdown = false;
