@@ -451,7 +451,16 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           });
 
           if (hitId) {
-            thisHit(hitId, currentRoom.players[hitId], false);
+            // Distance-based damage calculation for Bow
+            const dx = projX - proj.startX;
+            const dy = projY - proj.startY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const maxRange = proj.range || WEAPON_STATS.Bow.range;
+            
+            // Damage scales from 50 (at dist 0) to 200 (at maxRange)
+            const scaledDamage = 50 + (150 * Math.min(1, dist / maxRange));
+            
+            thisHit(hitId, currentRoom.players[hitId], false, scaledDamage);
             remove(ref(db, `rooms/${roomId}/projectiles/${pid}`));
           } else if (elapsed > (WEAPON_STATS.Bow.projectileDuration || 1000)) {
             remove(ref(db, `rooms/${roomId}/projectiles/${pid}`));
@@ -828,15 +837,16 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     }
   };
 
-  const thisHit = (id: string, enemy: GamePlayer, shouldStun: boolean = false) => {
+  const thisHit = (id: string, enemy: GamePlayer, shouldStun: boolean = false, customDamage?: number) => {
     if (!db || !roomId || !profileRef.current) return;
     const p = roomRef.current?.players?.[profileRef.current.id];
     if (!p) return;
     
     const now = Date.now();
     const weaponStats = (WEAPON_STATS[p.weaponClass as WeaponClass] || WEAPON_STATS.Sword);
+    const damage = customDamage ?? weaponStats.damage;
     const enemyRef = ref(db, `rooms/${roomId}/players/${id}`);
-    const newHp = Math.max(0, enemy.hp - weaponStats.damage);
+    const newHp = Math.max(0, enemy.hp - damage);
     const updates: any = { hp: newHp };
     
     // Add Damage Effect to Database
@@ -845,7 +855,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       id: damageEffectRef.key,
       x: enemy.x + PLAYER_WIDTH / 2,
       y: enemy.y,
-      amount: Math.round(weaponStats.damage),
+      amount: Math.round(damage),
       type: 'damage',
       timestamp: now
     } as GameEffect);
@@ -860,7 +870,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (p.weaponClass === 'Bow') {
       const maxHp = weaponStats.maxHp;
       if (p.hp < maxHp) {
-        const healAmount = weaponStats.damage * 0.3;
+        const healAmount = damage * 0.3; // Lifesteal based on actual damage
         const actualHeal = Math.min(healAmount, maxHp - p.hp);
         const newMyHp = Math.min(maxHp, p.hp + actualHeal);
         
@@ -1017,11 +1027,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           const px = (myP.x + PLAYER_WIDTH/2) * PIXELS_PER_METER;
           const py = (myP.y + PLAYER_HEIGHT/2) * PIXELS_PER_METER;
           const angle = Math.atan2(mouseRef.current.y - (myP.y + PLAYER_HEIGHT/2), mouseRef.current.x - (myP.x + PLAYER_WIDTH/2));
-          const mx = mouseRef.current.x * PIXELS_PER_METER;
-          const my = mousePos.y; // using actual client Y to avoid jumping
+          const beamLength = WEAPON_STATS.Bow.range * PIXELS_PER_METER;
           const internalMx = mouseRef.current.x * PIXELS_PER_METER;
           const internalMy = mouseRef.current.y * PIXELS_PER_METER;
-          const beamLength = WEAPON_STATS.Bow.range * PIXELS_PER_METER;
           
           ctx.save();
           
@@ -1106,8 +1114,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.lineTo(10, 0);
         ctx.stroke();
         
-        // Arrow head
-        ctx.fillStyle = '#94a3b8';
+        // Arrow head (Glow effect)
+        const isMyArrow = proj.ownerId === profileRef.current?.id;
+        const glowColor = isMyArrow ? '#3b82f6' : '#ef4444';
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = glowColor;
+        ctx.fillStyle = glowColor;
         ctx.beginPath();
         ctx.moveTo(10, 0);
         ctx.lineTo(0, -5);
@@ -1401,7 +1413,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const alerts: { text: string, color: string, alpha: number }[] = [];
   const isStunned = myP && now < (myP.stunnedUntil || 0);
   const stunRemaining = myP ? Math.max(0, (myP.stunnedUntil || 0) - now) : 0;
-  const stunCDRemaining = myP ? Math.max(0, (myP.stunCooldownUntil || 0) - now) : 0;
+  const stunCDRemaining = myP ? Math.max(0, (myP.stunoldownUntil || 0) - now) : 0;
 
   if (myP) {
     const reloadRemaining = (myWeaponStats.delay * 1000) - (now - (myP.lastAttackTime || 0));
@@ -1412,7 +1424,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   }
 
   const playerCount = room?.players ? Object.keys(room.players).length : 0;
-  const allReady = room?.players ? Object.values(room.players).every(p => p.isReady) : false;
+  const allReady = (room?.players && Object.keys(room.players).length > 0) ? Object.values(room.players).every(p => p.isReady) : false;
   const canStart = room?.players && Object.keys(room.players).length >= 2 && allReady;
 
   let countdownText = '';
@@ -1602,10 +1614,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           <div className="space-y-1 pt-1 border-t border-white/10">
             <div className="flex justify-between items-center px-1">
               <span className="font-headline text-[10px] text-white/80 uppercase tracking-tight flex items-center gap-1">
-                 <WeaponIcon weapon={myP?.weaponClass as WeaponClass || 'Sword'} className="w-3 h-3" /> DASH
+                 <WeaponIcon weapon={myP?.weaponClass as WeaponClass || 'Sword'} className="w-3 h-3" /> {myP?.weaponClass === 'Sword' ? 'STUN' : 'DASH'}
               </span>
               <span className="font-headline text-sm text-accent drop-shadow-[1px_1px_0px_rgba(0,0,0,1)]">
-                {myP && myP.dashCharges === maxDash ? 'READY' : `${((myWeaponStats?.dashCooldown || 4.0) - (myP?.dashRechargeProgress || 0)).toFixed(1)}s`}
+                {myP?.weaponClass === 'Sword' 
+                  ? (stunCDRemaining > 0 ? `${(stunCDRemaining/1000).toFixed(1)}s` : 'READY')
+                  : (myP && myP.dashCharges === maxDash ? 'READY' : `${((myWeaponStats?.dashCooldown || 4.0) - (myP?.dashRechargeProgress || 0)).toFixed(1)}s`)
+                }
               </span>
             </div>
             <div className="flex justify-between items-center px-1">
@@ -1614,13 +1629,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                   <div key={i} className={`w-4 h-4 rounded-full border-2 border-black transition-all duration-300 ${i < (myP?.dashCharges || 0) ? 'bg-accent shadow-[0_0_8px_rgba(255,255,0,0.5)] scale-110' : 'bg-black/60 scale-90'}`} />
                 ))}
               </div>
-              {myP?.weaponClass === 'Sword' && stunCDRemaining > 0 && (
-                <span className="font-headline text-xl text-white drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]">{(stunCDRemaining / 1000).toFixed(1)}</span>
-              )}
             </div>
           </div>
         </div>
-      </main>
+      </header>
     </div>
   );
 }
