@@ -22,7 +22,7 @@ export function useLocalPlayer() {
       initialProfile = {
         id,
         name: '',
-        color: '#2B72EE',
+        color: '#3b82f6', // Default to Blue
         weaponClass: 'Sword',
       };
     }

@@ -53,6 +53,17 @@ const WeaponIcon = ({ weapon, className = "w-8 h-8" }: { weapon: WeaponClass; cl
   return null;
 };
 
+const BATTLE_AURAS = [
+  '#ef4444', // Red
+  '#f97316', // Orange
+  '#ec4899', // Pink
+  '#a855f7', // Purple
+  '#3b82f6', // Blue
+  '#ffffff', // White
+  '#78350f', // Brown
+  '#22c55e', // Green
+];
+
 export default function EntryScreen() {
   const { profile, updateProfile, loading } = useLocalPlayer();
   const router = useRouter();
@@ -80,7 +91,7 @@ export default function EntryScreen() {
     },
     { 
       id: 'Bow', 
-      desc: `Range: ${WEAPON_STATS.Bow.damage} DMG, ${WEAPON_STATS.Bow.range}m Range, 30% Life Steal` 
+      desc: `Range: distance scaling (50-200), ${WEAPON_STATS.Bow.range}m Range` 
     },
   ];
 
@@ -88,7 +99,6 @@ export default function EntryScreen() {
     <div className="min-h-screen bg-[#1a1a2e] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
       <div className="scanline"></div>
       
-      {/* Cartoon Background Elements */}
       <div className="absolute top-10 left-10 w-32 h-32 bg-primary/20 rounded-full blur-3xl animate-pulse"></div>
       <div className="absolute bottom-10 right-10 w-48 h-48 bg-accent/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
 
@@ -132,7 +142,7 @@ export default function EntryScreen() {
               <div className="space-y-3">
                 <Label className="font-bold text-sm uppercase">BATTLE AURA</Label>
                 <div className="flex gap-3 flex-wrap">
-                  {['#2B72EE', '#EE2B2B', '#2BEE5C', '#E4EE2B', '#EE2BE4', '#7ED7EB'].map(c => (
+                  {BATTLE_AURAS.map(c => (
                     <button
                       key={c}
                       onClick={() => updateProfile({ color: c })}
