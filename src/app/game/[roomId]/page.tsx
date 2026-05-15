@@ -165,7 +165,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     update(myPlayerRef, { isReady: true });
   }, [roomId]);
 
-  const isHost = room && profileRef.current ? profileRef.current.id === room.createdBy : false;
+  const isHost = room && profileRef.current && room.players && profileRef.current.id === room.createdBy;
 
   useEffect(() => {
     profileRef.current = profile;
@@ -352,7 +352,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     get(roomPath).then((snapshot) => {
       if (snapshot.exists()) {
         const roomData = snapshot.val() as GameRoom;
-        const playerCount = Object.keys(roomData.players || {}).length;
+        const playerCount = roomData.players ? Object.keys(roomData.players).length : 0;
         const isAlreadyIn = roomData.players && roomData.players[profile.id];
         
         if (!isAlreadyIn && playerCount >= (roomData.maxPlayers || 4)) {
@@ -447,6 +447,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             const dist = Math.sqrt(dx * dx + dy * dy);
             const maxRange = proj.range || WEAPON_STATS.Bow.range;
             
+            // Scaled damage from 50 (min) to 200 (max)
             const scaledDamage = 50 + (150 * Math.min(1, dist / maxRange));
             
             thisHit(hitId, currentRoom.players[hitId], false, scaledDamage);
@@ -1018,7 +1019,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           const internalMy = mouseRef.current.y * PIXELS_PER_METER;
           
           ctx.save();
-          ctx.save();
           ctx.translate(px, py);
           ctx.rotate(angle);
           ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
@@ -1043,8 +1043,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           ctx.moveTo(internalMx - 25, internalMy); ctx.lineTo(internalMx + 25, internalMy);
           ctx.moveTo(internalMx, internalMy - 25); ctx.lineTo(internalMx, internalMy + 25);
           ctx.stroke();
-          ctx.restore();
-
           ctx.restore();
         } else if (myP.weaponClass === 'Sword' || myP.weaponClass === 'Dagger') {
           const px = (myP.x + PLAYER_WIDTH/2) * PIXELS_PER_METER;
@@ -1381,8 +1379,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const alerts: { text: string, color: string, alpha: number }[] = [];
   const isStunned = myP && now < (myP.stunnedUntil || 0);
   const stunRemaining = myP ? Math.max(0, (myP.stunnedUntil || 0) - now) : 0;
-  const stunCDRemaining = myP ? Math.max(0, (myP.stunCooldownUntil || 0) - now) : 0;
-
+  
   if (myP) {
     const reloadRemaining = (myWeaponStats.delay * 1000) - (now - (myP.lastAttackTime || 0));
     const dashRemaining = (myWeaponStats.dashCooldown || 4.0) - (myP.dashRechargeProgress || 0);
@@ -1393,7 +1390,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   const playerCount = room?.players ? Object.keys(room.players).length : 0;
   const allReady = (room?.players && Object.keys(room.players).length > 0) ? Object.values(room.players).every(p => p.isReady) : false;
-  const canStart = room?.players && Object.keys(room.players).length >= 2 && allReady;
+  const canStart = room && room.players && Object.keys(room.players).length >= 2 && allReady;
 
   let countdownText = '';
   let showCountdown = false;
@@ -1485,7 +1482,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
              <div className="absolute inset-0 bg-black/80 backdrop-blur-lg flex flex-col items-center justify-center z-50 space-y-10">
                 <h2 className="text-7xl font-headline text-white animate-bounce-subtle">ARENA STANDBY</h2>
                 <div className="flex gap-8">
-                  {Object.values(room.players).map(p => (
+                  {Object.values(room.players || {}).map(p => (
                     <div key={p.id} className="flex flex-col items-center gap-3">
                       <div className="relative">
                         <div className="w-16 h-16 rounded-2xl border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]" style={{ backgroundColor: p.color }} />
@@ -1582,13 +1579,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           <div className="space-y-1 pt-1 border-t border-white/10">
             <div className="flex justify-between items-center px-1">
               <span className="font-headline text-[10px] text-white/80 uppercase tracking-tight flex items-center gap-1">
-                 <WeaponIcon weapon={myP?.weaponClass as WeaponClass || 'Sword'} className="w-3 h-3" /> {myP?.weaponClass === 'Sword' ? 'STUN' : 'DASH'}
+                 <Zap className="w-3 h-3 fill-current text-[#60a5fa]" /> DASH
               </span>
               <span className="font-headline text-sm text-accent drop-shadow-[1px_1px_0px_rgba(0,0,0,1)]">
-                {myP?.weaponClass === 'Sword' 
-                  ? (stunCDRemaining > 0 ? `${(stunCDRemaining/1000).toFixed(1)}s` : 'READY')
-                  : (myP && myP.dashCharges === maxDash ? 'READY' : `${((myWeaponStats?.dashCooldown || 4.0) - (myP?.dashRechargeProgress || 0)).toFixed(1)}s`)
-                }
+                {myP && myP.dashCharges === maxDash ? 'READY' : `${((myWeaponStats?.dashCooldown || 4.0) - (myP?.dashRechargeProgress || 0)).toFixed(1)}s`}
               </span>
             </div>
             <div className="flex justify-between items-center px-1">
