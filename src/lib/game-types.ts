@@ -75,7 +75,7 @@ export const WEAPON_STATS = {
     damage: 200,
     range: 5.0, 
     angle: 70, 
-    delay: 1.5, 
+    delay: 2.0, 
     maxHp: 1000,
     maxStamina: 100,
     moveSpeed: 8,
@@ -127,8 +127,8 @@ export const STAMINA_DASH_COST = 30;
 export const STAMINA_DASH_COST_DAGGER = 20;
 export const STAMINA_ATTACK_COST = 25;
 
-export const STUN_DURATION = 1500; // ms
-export const STUN_COOLDOWN = 6000; // ms
+export const STUN_DURATION = 2000; // ms
+export const STUN_COOLDOWN = 10000; // ms
 
 export const SPAWN_POINTS = [
   { x: 2, y: GROUND_Y - PLAYER_HEIGHT }, // Far Left
