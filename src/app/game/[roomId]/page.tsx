@@ -141,7 +141,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const lastSyncTimeRef = useRef(0);
 
   const handleQuit = useCallback(async () => {
-    if (!db || !roomId || !profileRef.current || roomRef.current?.status === 'playing') return;
+    if (!db || !roomId || !profileRef.current || roomRef.current?.status === 'playing' || roomRef.current?.status === 'starting') return;
     const roomPath = ref(db, `rooms/${roomId}`);
     const myPlayerRef = ref(db, `rooms/${roomId}/players/${profileRef.current.id}`);
     
@@ -573,7 +573,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const handleKeyDown = (e: KeyboardEvent) => {
       keys.add(e.code);
       const currentRoom = roomRef.current;
-      if (!profileRef.current || !currentRoom || !currentRoom.players?.[profileRef.current.id] || !db || currentRoom.status !== 'playing') return;
+      if (!profileRef.current || !currentRoom || !currentRoom.players?.[profileRef.current.id] || !db || (currentRoom.status !== 'playing' && currentRoom.status !== 'starting')) return;
       const p = currentRoom.players[profileRef.current.id];
       if (p.hp <= 0) return;
       
@@ -1407,6 +1407,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const isLocalReady = myP?.isReady ?? false;
   const showResults = room?.status === 'finished' && !isLocalReady;
   const showLobby = room?.status === 'lobby' || (room?.status === 'finished' && isLocalReady);
+  const isLocked = room?.status === 'playing' || room?.status === 'starting';
 
   return (
     <div className="min-h-screen bg-[#000035] overflow-hidden flex flex-col items-center select-none" onMouseMove={handleMouseMove}>
@@ -1440,10 +1441,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           <Button 
             variant="ghost" 
             onClick={handleQuit} 
-            disabled={room?.status === 'playing'}
+            disabled={isLocked}
             className="cartoon-button bg-destructive text-white h-12 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <ArrowLeft className="w-5 h-5 mr-2" /> {room?.status === 'playing' ? 'IN COMBAT' : 'QUIT'}
+            <ArrowLeft className="w-5 h-5 mr-2" /> {isLocked ? 'IN COMBAT' : 'QUIT'}
           </Button>
         </div>
         <div className="flex items-center gap-4 overflow-x-auto max-w-[70vw] scrollbar-hide px-4">

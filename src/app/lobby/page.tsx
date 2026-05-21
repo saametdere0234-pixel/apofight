@@ -166,7 +166,7 @@ export default function LobbyScreen() {
                   const playerCount = Object.keys(room.players || {}).length;
                   const isFull = playerCount >= (room.maxPlayers || 4);
                   const hostName = room.players?.[room.createdBy]?.name || 'Unknown';
-                  const isPlaying = room.status === 'playing';
+                  const isLocked = room.status === 'playing' || room.status === 'starting';
                   const alreadyIn = room.players?.[profile.id];
                   
                   return (
@@ -191,7 +191,7 @@ export default function LobbyScreen() {
                                 FULL
                               </span>
                             ) : (
-                              <span className={`px-4 py-1 rounded-full border-2 border-black text-[10px] font-headline uppercase ${room.status === 'playing' ? 'bg-orange-500 text-white' : 'bg-primary text-white'}`}>
+                              <span className={`px-4 py-1 rounded-full border-2 border-black text-[10px] font-headline uppercase ${isLocked ? 'bg-orange-500 text-white' : 'bg-primary text-white'}`}>
                                 {room.status}
                               </span>
                             )}
@@ -199,10 +199,10 @@ export default function LobbyScreen() {
                         </div>
                         <Button 
                           onClick={() => router.push(`/game/${room.id}`)}
-                          disabled={(isFull || isPlaying) && !alreadyIn}
-                          className={`cartoon-button w-16 h-16 rounded-full ${(isFull || isPlaying) && !alreadyIn ? 'bg-zinc-800 opacity-50' : 'bg-accent text-black'}`}
+                          disabled={(isFull || isLocked) && !alreadyIn}
+                          className={`cartoon-button w-16 h-16 rounded-full ${(isFull || isLocked) && !alreadyIn ? 'bg-zinc-800 opacity-50' : 'bg-accent text-black'}`}
                         >
-                          {(isFull || isPlaying) && !alreadyIn ? <ShieldAlert className="w-8 h-8" /> : <ArrowRight className="w-10 h-10" />}
+                          {(isFull || isLocked) && !alreadyIn ? <ShieldAlert className="w-8 h-8" /> : <ArrowRight className="w-10 h-10" />}
                         </Button>
                       </CardContent>
                     </Card>
