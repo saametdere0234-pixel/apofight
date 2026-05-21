@@ -166,6 +166,8 @@ export default function LobbyScreen() {
                   const playerCount = Object.keys(room.players || {}).length;
                   const isFull = playerCount >= (room.maxPlayers || 4);
                   const hostName = room.players?.[room.createdBy]?.name || 'Unknown';
+                  const isPlaying = room.status === 'playing';
+                  const alreadyIn = room.players?.[profile.id];
                   
                   return (
                     <Card key={room.id} className={`cartoon-card hover:border-primary transition-opacity ${isFull ? 'opacity-90' : ''}`}>
@@ -197,10 +199,10 @@ export default function LobbyScreen() {
                         </div>
                         <Button 
                           onClick={() => router.push(`/game/${room.id}`)}
-                          disabled={isFull && !room.players?.[profile.id]}
-                          className={`cartoon-button w-16 h-16 rounded-full ${isFull && !room.players?.[profile.id] ? 'bg-zinc-800 opacity-50' : 'bg-accent text-black'}`}
+                          disabled={(isFull || isPlaying) && !alreadyIn}
+                          className={`cartoon-button w-16 h-16 rounded-full ${(isFull || isPlaying) && !alreadyIn ? 'bg-zinc-800 opacity-50' : 'bg-accent text-black'}`}
                         >
-                          {isFull && !room.players?.[profile.id] ? <ShieldAlert className="w-8 h-8" /> : <ArrowRight className="w-10 h-10" />}
+                          {(isFull || isPlaying) && !alreadyIn ? <ShieldAlert className="w-8 h-8" /> : <ArrowRight className="w-10 h-10" />}
                         </Button>
                       </CardContent>
                     </Card>
