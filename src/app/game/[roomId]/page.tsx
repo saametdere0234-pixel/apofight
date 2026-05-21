@@ -664,8 +664,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const internalX = offsetX * (canvas.width / rect.width);
     const internalY = offsetY * (canvas.height / rect.height);
     
-    const gameX = Math.max(0, Math.min(ARENA_WIDTH, internalX / PIXELS_PER_METER));
-    const gameY = Math.max(0, Math.min(ARENA_HEIGHT, internalY / PIXELS_PER_METER));
+    const gameX = internalX / PIXELS_PER_METER;
+    const gameY = internalY / PIXELS_PER_METER;
     
     mouseRef.current = { x: gameX, y: gameY };
   };
@@ -1486,7 +1486,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
           {showLobby && room && (
              <div className="absolute inset-0 bg-black/80 backdrop-blur-lg flex flex-col items-center justify-center z-50 space-y-10">
-                <h2 className="text-7xl font-headline text-white animate-bounce-subtle">ARENA STANDBY</h2>
+                <h2 className="text-7xl font-headline text-white animate-bounce-subtle">{room.name.toUpperCase()}</h2>
                 <div className="flex gap-8">
                   {(room.players ? Object.values(room.players) : []).map(p => (
                     <div key={p.id} className="flex flex-col items-center gap-3">
