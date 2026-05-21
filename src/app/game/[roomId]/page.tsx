@@ -859,7 +859,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (p.weaponClass === 'Bow') {
       const maxHp = weaponStats.maxHp;
       if (p.hp < maxHp) {
-        const healAmount = damage * 0.3; 
+        const healAmount = damage * 0.4; 
         const actualHeal = Math.min(healAmount, maxHp - p.hp);
         const newMyHp = Math.min(maxHp, p.hp + actualHeal);
         
