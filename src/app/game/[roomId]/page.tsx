@@ -32,48 +32,28 @@ import {
 import { useRouter } from 'next/navigation';
 import { Trophy, ArrowLeft, Play, Zap, Heart, Users, Crown, RotateCcw, WifiOff, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-
-interface FeedbackState {
-  lastReloadFail: number;
-  lastStaminaFail: number;
-  lastDashFail: number;
-  staminaMsg: string;
-}
+import { cn } from '@/lib/utils';
 
 const WeaponIcon = ({ weapon, className = "w-6 h-6" }: { weapon: WeaponClass; className?: string }) => {
+  const baseClasses = "font-headline flex items-center justify-center select-none leading-none";
   if (weapon === 'Sword') {
     return (
-      <div className={className}>
-        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-          <path d="M12 20L28 4L30 6L14 22L12 20Z" fill="#38bdf8" stroke="black" strokeWidth="2" strokeLinejoin="round"/>
-          <path d="M14 22L16 24L28 12L26 10L14 22Z" fill="#e0f2fe" stroke="black" strokeWidth="2" strokeLinejoin="round"/>
-          <rect x="8" y="16" width="4" height="12" rx="1" transform="rotate(-45 8 16)" fill="#facc15" stroke="black" strokeWidth="2"/>
-          <rect x="6" y="22" width="6" height="4" rx="1" transform="rotate(-45 6 22)" fill="#78350f" stroke="black" strokeWidth="2"/>
-          <circle cx="6" cy="26" r="2.5" fill="#451a03" stroke="black" strokeWidth="1.5" />
-        </svg>
+      <div className={cn(baseClasses, className, "text-yellow-400")} style={{ textShadow: '2px 2px 0px black' }}>
+        S
       </div>
     );
   }
   if (weapon === 'Dagger') {
     return (
-      <div className={className}>
-        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-          <path d="M16 16L24 8L28 12L20 20L16 16Z" fill="#d946ef" stroke="black" strokeWidth="2" strokeLinejoin="round"/>
-          <path d="M16 16L20 20L26 14L22 10L16 16Z" fill="#f5d0fe" stroke="black" strokeWidth="2" strokeLinejoin="round"/>
-          <rect x="12" y="18" width="4" height="8" rx="1" transform="rotate(-45 12 18)" fill="#1e293b" stroke="black" strokeWidth="2"/>
-        </svg>
+      <div className={cn(baseClasses, className, "text-purple-500")} style={{ textShadow: '2px 2px 0px black' }}>
+        D
       </div>
     );
   }
   if (weapon === 'Bow') {
     return (
-      <div className={className}>
-        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-          <path d="M6 6C14 6 26 18 26 26" stroke="black" strokeWidth="4" strokeLinecap="round" fill="none"/>
-          <path d="M6 6C14 6 26 18 26 26" stroke="#f97316" strokeWidth="2" strokeLinecap="round" fill="none"/>
-          <path d="M6 6L26 26" stroke="black" strokeWidth="1" strokeDasharray="3 3" />
-          <circle cx="16" cy="16" r="3" fill="#ca8a04" stroke="black" strokeWidth="1.5" />
-        </svg>
+      <div className={cn(baseClasses, className, "text-white")} style={{ textShadow: '2px 2px 0px black' }}>
+        B
       </div>
     );
   }
@@ -125,7 +105,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   
   const [flash, setFlash] = useState<{ type: 'taken' | 'dealt' | null, time: number }>({ type: null, time: 0 });
   const [shakeUntil, setShakeUntil] = useState(0);
-  const [feedback, setFeedback] = useState<FeedbackState>({
+  const [feedback, setFeedback] = useState<{
+    lastReloadFail: number;
+    lastStaminaFail: number;
+    lastDashFail: number;
+    staminaMsg: string;
+  }>({
     lastReloadFail: 0,
     lastStaminaFail: 0,
     lastDashFail: 0,
@@ -1452,7 +1437,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             <div key={p.id} className="flex items-center gap-3 bg-black/40 border-4 border-black rounded-[20px] p-2 px-4 shadow-[4px_4px_0px_rgba(0,0,0,1)] min-w-[180px]">
               <div className="flex flex-col items-start gap-0.5 flex-1">
                 <div className="flex items-center gap-2">
-                  <WeaponIcon weapon={p.weaponClass as WeaponClass} className="w-7 h-7" />
+                  <WeaponIcon weapon={p.weaponClass as WeaponClass} className="w-7 h-7 text-xl" />
                   <span className="font-headline text-lg truncate max-w-[100px]" style={{ color: p.color, WebkitTextStroke: '1px black' }}>{p.name}</span>
                   {p.id === room?.createdBy && <Crown className="w-5 h-5 text-yellow-500 fill-yellow-500" />}
                 </div>
