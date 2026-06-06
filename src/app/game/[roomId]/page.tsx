@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
 import { useLocalPlayer } from '@/hooks/use-local-player';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { ref, onValue, set, update, onDisconnect, remove, get, push } from 'firebase/database';
+import { signOut } from 'firebase/auth';
 import { 
   GamePlayer, 
   GameRoom, 
@@ -30,10 +31,18 @@ import {
   SPAWN_POINTS
 } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
-import { Trophy, ArrowLeft, Play, Zap, Heart, Users, Crown, RotateCcw, WifiOff, ShieldAlert } from 'lucide-react';
+import { Trophy, ArrowLeft, Play, Zap, Heart, Users, Crown, RotateCcw, WifiOff, ShieldAlert, LogOut, Wallet, Fingerprint } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const WeaponIcon = ({ weapon, className = "w-6 h-6" }: { weapon: WeaponClass; className?: string }) => {
   const baseClasses = "font-headline flex items-center justify-center select-none leading-none";
@@ -89,7 +98,7 @@ const getBestSpawnPoint = (points: typeof SPAWN_POINTS, existingPositions: {x: n
 
 export default function GamePage({ params }: { params: Promise<{ roomId: string }> }) {
   const { roomId } = use(params);
-  const { profile, authUser, loading: profileLoading } = useLocalPlayer();
+  const { profile, updateProfile, authUser, loading: profileLoading } = useLocalPlayer();
   const router = useRouter();
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -100,6 +109,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const profileRef = useRef(profile);
   const [keys] = useState<Set<string>>(new Set());
   const [isConnected, setIsConnected] = useState(true);
+  const matchProcessedRef = useRef<string | null>(null);
   
   const isChargingRef = useRef(false);
   const [isCharging, setIsCharging] = useState(false);
@@ -145,6 +155,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     router.push('/lobby');
   }, [roomId, router]);
 
+  const handleLogout = () => {
+    signOut(auth);
+  };
+
   const handlePlayAgain = useCallback(async () => {
     if (!db || !roomId || !profileRef.current) return;
     const myPlayerRef = ref(db, `rooms/${roomId}/players/${profileRef.current.id}`);
@@ -156,6 +170,32 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   useEffect(() => {
     profileRef.current = profile;
   }, [profile]);
+
+  // Gold Economy Logic
+  useEffect(() => {
+    if (room?.status === 'finished' && room.lastWinnerName && profile && authUser) {
+      if (matchProcessedRef.current === roomId) return;
+      matchProcessedRef.current = roomId;
+
+      const isWinner = room.lastWinnerName === profile.name;
+      const weapon = profile.weaponClass;
+      
+      let change = isWinner ? 0 : -5;
+      if (isWinner) {
+        if (weapon === 'Dagger') change = 15;
+        else if (weapon === 'Sword') change = 5;
+        else if (weapon === 'Bow') change = 10;
+      }
+
+      const currentGold = profile.gold || 0;
+      const nextGold = Math.max(0, currentGold + change);
+      updateProfile({ gold: nextGold });
+    }
+
+    if (room?.status === 'lobby') {
+      matchProcessedRef.current = null;
+    }
+  }, [room?.status, room?.lastWinnerName, profile?.id, roomId, authUser]);
 
   useEffect(() => {
     if (!db) return;
@@ -1406,21 +1446,55 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       </div>
 
       {/* Top Right Profile Display */}
-      <div 
-        id="user-profile"
-        className={cn(
-          "fixed top-6 right-6 z-[100] animate-in slide-in-from-top-4 fade-in duration-500",
-          authUser ? "flex" : "hidden"
-        )}
-      >
-         <div className="flex items-center gap-4 bg-black/60 backdrop-blur-md p-2 pl-4 rounded-full border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]">
-            <span id="user-name" className="font-headline text-lg text-white" style={{ WebkitTextStroke: '1px black' }}>{authUser?.displayName}</span>
-            <Avatar className="w-10 h-10 border-2 border-white/20">
-              <AvatarImage id="user-pic" src={authUser?.photoURL || undefined} className="rounded-full" />
-              <AvatarFallback className="bg-primary text-white font-headline text-xs">{authUser?.displayName?.charAt(0)}</AvatarFallback>
-            </Avatar>
-         </div>
-      </div>
+      {authUser && (
+        <div className="fixed top-6 right-6 z-[100] animate-in slide-in-from-top-4 fade-in duration-500">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <div 
+                id="user-profile"
+                className="flex items-center gap-4 bg-black/60 backdrop-blur-md p-2 pl-4 rounded-full border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)] cursor-pointer hover:bg-black/80 transition-colors"
+              >
+                <span id="user-name" className="font-headline text-lg text-white" style={{ WebkitTextStroke: '1px black' }}>{authUser?.displayName}</span>
+                <Avatar className="w-10 h-10 border-2 border-white/20">
+                  <AvatarImage id="user-pic" src={authUser?.photoURL || undefined} className="rounded-full" />
+                  <AvatarFallback className="bg-primary text-white font-headline text-xs">{authUser?.displayName?.charAt(0)}</AvatarFallback>
+                </Avatar>
+              </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="cartoon-card bg-black/90 border-4 border-black p-4 min-w-[220px] text-white">
+              <DropdownMenuLabel className="font-headline text-xl text-primary mb-2">WARRIOR INFO</DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-white/10" />
+              <div className="space-y-4 py-2">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1">
+                    <Fingerprint className="w-3 h-3" /> PLAYER ID
+                  </span>
+                  <span id="player-id" className="font-headline text-lg text-white">{profile.playerId}</span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1">
+                    <Wallet className="w-3 h-3" /> GOLD BALANCE
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 bg-yellow-500 rounded-full border-2 border-black" />
+                    <span id="gold-currency" className="font-headline text-2xl text-accent">{profile.gold || 0} G</span>
+                  </div>
+                </div>
+              </div>
+              <DropdownMenuSeparator className="bg-white/10" />
+              <DropdownMenuItem 
+                id="logout-btn"
+                onClick={handleLogout}
+                className="mt-2 focus:bg-transparent"
+              >
+                <Button className="cartoon-button bg-destructive text-white w-full h-10 gap-2">
+                  <LogOut className="w-4 h-4" /> LOGOUT
+                </Button>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
 
       {playerCount === 1 && (
         <div className="w-full bg-destructive/20 py-2 border-b-4 border-black text-center z-[100]">

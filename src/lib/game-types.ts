@@ -6,6 +6,8 @@ export interface PlayerProfile {
   color: string;
   weaponClass: WeaponClass;
   avatarUrl?: string;
+  playerId?: string; // 8-digit unique ID
+  gold?: number;
 }
 
 export interface Projectile {

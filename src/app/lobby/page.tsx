@@ -1,19 +1,28 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { ref, onValue, push, set, remove } from 'firebase/database';
+import { signOut } from 'firebase/auth';
 import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Plus, Users, ArrowRight, Home, LayoutGrid, ShieldAlert } from 'lucide-react';
+import { Plus, Users, ArrowRight, Home, LayoutGrid, ShieldAlert, LogOut, Wallet, Fingerprint } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { GameRoom, WeaponClass } from '@/lib/game-types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const WeaponIcon = ({ weapon, className = "w-8 h-8" }: { weapon: WeaponClass; className?: string }) => {
   const baseClasses = "font-headline flex items-center justify-center select-none leading-none";
@@ -86,6 +95,10 @@ export default function LobbyScreen() {
     router.push(`/game/${newRoomRef.key}`);
   };
 
+  const handleLogout = () => {
+    signOut(auth);
+  };
+
   if (profileLoading || !profile) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -99,21 +112,55 @@ export default function LobbyScreen() {
       <div className="scanline"></div>
       
       {/* Top Right Profile Display */}
-      <div 
-        id="user-profile"
-        className={cn(
-          "fixed top-6 right-6 z-[100] animate-in slide-in-from-top-4 fade-in duration-500",
-          authUser ? "flex" : "hidden"
-        )}
-      >
-         <div className="flex items-center gap-4 bg-black/60 backdrop-blur-md p-2 pl-4 rounded-full border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]">
-            <span id="user-name" className="font-headline text-lg text-white" style={{ WebkitTextStroke: '1px black' }}>{authUser?.displayName}</span>
-            <Avatar className="w-10 h-10 border-2 border-white/20">
-              <AvatarImage id="user-pic" src={authUser?.photoURL || undefined} className="rounded-full" />
-              <AvatarFallback className="bg-primary text-white font-headline text-xs">{authUser?.displayName?.charAt(0)}</AvatarFallback>
-            </Avatar>
-         </div>
-      </div>
+      {authUser && (
+        <div className="fixed top-6 right-6 z-[100] animate-in slide-in-from-top-4 fade-in duration-500">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <div 
+                id="user-profile"
+                className="flex items-center gap-4 bg-black/60 backdrop-blur-md p-2 pl-4 rounded-full border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)] cursor-pointer hover:bg-black/80 transition-colors"
+              >
+                <span id="user-name" className="font-headline text-lg text-white" style={{ WebkitTextStroke: '1px black' }}>{authUser?.displayName}</span>
+                <Avatar className="w-10 h-10 border-2 border-white/20">
+                  <AvatarImage id="user-pic" src={authUser?.photoURL || undefined} className="rounded-full" />
+                  <AvatarFallback className="bg-primary text-white font-headline text-xs">{authUser?.displayName?.charAt(0)}</AvatarFallback>
+                </Avatar>
+              </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="cartoon-card bg-black/90 border-4 border-black p-4 min-w-[220px] text-white">
+              <DropdownMenuLabel className="font-headline text-xl text-primary mb-2">WARRIOR INFO</DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-white/10" />
+              <div className="space-y-4 py-2">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1">
+                    <Fingerprint className="w-3 h-3" /> PLAYER ID
+                  </span>
+                  <span id="player-id" className="font-headline text-lg text-white">{profile.playerId}</span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1">
+                    <Wallet className="w-3 h-3" /> GOLD BALANCE
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 bg-yellow-500 rounded-full border-2 border-black" />
+                    <span id="gold-currency" className="font-headline text-2xl text-accent">{profile.gold || 0} G</span>
+                  </div>
+                </div>
+              </div>
+              <DropdownMenuSeparator className="bg-white/10" />
+              <DropdownMenuItem 
+                id="logout-btn"
+                onClick={handleLogout}
+                className="mt-2 focus:bg-transparent"
+              >
+                <Button className="cartoon-button bg-destructive text-white w-full h-10 gap-2">
+                  <LogOut className="w-4 h-4" /> LOGOUT
+                </Button>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
       
       <div className="w-full max-w-5xl space-y-10 relative z-20">
         {!db && (

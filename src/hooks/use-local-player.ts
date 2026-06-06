@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { PlayerProfile } from '@/lib/game-types';
-import { ref, onValue, set, update } from 'firebase/database';
+import { ref, onValue, update } from 'firebase/database';
 import { db, auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
@@ -24,6 +24,13 @@ export function useLocalPlayer() {
 
     if (stored) {
       initialProfile = JSON.parse(stored);
+      // Ensure existing profiles get an ID and gold field
+      if (!initialProfile.playerId) {
+        initialProfile.playerId = Math.floor(10000000 + Math.random() * 90000000).toString();
+      }
+      if (initialProfile.gold === undefined) {
+        initialProfile.gold = 0;
+      }
     } else {
       const id = Math.random().toString(36).substring(2, 15);
       initialProfile = {
@@ -31,6 +38,8 @@ export function useLocalPlayer() {
         name: '',
         color: '#3b82f6', // Default to Blue
         weaponClass: 'Sword',
+        playerId: Math.floor(10000000 + Math.random() * 90000000).toString(),
+        gold: 0,
       };
     }
 
@@ -40,7 +49,7 @@ export function useLocalPlayer() {
       return () => unsubAuth();
     }
 
-    // Sync profile data from Firebase if needed
+    // Sync profile data from Firebase
     const playerRef = ref(db, `players/${initialProfile.id}`);
     const unsubscribe = onValue(playerRef, (snapshot) => {
       const val = snapshot.val();
