@@ -50,7 +50,6 @@ const WeaponIcon = ({ weapon, className = "w-8 h-8" }: { weapon: WeaponClass; cl
 const BATTLE_AURAS = [
   '#ef4444', // Red
   '#f97316', // Orange
-  '#06b6d4', // Cyan
   '#ec4899', // Pink
   '#a855f7', // Purple
   '#3b82f6', // Blue

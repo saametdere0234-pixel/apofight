@@ -47,9 +47,11 @@ export default function LobbyScreen() {
   const [newRoomName, setNewRoomName] = useState('');
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeSearch, setActiveSearch] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [friendIdInput, setFriendIdInput] = useState('');
   const [friendsData, setFriendsData] = useState<PlayerProfile[]>([]);
+  const [pulseTrigger, setPulseTrigger] = useState(0);
   const router = useRouter();
 
   useEffect(() => {
@@ -69,7 +71,6 @@ export default function LobbyScreen() {
     return () => unsubscribe();
   }, []);
 
-  // Sync Friends Data
   useEffect(() => {
     if (!db || !profile?.friends) {
       setFriendsData([]);
@@ -158,18 +159,23 @@ export default function LobbyScreen() {
     const currentFriends = profile.friends || [];
     if (!currentFriends.includes(friendIdInput)) {
       const updatedFriends = [...currentFriends, friendIdInput];
-      const playerRef = ref(db, `players/${profile.id}`);
-      await set(ref(db, `players/${profile.id}/friends`), updatedFriends);
+      const playerPathRef = ref(db, `players/${profile.id}`);
+      set(ref(db, `players/${profile.id}/friends`), updatedFriends);
     }
     setFriendIdInput('');
   };
 
   const filteredRooms = useMemo(() => {
-    const query = searchQuery.toLowerCase();
+    const queryStr = activeSearch.toLowerCase();
     return Object.values(rooms).filter(r => 
-      r.name.toLowerCase().includes(query) || r.shortId.includes(query)
+      r.name.toLowerCase().includes(queryStr) || r.shortId.includes(queryStr)
     );
-  }, [rooms, searchQuery]);
+  }, [rooms, activeSearch]);
+
+  const handleSearch = () => {
+    setActiveSearch(searchQuery);
+    setPulseTrigger(prev => prev + 1);
+  };
 
   if (profileLoading || !profile) {
     return (
@@ -201,11 +207,15 @@ export default function LobbyScreen() {
               <DropdownMenuSeparator className="bg-white/10" />
               <div className="space-y-4 py-2">
                 <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest"><Fingerprint className="w-3 h-3" /> PLAYER ID</span>
+                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1">
+                    <Fingerprint className="w-3 h-3" /> PLAYER ID
+                  </span>
                   <span id="player-id" className="font-headline text-lg text-white">{profile.playerId}</span>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest"><Wallet className="w-3 h-3" /> GOLD BALANCE</span>
+                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1">
+                    <Wallet className="w-3 h-3" /> GOLD BALANCE
+                  </span>
                   <div className="flex items-center gap-2">
                     <div className="w-5 h-5 bg-yellow-500 rounded-full border-2 border-black" />
                     <span id="gold-currency" className="font-headline text-2xl text-accent">{profile.gold || 0} G</span>
@@ -224,7 +234,7 @@ export default function LobbyScreen() {
       {/* Floating Friends Sidebar - Only for Google Users */}
       {authUser && (
         <div className={cn(
-          "fixed top-4 right-4 bottom-4 z-50 transition-transform duration-300 flex",
+          "fixed right-4 top-4 bottom-4 z-50 transition-transform duration-300 flex",
           isSidebarOpen ? "translate-x-0" : "translate-x-[calc(100%-12px)]"
         )}>
           <button 
@@ -234,7 +244,34 @@ export default function LobbyScreen() {
             {isSidebarOpen ? <ChevronRight className="text-white" /> : <ChevronLeft className="text-white" />}
           </button>
           <div className="w-72 bg-black/90 backdrop-blur-xl border-4 border-black p-6 flex flex-col gap-6 shadow-[-10px_0_30px_rgba(0,0,0,0.5)] rounded-[30px]">
-            <h3 className="font-headline text-2xl text-primary border-b-4 border-black pb-2">FRIENDS</h3>
+            <div className="flex justify-between items-center border-b-4 border-black pb-2">
+              <h3 className="font-headline text-2xl text-primary">FRIENDS</h3>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button size="icon" className="w-8 h-8 rounded-full bg-primary hover:bg-primary/80 border-2 border-black">
+                    <UserPlus className="w-4 h-4 text-white" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="cartoon-card bg-black/90 border-4 border-black text-white">
+                  <DialogHeader>
+                    <DialogTitle className="font-headline text-3xl text-accent">RECRUIT ALLY</DialogTitle>
+                    <DialogDescription className="text-white/60 font-bold uppercase text-[10px] tracking-widest">Enter the 8-digit Player ID of your comrade</DialogDescription>
+                  </DialogHeader>
+                  <div className="py-6">
+                    <Input 
+                      maxLength={8}
+                      placeholder="ENTER 8-DIGIT ID..." 
+                      value={friendIdInput}
+                      onChange={(e) => setFriendIdInput(e.target.value.replace(/\D/g, ''))}
+                      className="bg-black/40 border-4 border-black h-16 font-headline text-2xl text-center text-primary"
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button onClick={sendFriendRequest} disabled={friendIdInput.length !== 8} className="cartoon-button bg-primary text-white w-full h-14 text-xl">SEND REQUEST</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
             <div className="flex-1 overflow-y-auto space-y-4 pr-2 scrollbar-hide">
               {friendsData.length === 0 ? (
                 <div className="flex flex-col items-center justify-center mt-10 opacity-30">
@@ -321,14 +358,21 @@ export default function LobbyScreen() {
 
           <div className="md:col-span-8 space-y-6 flex flex-col">
             {/* Search Bar */}
-            <div className="relative group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-6 h-6 text-primary group-focus-within:text-accent transition-colors" />
-              <Input 
-                placeholder="SEARCH ARENA NAME OR 6-DIGIT ID..." 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-14 bg-black/40 border-4 border-black rounded-[20px] h-14 font-headline text-lg text-white placeholder:text-white/20 focus-visible:ring-primary shadow-[4px_4px_0_rgba(0,0,0,1)]"
-              />
+            <div className="relative group flex gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-6 h-6 text-primary group-focus-within:text-accent transition-colors" />
+                <Input 
+                  placeholder="SEARCH ARENA NAME OR 6-DIGIT ID..." 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                  className="pl-14 bg-black/40 border-4 border-black rounded-[20px] h-14 font-headline text-lg text-white placeholder:text-white/20 focus-visible:ring-primary shadow-[4px_4px_0_rgba(0,0,0,1)]"
+                />
+              </div>
+              <Button onClick={handleSearch} className="cartoon-button bg-primary text-white h-14 px-6 flex items-center gap-2">
+                <Search className="w-5 h-5" />
+                <span>SEARCH</span>
+              </Button>
             </div>
 
             <div className="flex items-center justify-between">
@@ -348,7 +392,10 @@ export default function LobbyScreen() {
                   const isFull = playerCount >= (room.maxPlayers || 4);
                   const isLocked = room.status === 'playing' || room.status === 'starting';
                   return (
-                    <Card key={room.id} className="cartoon-card hover:border-primary transition-all">
+                    <Card key={room.id + pulseTrigger} className={cn(
+                      "cartoon-card hover:border-primary transition-all",
+                      activeSearch !== '' && "animate-pulse-once"
+                    )}>
                       <CardContent className="p-6 flex items-center justify-between">
                         <div className="space-y-2">
                           <div className="flex items-baseline gap-3">
@@ -382,34 +429,6 @@ export default function LobbyScreen() {
               <Button onClick={handleQuickMatch} size="lg" className="cartoon-button bg-accent text-black text-3xl px-12 h-20 flex items-center gap-4 hover:scale-105">
                 <Zap className="w-8 h-8 fill-current" /> QUICK MATCH
               </Button>
-
-              {authUser && (
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button size="lg" className="cartoon-button bg-primary text-white h-20 w-20 p-0 flex items-center justify-center hover:scale-105">
-                      <UserPlus className="w-10 h-10" />
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="cartoon-card bg-black/90 border-4 border-black text-white">
-                    <DialogHeader>
-                      <DialogTitle className="font-headline text-3xl text-accent">RECRUIT ALLY</DialogTitle>
-                      <DialogDescription className="text-white/60 font-bold uppercase text-[10px] tracking-widest">Enter the 8-digit Player ID of your comrade</DialogDescription>
-                    </DialogHeader>
-                    <div className="py-6">
-                      <Input 
-                        maxLength={8}
-                        placeholder="ENTER 8-DIGIT ID..." 
-                        value={friendIdInput}
-                        onChange={(e) => setFriendIdInput(e.target.value.replace(/\D/g, ''))}
-                        className="bg-black/40 border-4 border-black h-16 font-headline text-2xl text-center text-primary"
-                      />
-                    </div>
-                    <DialogFooter>
-                      <Button onClick={sendFriendRequest} disabled={friendIdInput.length !== 8} className="cartoon-button bg-primary text-white w-full h-14 text-xl">SEND REQUEST</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              )}
             </div>
           </div>
         </div>
