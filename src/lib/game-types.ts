@@ -8,6 +8,8 @@ export interface PlayerProfile {
   avatarUrl?: string;
   playerId?: string; // 8-digit unique ID
   gold?: number;
+  isOnline?: boolean;
+  friends?: string[]; // Array of playerIds
 }
 
 export interface Projectile {
@@ -59,6 +61,7 @@ export interface GameEffect {
 
 export interface GameRoom {
   id: string;
+  shortId: string; // 6-digit unique lobby ID
   name: string;
   createdBy: string; // The ID of the host
   players: Record<string, GamePlayer>;

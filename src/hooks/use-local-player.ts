@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { PlayerProfile } from '@/lib/game-types';
-import { ref, onValue, update } from 'firebase/database';
+import { ref, onValue, update, onDisconnect } from 'firebase/database';
 import { db, auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
@@ -24,7 +24,6 @@ export function useLocalPlayer() {
 
     if (stored) {
       initialProfile = JSON.parse(stored);
-      // Ensure existing profiles get an ID and gold field
       if (!initialProfile.playerId) {
         initialProfile.playerId = Math.floor(10000000 + Math.random() * 90000000).toString();
       }
@@ -36,7 +35,7 @@ export function useLocalPlayer() {
       initialProfile = {
         id,
         name: '',
-        color: '#3b82f6', // Default to Blue
+        color: '#3b82f6',
         weaponClass: 'Sword',
         playerId: Math.floor(10000000 + Math.random() * 90000000).toString(),
         gold: 0,
@@ -49,7 +48,6 @@ export function useLocalPlayer() {
       return () => unsubAuth();
     }
 
-    // Sync profile data from Firebase
     const playerRef = ref(db, `players/${initialProfile.id}`);
     const unsubscribe = onValue(playerRef, (snapshot) => {
       const val = snapshot.val();
@@ -63,13 +61,17 @@ export function useLocalPlayer() {
       setLoading(false);
     });
 
+    // Handle Online Presence
+    const onlineRef = ref(db, `players/${initialProfile.id}/isOnline`);
+    update(ref(db, `players/${initialProfile.id}`), { isOnline: true });
+    onDisconnect(onlineRef).set(false);
+
     return () => {
       unsubscribe();
       unsubAuth();
     };
   }, []);
 
-  // Sync Auth User to Profile
   useEffect(() => {
     if (authUser && profile) {
       const updates: Partial<PlayerProfile> = {};
