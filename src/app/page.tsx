@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useLocalPlayer } from '@/hooks/use-local-player';
@@ -5,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { User, Zap, LogOut, Wallet, Fingerprint } from 'lucide-react';
+import { User, Zap, LogOut, Wallet, Fingerprint, Swords } from 'lucide-react';
 import { WeaponClass, WEAPON_STATS } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -127,10 +128,19 @@ export default function EntryScreen() {
                 </Avatar>
               </div>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="cartoon-card bg-black/90 border-4 border-black p-4 min-w-[220px] text-white">
+            <DropdownMenuContent align="end" className="cartoon-card bg-black/90 border-4 border-black p-4 min-w-[240px] text-white">
               <DropdownMenuLabel className="font-headline text-xl text-primary mb-2">WARRIOR INFO</DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-white/10" />
               <div className="space-y-4 py-2">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1">
+                    <Swords className="w-3 h-3" /> CURRENT WEAPON
+                  </span>
+                  <div className="flex items-center gap-2 bg-black/40 p-2 rounded-xl border border-white/10">
+                    <WeaponIcon weapon={profile.weaponClass} className="w-6 h-6" />
+                    <span className="font-headline text-sm text-white">{profile.weaponClass}</span>
+                  </div>
+                </div>
                 <div className="flex flex-col gap-1">
                   <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1">
                     <Fingerprint className="w-3 h-3" /> PLAYER ID

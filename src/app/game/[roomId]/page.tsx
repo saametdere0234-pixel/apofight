@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -31,7 +32,7 @@ import {
   SPAWN_POINTS
 } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
-import { Trophy, ArrowLeft, Play, Zap, Heart, Users, Crown, RotateCcw, WifiOff, ShieldAlert, LogOut, Wallet, Fingerprint } from 'lucide-react';
+import { Trophy, ArrowLeft, Play, Zap, Heart, Users, Crown, RotateCcw, WifiOff, ShieldAlert, LogOut, Wallet, Fingerprint, Swords } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -784,7 +785,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const my = mouseRef.current.y;
     const attackAngle = Math.atan2(my - py, mx - px);
 
-    let stunAppliedThisSwing = false;
+    let stunAppliedThis swing = false;
     const canStun = weapon === 'Sword' && now > (p.stunCooldownUntil || 0);
 
     update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), {
@@ -1438,10 +1439,19 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                 </Avatar>
               </div>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="cartoon-card bg-black/90 border-4 border-black p-4 min-w-[220px] text-white">
+            <DropdownMenuContent align="end" className="cartoon-card bg-black/90 border-4 border-black p-4 min-w-[240px] text-white">
               <DropdownMenuLabel className="font-headline text-xl text-primary mb-2">WARRIOR INFO</DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-white/10" />
               <div className="space-y-4 py-2">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1">
+                    <Swords className="w-3 h-3" /> CURRENT WEAPON
+                  </span>
+                  <div className="flex items-center gap-2 bg-black/40 p-2 rounded-xl border border-white/10">
+                    <WeaponIcon weapon={profile.weaponClass} className="w-6 h-6" />
+                    <span className="font-headline text-sm text-white">{profile.weaponClass}</span>
+                  </div>
+                </div>
                 <div className="flex flex-col gap-1">
                   <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1">
                     <Fingerprint className="w-3 h-3" /> PLAYER ID

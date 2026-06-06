@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -8,7 +9,7 @@ import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Plus, Users, ArrowRight, Home, LayoutGrid, ShieldAlert, LogOut, Wallet, Fingerprint, Zap, Search, ChevronLeft, ChevronRight, X, Bell, Check, ArrowLeft } from 'lucide-react';
+import { Plus, Users, ArrowRight, Home, LayoutGrid, ShieldAlert, LogOut, Wallet, Fingerprint, Zap, Search, ChevronLeft, ChevronRight, X, Bell, Check, ArrowLeft, Swords } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { GameRoom, WeaponClass, PlayerProfile } from '@/lib/game-types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -285,10 +286,19 @@ export default function LobbyScreen() {
                 </Avatar>
               </div>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="cartoon-card bg-black/90 border-4 border-black p-4 min-w-[220px] text-white">
+            <DropdownMenuContent align="end" className="cartoon-card bg-black/90 border-4 border-black p-4 min-w-[240px] text-white">
               <DropdownMenuLabel className="font-headline text-xl text-primary mb-2">WARRIOR INFO</DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-white/10" />
               <div className="space-y-4 py-2">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1">
+                    <Swords className="w-3 h-3" /> CURRENT WEAPON
+                  </span>
+                  <div className="flex items-center gap-2 bg-black/40 p-2 rounded-xl border border-white/10">
+                    <WeaponIcon weapon={profile.weaponClass} className="w-6 h-6" />
+                    <span className="font-headline text-sm text-white">{profile.weaponClass}</span>
+                  </div>
+                </div>
                 <div className="flex flex-col gap-1">
                   <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1">
                     <Fingerprint className="w-3 h-3" /> PLAYER ID
@@ -327,7 +337,7 @@ export default function LobbyScreen() {
           </button>
           <div className="w-72 bg-black/90 backdrop-blur-xl border-4 border-black p-6 flex flex-col gap-6 shadow-[-10px_0_30px_rgba(0,0,0,0.5)] rounded-[30px]">
             {sidebarView === 'friends' ? (
-              <>
+              <div className="flex flex-col h-full gap-4 animate-in fade-in slide-in-from-right-4 duration-300">
                 <div className="flex flex-col gap-4 border-b-4 border-black pb-4">
                   <div className="flex justify-between items-center">
                     <h3 className="font-headline text-2xl text-primary">ARKADAŞLAR</h3>
@@ -335,12 +345,15 @@ export default function LobbyScreen() {
                       <Button 
                         size="icon" 
                         onClick={() => setSidebarView('notifications')}
-                        className="w-8 h-8 rounded-full border-2 border-black bg-accent relative"
+                        className={cn(
+                          "w-8 h-8 rounded-full border-2 border-black transition-all relative",
+                          profile.friendRequests && profile.friendRequests.length > 0 ? "bg-red-600 animate-pulse" : "bg-accent"
+                        )}
                       >
-                        <Bell className="w-4 h-4 text-black" />
+                        <Bell className={cn("w-4 h-4", profile.friendRequests && profile.friendRequests.length > 0 ? "text-white" : "text-black")} />
                         {profile.friendRequests && profile.friendRequests.length > 0 && (
-                          <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-600 rounded-full border-2 border-black flex items-center justify-center">
-                            <span className="text-[8px] font-bold text-white">{profile.friendRequests.length}</span>
+                          <div className="absolute -top-2 -right-2 w-5 h-5 bg-white rounded-full border-2 border-red-600 flex items-center justify-center">
+                            <span className="text-[10px] font-bold text-red-600">{profile.friendRequests.length}</span>
                           </div>
                         )}
                       </Button>
@@ -417,9 +430,9 @@ export default function LobbyScreen() {
                     ))
                   )}
                 </div>
-              </>
+              </div>
             ) : (
-              <>
+              <div className="flex flex-col h-full gap-4 animate-in fade-in slide-in-from-left-4 duration-300">
                 <div className="flex flex-col gap-4 border-b-4 border-black pb-4">
                   <div className="flex items-center gap-2">
                     <Button 
@@ -471,7 +484,7 @@ export default function LobbyScreen() {
                     ))
                   )}
                 </div>
-              </>
+              </div>
             )}
           </div>
         </div>
@@ -492,18 +505,20 @@ export default function LobbyScreen() {
             <p className="text-white/40 text-xs font-bold uppercase tracking-[0.3em]">SAVAŞ ALANINI SEÇ</p>
           </div>
           
-          <div className="flex items-center gap-6 bg-black/40 backdrop-blur-md p-3 rounded-[25px] border-4 border-black px-8">
-            <div className="p-2 bg-black/40 rounded-xl border-2 border-white/10 shadow-[2px_2px_0px_rgba(0,0,0,1)]">
-              <WeaponIcon weapon={profile.weaponClass} className="w-10 h-10 text-3xl" />
+          {!authUser && (
+            <div className="flex items-center gap-6 bg-black/40 backdrop-blur-md p-3 rounded-[25px] border-4 border-black px-8">
+              <div className="p-2 bg-black/40 rounded-xl border-2 border-white/10 shadow-[2px_2px_0px_rgba(0,0,0,1)]">
+                <WeaponIcon weapon={profile.weaponClass} className="w-10 h-10 text-3xl" />
+              </div>
+              <div className="flex flex-col items-start">
+                <span className="text-[10px] font-bold text-white/40 uppercase">SAVAŞÇI</span>
+                <span className="font-headline text-xl text-accent">{profile.name || 'ANON'}</span>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => router.push('/')} className="cartoon-button bg-white/10 p-2 ml-4">
+                <Home className="w-6 h-6 text-white" />
+              </Button>
             </div>
-            <div className="flex flex-col items-start">
-              <span className="text-[10px] font-bold text-white/40 uppercase">SAVAŞÇI</span>
-              <span className="font-headline text-xl text-accent">{profile.name || 'ANON'}</span>
-            </div>
-            <Button variant="ghost" size="icon" onClick={() => router.push('/')} className="cartoon-button bg-white/10 p-2 ml-4">
-              <Home className="w-6 h-6 text-white" />
-            </Button>
-          </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
