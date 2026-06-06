@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -36,7 +35,7 @@ import { Trophy, ArrowLeft, Play, Zap, Heart, Users, Crown, RotateCcw, WifiOff, 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { FriendsSidebar } from '@/components/FriendsSidebar';
 
 const WeaponIcon = ({ weapon, className = "w-6 h-6" }: { weapon: WeaponClass; className?: string }) => {
@@ -94,6 +93,7 @@ const getBestSpawnPoint = (points: typeof SPAWN_POINTS, existingPositions: {x: n
 export default function GamePage({ params }: { params: Promise<{ roomId: string }> }) {
   const { roomId } = use(params);
   const { profile, updateProfile, authUser, loading: profileLoading } = useLocalPlayer();
+  const { toast } = useToast();
   const router = useRouter();
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -179,7 +179,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (room?.status === 'lobby') {
       feeProcessedRef.current = null;
     }
-  }, [room?.status, room?.startTime, profile?.id, roomId, authUser]);
+  }, [room?.status, room?.startTime, profile?.id, roomId, authUser, toast, updateProfile]);
 
   // Gold Economy & Victory Notification Logic
   useEffect(() => {
@@ -200,6 +200,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           title: "Champion!",
           description: `Received +${change} Gold!`,
         });
+      } else {
+        toast({
+          title: "Defeat!",
+          description: "Lost -5 Gold!",
+        });
       }
 
       const currentGold = profile.gold || 0;
@@ -210,7 +215,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (room?.status === 'lobby') {
       matchProcessedRef.current = null;
     }
-  }, [room?.status, room?.lastWinnerName, profile?.id, roomId, authUser]);
+  }, [room?.status, room?.lastWinnerName, profile?.id, roomId, authUser, toast, updateProfile]);
 
   useEffect(() => {
     if (!db) return;

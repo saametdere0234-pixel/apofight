@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -31,7 +30,6 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
     const friendList = profile.friends;
     
     const unsubscribers = friendList.map(fId => {
-      // fId is now the internal random string ID for direct access
       const friendRef = ref(db, `players/${fId}`);
       return onValue(friendRef, (snap) => {
         const friend = snap.val() as PlayerProfile;
@@ -59,7 +57,6 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
     const requestList = profile.friendRequests;
     
     const unsubscribers = requestList.map(fId => {
-      // fId is the internal random string ID
       const senderRef = ref(db, `players/${fId}`);
       return onValue(senderRef, (snap) => {
         const sender = snap.val() as PlayerProfile;
@@ -100,7 +97,6 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
   const sendFriendRequest = async () => {
     if (!db || !profile || !friendIdInput || friendIdInput.length !== 8) return;
     
-    // Resolve playerId -> internal ID using mapping node to avoid unindexed queries
     const mappingRef = ref(db, `playerIds/${friendIdInput}`);
     const mappingSnap = await get(mappingRef);
     
@@ -113,7 +109,6 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
         const targetProfile = targetSnap.val() as PlayerProfile;
         const currentRequests = targetProfile.friendRequests || [];
         
-        // Add MY internal ID (random string) to their requests
         if (!currentRequests.includes(profile.id)) {
           await update(targetRef, {
             friendRequests: [...currentRequests, profile.id]
@@ -196,7 +191,7 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
 
   return (
     <div className={cn(
-      "fixed right-4 top-24 bottom-4 z-50 transition-transform duration-300 flex",
+      "fixed right-4 top-24 bottom-4 z-[1001] transition-transform duration-300 flex",
       isSidebarOpen ? "translate-x-0" : "translate-x-[calc(100%-12px)]"
     )}>
       <button 
@@ -215,25 +210,25 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
                   <button 
                     onClick={() => setSidebarView('notifications')}
                     className={cn(
-                      "w-8 h-8 rounded-full border-2 border-black flex items-center justify-center transition-all relative",
-                      profile.friendRequests && profile.friendRequests.length > 0 ? "bg-red-600 animate-pulse" : "bg-white/10"
+                      "w-10 h-10 rounded-full border-4 border-black flex items-center justify-center transition-all relative",
+                      profile.friendRequests && profile.friendRequests.length > 0 ? "bg-destructive animate-pulse shadow-[0_0_15px_rgba(255,0,0,0.5)]" : "bg-white/10"
                     )}
                   >
-                    <Bell className={cn("w-4 h-4", profile.friendRequests && profile.friendRequests.length > 0 ? "text-white" : "text-white/60")} />
+                    <Bell className={cn("w-5 h-5", profile.friendRequests && profile.friendRequests.length > 0 ? "text-white" : "text-white/60")} />
                     {profile.friendRequests && profile.friendRequests.length > 0 && (
-                      <div className="absolute -top-2 -right-2 w-5 h-5 bg-white rounded-full border-2 border-red-600 flex items-center justify-center">
-                        <span className="text-[10px] font-bold text-red-600">{profile.friendRequests.length}</span>
+                      <div className="absolute -top-2 -right-2 w-6 h-6 bg-white rounded-full border-2 border-black flex items-center justify-center">
+                        <span className="text-xs font-headline text-destructive leading-none">{profile.friendRequests.length}</span>
                       </div>
                     )}
                   </button>
                   <button 
                     onClick={() => setIsAddingFriend(!isAddingFriend)}
                     className={cn(
-                      "w-8 h-8 rounded-full border-2 border-black flex items-center justify-center transition-all",
-                      isAddingFriend ? "bg-red-500 rotate-45" : "bg-primary"
+                      "w-10 h-10 rounded-full border-4 border-black flex items-center justify-center transition-all",
+                      isAddingFriend ? "bg-red-500 rotate-45" : "bg-primary shadow-[4px_4px_0_rgba(0,0,0,1)]"
                     )}
                   >
-                    {isAddingFriend ? <X className="w-4 h-4 text-white" /> : <Plus className="w-4 h-4 text-white" />}
+                    {isAddingFriend ? <X className="w-5 h-5 text-white" /> : <Plus className="w-5 h-5 text-white" />}
                   </button>
                 </div>
               </div>
@@ -324,9 +319,9 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
               <div className="flex items-center gap-2">
                 <button 
                   onClick={() => setSidebarView('friends')}
-                  className="w-8 h-8 flex items-center justify-center text-white/60 hover:text-white"
+                  className="w-10 h-10 flex items-center justify-center text-white/60 hover:text-white bg-white/5 rounded-full border-2 border-black"
                 >
-                  <ChevronLeft className="w-5 h-5" />
+                  <ChevronLeft className="w-6 h-6" />
                 </button>
                 <h3 className="font-headline text-2xl text-accent">NOTIFICATIONS</h3>
               </div>

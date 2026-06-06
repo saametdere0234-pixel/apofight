@@ -1,11 +1,10 @@
-
 "use client";
 
 import { useState } from 'react';
 import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/label';
 import { Label } from '@/components/ui/label';
 import { User, Zap, LogOut, Wallet, Fingerprint, Swords, Sparkles, Lock } from 'lucide-react';
 import { WeaponClass, WEAPON_STATS } from '@/lib/game-types';
@@ -22,7 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -71,6 +70,7 @@ const PREMIUM_PRICE = 200;
 export default function EntryScreen() {
   const { profile, updateProfile, authUser, loading } = useLocalPlayer();
   const router = useRouter();
+  const { toast } = useToast();
   const [auraToPurchase, setAuraToPurchase] = useState<{id: string, label: string} | null>(null);
 
   if (loading || !profile) {
@@ -138,7 +138,6 @@ export default function EntryScreen() {
       toast({
         variant: "destructive",
         title: "Insufficient funds!",
-        description: `You need ${PREMIUM_PRICE - gold} more gold to unlock this aura.`,
       });
     }
     setAuraToPurchase(null);
@@ -237,14 +236,14 @@ export default function EntryScreen() {
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <Card className="cartoon-card">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div className="space-y-1.5">
-                <CardTitle className="flex items-center gap-2 font-headline text-2xl text-accent">
+          <div className="cartoon-card bg-black/60 backdrop-blur-md border-4 border-black p-6 space-y-6">
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div className="space-y-1">
+                <h3 className="flex items-center gap-2 font-headline text-2xl text-accent">
                   <User className="w-6 h-6" />
                   CHARACTER ID
-                </CardTitle>
-                <CardDescription className="font-bold text-white/60">YOUR ARENA LEGACY BEGINS HERE</CardDescription>
+                </h3>
+                <p className="font-bold text-white/60 text-xs uppercase">YOUR ARENA LEGACY BEGINS HERE</p>
               </div>
               {!authUser && (
                 <Button 
@@ -257,8 +256,9 @@ export default function EntryScreen() {
                   <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-6 h-6" alt="G" />
                 </Button>
               )}
-            </CardHeader>
-            <CardContent className="space-y-6">
+            </div>
+            
+            <div className="space-y-6">
               <div className="space-y-3">
                 <Label htmlFor="name" className="font-bold text-sm uppercase">WARRIOR ALIAS</Label>
                 <div className="flex gap-3">
@@ -320,18 +320,18 @@ export default function EntryScreen() {
                   </div>
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card className="cartoon-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-headline text-2xl text-primary">
+          <div className="cartoon-card bg-black/60 backdrop-blur-md border-4 border-black p-6 space-y-6">
+            <div className="border-b border-white/10 pb-4">
+              <h3 className="flex items-center gap-2 font-headline text-2xl text-primary">
                 <Zap className="w-6 h-6" />
                 SELECT ARSENAL
-              </CardTitle>
-              <CardDescription className="font-bold text-white/60">CHOOSE YOUR COMBAT STYLE</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
+              </h3>
+              <p className="font-bold text-white/60 text-xs uppercase">CHOOSE YOUR COMBAT STYLE</p>
+            </div>
+            <div className="space-y-4">
               {weapons.map((w) => (
                 <button
                   key={w.id}
@@ -347,8 +347,8 @@ export default function EntryScreen() {
                   </div>
                 </button>
               ))}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
 
         <div className="flex justify-center pt-4">
