@@ -1406,17 +1406,21 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       </div>
 
       {/* Top Right Profile Display */}
-      {authUser && (
-        <div className="fixed top-6 right-6 z-[100] animate-in slide-in-from-top-4 fade-in duration-500">
-           <div className="flex items-center gap-4 bg-black/60 backdrop-blur-md p-2 pl-4 rounded-full border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]">
-              <span className="font-headline text-lg text-white" style={{ WebkitTextStroke: '1px black' }}>{authUser.displayName}</span>
-              <Avatar className="w-10 h-10 border-2 border-white/20">
-                <AvatarImage src={authUser.photoURL || undefined} />
-                <AvatarFallback className="bg-primary text-white font-headline text-xs">{authUser.displayName?.charAt(0)}</AvatarFallback>
-              </Avatar>
-           </div>
-        </div>
-      )}
+      <div 
+        id="user-profile"
+        className={cn(
+          "fixed top-6 right-6 z-[100] animate-in slide-in-from-top-4 fade-in duration-500",
+          authUser ? "flex" : "hidden"
+        )}
+      >
+         <div className="flex items-center gap-4 bg-black/60 backdrop-blur-md p-2 pl-4 rounded-full border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]">
+            <span id="user-name" className="font-headline text-lg text-white" style={{ WebkitTextStroke: '1px black' }}>{authUser?.displayName}</span>
+            <Avatar className="w-10 h-10 border-2 border-white/20">
+              <AvatarImage id="user-pic" src={authUser?.photoURL || undefined} className="rounded-full" />
+              <AvatarFallback className="bg-primary text-white font-headline text-xs">{authUser?.displayName?.charAt(0)}</AvatarFallback>
+            </Avatar>
+         </div>
+      </div>
 
       {playerCount === 1 && (
         <div className="w-full bg-destructive/20 py-2 border-b-4 border-black text-center z-[100]">

@@ -10,7 +10,7 @@ import { WeaponClass, WEAPON_STATS } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { auth, googleProvider } from '@/lib/firebase';
-import { signInWithPopup } from 'firebase/auth';
+import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 const WeaponIcon = ({ weapon, className = "w-8 h-8" }: { weapon: WeaponClass; className?: string }) => {
@@ -63,12 +63,20 @@ export default function EntryScreen() {
     );
   }
 
-  const handleGoogleSignIn = async () => {
-    try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (error) {
-      console.error("Google Sign-In failed", error);
-    }
+  const handleGoogleSignIn = () => {
+    signInWithPopup(auth, googleProvider)
+      .then((result) => {
+        const user = result.user;
+        // The display logic is handled by React state (authUser), 
+        // but we ensure the profile updates correctly.
+        updateProfile({
+          name: user.displayName || profile.name,
+          avatarUrl: user.photoURL || undefined
+        });
+      })
+      .catch((error) => {
+        console.error("Google Sign-In failed", error);
+      });
   };
 
   const handlePlay = () => {
@@ -95,17 +103,21 @@ export default function EntryScreen() {
       <div className="scanline"></div>
       
       {/* Top Right Profile Display */}
-      {authUser && (
-        <div className="fixed top-6 right-6 z-[100] animate-in slide-in-from-top-4 fade-in duration-500">
-           <div className="flex items-center gap-4 bg-black/60 backdrop-blur-md p-2 pl-4 rounded-full border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]">
-              <span className="font-headline text-lg text-white" style={{ WebkitTextStroke: '1px black' }}>{authUser.displayName}</span>
-              <Avatar className="w-10 h-10 border-2 border-white/20">
-                <AvatarImage src={authUser.photoURL || undefined} />
-                <AvatarFallback className="bg-primary text-white font-headline text-xs">{authUser.displayName?.charAt(0)}</AvatarFallback>
-              </Avatar>
-           </div>
-        </div>
-      )}
+      <div 
+        id="user-profile"
+        className={cn(
+          "fixed top-6 right-6 z-[100] animate-in slide-in-from-top-4 fade-in duration-500",
+          authUser ? "flex" : "hidden"
+        )}
+      >
+         <div className="flex items-center gap-4 bg-black/60 backdrop-blur-md p-2 pl-4 rounded-full border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]">
+            <span id="user-name" className="font-headline text-lg text-white" style={{ WebkitTextStroke: '1px black' }}>{authUser?.displayName}</span>
+            <Avatar className="w-10 h-10 border-2 border-white/20">
+              <AvatarImage id="user-pic" src={authUser?.photoURL || undefined} className="rounded-full" />
+              <AvatarFallback className="bg-primary text-white font-headline text-xs">{authUser?.displayName?.charAt(0)}</AvatarFallback>
+            </Avatar>
+         </div>
+      </div>
 
       <div className="absolute top-10 left-10 w-32 h-32 bg-primary/20 rounded-full blur-3xl animate-pulse"></div>
       <div className="absolute bottom-10 right-10 w-48 h-48 bg-accent/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
@@ -136,6 +148,7 @@ export default function EntryScreen() {
               </div>
               {!authUser && (
                 <Button 
+                  id="google-login-btn"
                   onClick={handleGoogleSignIn}
                   variant="ghost" 
                   size="icon" 
