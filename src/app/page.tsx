@@ -1,5 +1,7 @@
+
 "use client";
 
+import { useState } from 'react';
 import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +23,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const WeaponIcon = ({ weapon, className = "w-8 h-8" }: { weapon: WeaponClass; className?: string }) => {
   const baseClasses = "font-headline flex items-center justify-center select-none leading-none";
@@ -59,6 +71,7 @@ const PREMIUM_PRICE = 200;
 export default function EntryScreen() {
   const { profile, updateProfile, authUser, loading } = useLocalPlayer();
   const router = useRouter();
+  const [auraToPurchase, setAuraToPurchase] = useState<{id: string, label: string} | null>(null);
 
   if (loading || !profile) {
     return (
@@ -96,28 +109,39 @@ export default function EntryScreen() {
       if (unlocked.includes(auraId)) {
         updateProfile({ color: auraId });
       } else {
-        const gold = profile.gold || 0;
-        if (gold >= PREMIUM_PRICE) {
-          updateProfile({
-            gold: gold - PREMIUM_PRICE,
-            unlockedAuras: [...unlocked, auraId],
-            color: auraId
-          });
-          toast({
-            title: "PREMIUM AURA UNLOCKED!",
-            description: `You purchased ${auraId.replace('aura-', '').toUpperCase()} for ${PREMIUM_PRICE}G.`,
-          });
-        } else {
-          toast({
-            variant: "destructive",
-            title: "INSUFFICIENT GOLD!",
-            description: `You need ${PREMIUM_PRICE - gold} more gold to unlock this aura.`,
-          });
+        const aura = PREMIUM_AURAS.find(a => a.id === auraId);
+        if (aura) {
+          setAuraToPurchase({ id: aura.id, label: aura.label });
         }
       }
     } else {
       updateProfile({ color: auraId });
     }
+  };
+
+  const confirmPurchase = () => {
+    if (!auraToPurchase) return;
+    const gold = profile.gold || 0;
+    const unlocked = profile.unlockedAuras || [];
+
+    if (gold >= PREMIUM_PRICE) {
+      updateProfile({
+        gold: gold - PREMIUM_PRICE,
+        unlockedAuras: [...unlocked, auraToPurchase.id],
+        color: auraToPurchase.id
+      });
+      toast({
+        title: "PREMIUM AURA UNLOCKED!",
+        description: `You purchased ${auraToPurchase.label.toUpperCase()} for ${PREMIUM_PRICE}G.`,
+      });
+    } else {
+      toast({
+        variant: "destructive",
+        title: "INSUFFICIENT GOLD!",
+        description: `You need ${PREMIUM_PRICE - gold} more gold to unlock this aura.`,
+      });
+    }
+    setAuraToPurchase(null);
   };
 
   const weapons: { id: WeaponClass; desc: string }[] = [
@@ -283,12 +307,13 @@ export default function EntryScreen() {
                           title={a.label}
                           onClick={() => selectAura(a.id, true)}
                           className={cn(
-                            "w-full aspect-square rounded-full border-4 transition-all relative flex items-center justify-center",
+                            "w-full aspect-square rounded-full border-4 transition-all relative flex items-center justify-center overflow-hidden",
                             isSelected ? "scale-110 border-white shadow-[0_0_15px_rgba(255,255,255,0.8)]" : "border-black hover:scale-105",
+                            !isUnlocked && "opacity-50 brightness-50",
                             a.class
                           )}
                         >
-                          {!isUnlocked && <Lock className="w-3 h-3 text-white/40" />}
+                          {!isUnlocked && <Lock className="w-5 h-5 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]" />}
                         </button>
                       );
                     })}
@@ -337,6 +362,25 @@ export default function EntryScreen() {
           </Button>
         </div>
       </div>
+
+      <AlertDialog open={!!auraToPurchase} onOpenChange={(open) => !open && setAuraToPurchase(null)}>
+        <AlertDialogContent className="cartoon-card bg-black/90 border-4 border-black p-8 text-white max-w-sm">
+          <AlertDialogHeader className="space-y-4">
+            <div className="mx-auto w-16 h-16 rounded-full border-4 border-accent flex items-center justify-center bg-accent/20">
+              <Sparkles className="w-8 h-8 text-accent" />
+            </div>
+            <AlertDialogTitle className="font-headline text-2xl text-center uppercase tracking-tight">Unlock Aura?</AlertDialogTitle>
+            <AlertDialogDescription className="text-white/80 font-bold text-center uppercase text-xs">
+              Unlock the {auraToPurchase?.label} color for {PREMIUM_PRICE} Gold?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-8 flex gap-4">
+            <AlertDialogCancel className="cartoon-button bg-destructive text-white flex-1 h-12">CANCEL</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmPurchase} className="cartoon-button bg-accent text-black flex-1 h-12">ACCEPT</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
+
