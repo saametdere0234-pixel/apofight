@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { PlayerProfile } from '@/lib/game-types';
-import { ref, onValue, update, onDisconnect, get } from 'firebase/database';
+import { ref, onValue, update, onDisconnect, get, set } from 'firebase/database';
 import { db, auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
@@ -14,124 +14,152 @@ export function useLocalPlayer() {
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Helper to generate a unique 8-digit Player ID
+  async function generateUniquePlayerId(): Promise<string> {
+    if (!db) return Math.floor(10000000 + Math.random() * 90000000).toString();
+    
+    let isUnique = false;
+    let newId = "";
+    
+    while (!isUnique) {
+      newId = Math.floor(10000000 + Math.random() * 90000000).toString();
+      const mappingRef = ref(db, `playerIds/${newId}`);
+      const snap = await get(mappingRef);
+      if (!snap.exists()) {
+        isUnique = true;
+      }
+    }
+    return newId;
+  }
+
   useEffect(() => {
     // Listen for Auth changes
-    const unsubAuth = onAuthStateChanged(auth, (user) => {
+    const unsubAuth = onAuthStateChanged(auth, async (user) => {
       setAuthUser(user);
-    });
-
-    const stored = localStorage.getItem(STORAGE_KEY);
-    let initialProfile: PlayerProfile;
-
-    if (stored) {
-      initialProfile = JSON.parse(stored);
-      if (!initialProfile.playerId) {
-        initialProfile.playerId = Math.floor(10000000 + Math.random() * 90000000).toString();
+      
+      if (!db) {
+        setLoading(false);
+        return;
       }
-      if (initialProfile.gold === undefined) {
-        initialProfile.gold = 0;
-      }
-    } else {
-      const id = Math.random().toString(36).substring(2, 15);
-      initialProfile = {
-        id,
-        name: '',
-        color: '#3b82f6',
-        weaponClass: 'Sword',
-        playerId: Math.floor(10000000 + Math.random() * 90000000).toString(),
-        gold: 0,
-      };
-    }
 
-    if (!db) {
-      setProfile(initialProfile);
-      setLoading(false);
-      return () => unsubAuth();
-    }
-
-    const playerRef = ref(db, `players/${initialProfile.id}`);
-    const unsubscribe = onValue(playerRef, (snapshot) => {
-      const val = snapshot.val();
-      if (val !== null) {
-        let syncedProfile = { ...initialProfile, ...val };
+      if (user) {
+        // --- AUTHENTICATED USER FLOW ---
+        const userRef = ref(db, `players/${user.uid}`);
+        const snap = await get(userRef);
         
-        // ADMIN GRANT: Special reward for Player ID 44432067
-        // We use a flag 'adminRewardClaimed' to ensure this only happens once
-        if (syncedProfile.playerId === '44432067' && !syncedProfile.adminRewardClaimed) {
-          const bonus = 10000;
-          const newGold = (syncedProfile.gold || 0) + bonus;
+        if (snap.exists()) {
+          // Existing user: Load their profile
+          const existingProfile = snap.val() as PlayerProfile;
           
-          update(playerRef, { 
-            gold: newGold,
-            adminRewardClaimed: true 
-          });
+          // ADMIN GRANT: Special reward for specific Player ID
+          if (existingProfile.playerId === '44432067' && !existingProfile.adminRewardClaimed) {
+            const bonus = 10000;
+            const newGold = (existingProfile.gold || 0) + bonus;
+            await update(userRef, { 
+              gold: newGold,
+              adminRewardClaimed: true 
+            });
+            existingProfile.gold = newGold;
+            existingProfile.adminRewardClaimed = true;
+          }
+
+          setProfile(existingProfile);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(existingProfile));
+        } else {
+          // New Google User: Create a single 1:1 profile
+          const newPlayerId = await generateUniquePlayerId();
+          const newProfile: PlayerProfile = {
+            id: user.uid,
+            name: user.displayName || 'Warrior',
+            avatarUrl: user.photoURL || undefined,
+            color: '#3b82f6',
+            weaponClass: 'Sword',
+            playerId: newPlayerId,
+            gold: 0,
+            isOnline: true
+          };
           
-          syncedProfile = { 
-            ...syncedProfile, 
-            gold: newGold, 
-            adminRewardClaimed: true 
+          await set(userRef, newProfile);
+          // Register mapping for search
+          await set(ref(db, `playerIds/${newPlayerId}`), user.uid);
+          
+          setProfile(newProfile);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(newProfile));
+        }
+
+        // Presence logic for Auth users
+        const onlineRef = ref(db, `players/${user.uid}/isOnline`);
+        onDisconnect(onlineRef).set(false);
+        await update(ref(db, `players/${user.uid}`), { isOnline: true });
+        
+        setLoading(false);
+
+        // Setup real-time listener for the profile
+        const unsubProfile = onValue(userRef, (snapshot) => {
+          const val = snapshot.val();
+          if (val) {
+            setProfile(val);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(val));
+          }
+        });
+        return () => unsubProfile();
+
+      } else {
+        // --- GUEST FLOW ---
+        const stored = localStorage.getItem(STORAGE_KEY);
+        let guestProfile: PlayerProfile;
+
+        if (stored) {
+          guestProfile = JSON.parse(stored);
+          // Safety check for guest playerId
+          if (!guestProfile.playerId) {
+            guestProfile.playerId = await generateUniquePlayerId();
+          }
+        } else {
+          const id = "guest_" + Math.random().toString(36).substring(2, 15);
+          const guestId = await generateUniquePlayerId();
+          guestProfile = {
+            id,
+            name: '',
+            color: '#3b82f6',
+            weaponClass: 'Sword',
+            playerId: guestId,
+            gold: 0,
+            isOnline: true
           };
         }
 
-        setProfile(syncedProfile);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(syncedProfile));
-      } else {
-        setProfile(initialProfile);
+        const guestRef = ref(db, `players/${guestProfile.id}`);
+        // Ensure guest exists in DB and mapping
+        await update(guestRef, guestProfile);
+        await update(ref(db, 'playerIds'), { [guestProfile.playerId!]: guestProfile.id });
+        
+        const onlineRef = ref(db, `players/${guestProfile.id}/isOnline`);
+        onDisconnect(onlineRef).set(false);
+        await update(guestRef, { isOnline: true });
+
+        setProfile(guestProfile);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(guestProfile));
+        setLoading(false);
+
+        const unsubGuest = onValue(guestRef, (snapshot) => {
+          const val = snapshot.val();
+          if (val) {
+            setProfile(val);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(val));
+          }
+        });
+        return () => unsubGuest();
       }
-      setLoading(false);
     });
 
-    // Handle Online Presence
-    const onlineRef = ref(db, `players/${initialProfile.id}/isOnline`);
-    update(ref(db, `players/${initialProfile.id}`), { 
-      isOnline: true,
-      playerId: initialProfile.playerId // Ensure it's in the cloud
-    });
-    
-    // Register mapping for search to avoid indexing issues
-    if (initialProfile.playerId) {
-      update(ref(db, 'playerIds'), { [initialProfile.playerId]: initialProfile.id });
-    }
-    
-    onDisconnect(onlineRef).set(false);
-
-    return () => {
-      unsubscribe();
-      unsubAuth();
-    };
+    return () => unsubAuth();
   }, []);
 
-  useEffect(() => {
-    if (authUser && profile) {
-      const updates: Partial<PlayerProfile> = {};
-      if (!profile.name || profile.name === '') {
-        updates.name = authUser.displayName || '';
-      }
-      if (!profile.avatarUrl || profile.avatarUrl !== authUser.photoURL) {
-        updates.avatarUrl = authUser.photoURL || undefined;
-      }
-      
-      if (Object.keys(updates).length > 0) {
-        updateProfile(updates);
-      }
-    }
-  }, [authUser]);
-
   const updateProfile = (updates: Partial<PlayerProfile>) => {
-    if (!profile) return;
-    const newProfile = { ...profile, ...updates };
-    setProfile(newProfile);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newProfile));
-    
-    if (db) {
-      const playerPathRef = ref(db, `players/${profile.id}`);
-      update(playerPathRef, updates);
-
-      // Always sync mapping
-      if (newProfile.playerId) {
-        update(ref(db, 'playerIds'), { [newProfile.playerId]: profile.id });
-      }
-    }
+    if (!profile || !db) return;
+    const playerPathRef = ref(db, `players/${profile.id}`);
+    update(playerPathRef, updates);
   };
 
   return { profile, updateProfile, authUser, loading };
