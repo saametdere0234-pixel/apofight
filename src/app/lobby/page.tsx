@@ -471,13 +471,6 @@ export default function LobbyScreen() {
                     ))
                   )}
                 </div>
-                
-                <Button 
-                  onClick={() => setSidebarView('friends')}
-                  className="cartoon-button bg-primary text-white w-full h-10 mt-auto"
-                >
-                  GERİ
-                </Button>
               </>
             )}
           </div>
