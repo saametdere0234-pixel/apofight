@@ -129,8 +129,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const interpPlayersRef = useRef<Record<string, GamePlayer>>({});
   const lastSyncTimeRef = useRef(0);
 
+  // Quitting is restricted during active match phases
+  const isLocked = room?.status !== 'lobby' && room?.status !== 'finished';
+
   const handleQuit = useCallback(async () => {
-    if (!db || !roomId || !profileRef.current || roomRef.current?.status === 'playing' || roomRef.current?.status === 'starting') return;
+    if (!db || !roomId || !profileRef.current || isLocked) return;
     const roomPath = ref(db, `rooms/${roomId}`);
     const myPlayerRef = ref(db, `rooms/${roomId}/players/${profileRef.current.id}`);
     
@@ -146,7 +149,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     }
     router.push('/lobby');
-  }, [roomId, router]);
+  }, [roomId, router, isLocked]);
 
   const handlePlayAgain = useCallback(async () => {
     if (!db || !roomId || !profileRef.current) return;
@@ -1462,7 +1465,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const isLocalReady = myP?.isReady ?? false;
   const showResults = room?.status === 'finished' && !isLocalReady;
   const showLobby = room?.status === 'lobby' || (room?.status === 'finished' && isLocalReady);
-  const isLocked = room?.status === 'playing' || room?.status === 'starting';
 
   return (
     <div className="min-h-screen bg-[#000035] overflow-hidden flex flex-col items-center select-none" onMouseMove={handleMouseMove}>

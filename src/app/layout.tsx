@@ -1,6 +1,7 @@
 import type {Metadata} from 'next';
 import './globals.css';
 import { InvitationListener } from '@/components/InvitationListener';
+import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
   title: 'Apo54 Battleground',
@@ -22,6 +23,7 @@ export default function RootLayout({
       <body className="font-body antialiased selection:bg-accent selection:text-accent-foreground">
         <InvitationListener />
         {children}
+        <Toaster />
       </body>
     </html>
   );
