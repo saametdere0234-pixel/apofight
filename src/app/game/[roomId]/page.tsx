@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -44,6 +43,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { FriendsSidebar } from '@/components/FriendsSidebar';
 
 const WeaponIcon = ({ weapon, className = "w-6 h-6" }: { weapon: WeaponClass; className?: string }) => {
   const baseClasses = "font-headline flex items-center justify-center select-none leading-none";
@@ -785,7 +785,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const my = mouseRef.current.y;
     const attackAngle = Math.atan2(my - py, mx - px);
 
-    let stunAppliedThis swing = false;
+    let stunAppliedThisSwing = false;
     const canStun = weapon === 'Sword' && now > (p.stunCooldownUntil || 0);
 
     update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), {
@@ -1423,7 +1423,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ))}
       </div>
 
-      {/* Top Right Profile Display */}
       {authUser && (
         <div className="fixed top-6 right-6 z-[100] animate-in slide-in-from-top-4 fade-in duration-500">
           <DropdownMenu modal={false}>
@@ -1483,6 +1482,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         </div>
       )}
 
+      {authUser && <FriendsSidebar currentRoomId={roomId} />}
+
       {playerCount === 1 && (
         <div className="w-full bg-destructive/20 py-2 border-b-4 border-black text-center z-[100]">
           <span className="font-headline text-2xl text-white tracking-widest drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]">WAITING FOR OPPONENTS</span>
@@ -1513,7 +1514,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         </div>
         <div className="flex items-center gap-4 overflow-x-auto max-w-[70vw] scrollbar-hide px-4">
           {Object.values(room?.players || {}).map(p => (
-            <div key={p.id} className="flex items-center gap-3 bg-black/40 border-4 border-black rounded-[20px] p-2 px-4 shadow-[4px_4px_0px_rgba(0,0,0,1)] min-w-[180px]">
+            <div key={p.id} className="flex items-center gap-3 bg-black/40 border-4 border-black rounded-[20px] p-2 px-4 shadow-[4px_4px_0_rgba(0,0,0,1)] min-w-[180px]">
               <div className="flex flex-col items-start gap-0.5 flex-1">
                 <div className="flex items-center gap-2">
                   <WeaponIcon weapon={p.weaponClass as WeaponClass} className="w-7 h-7 text-xl" />
@@ -1544,7 +1545,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           
           {showCountdown && (
             <div className="absolute inset-0 flex items-center justify-center z-[60] pointer-events-none">
-              <span className="text-9xl font-headline text-white drop-shadow-[8px_8px_0px_rgba(0,0,0,1)] animate-in zoom-in duration-300">{countdownText}</span>
+              <span className="text-9xl font-headline text-white drop-shadow-[8px_8px_0_rgba(0,0,0,1)] animate-in zoom-in duration-300">{countdownText}</span>
             </div>
           )}
 
@@ -1555,8 +1556,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                   {(room.players ? Object.values(room.players) : []).map(p => (
                     <div key={p.id} className="flex flex-col items-center gap-3">
                       <div className="relative">
-                        <div className="w-16 h-16 rounded-2xl border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]" style={{ backgroundColor: p.color }} />
-                        {p.id === room?.createdBy && <Crown className="absolute -top-6 -right-6 w-10 h-10 text-yellow-500 fill-yellow-500 rotate-12 drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]" />}
+                        <div className="w-16 h-16 rounded-2xl border-4 border-black shadow-[4px_4px_0_rgba(0,0,0,1)]" style={{ backgroundColor: p.color }} />
+                        {p.id === room?.createdBy && <Crown className="absolute -top-6 -right-6 w-10 h-10 text-yellow-500 fill-yellow-500 rotate-12 drop-shadow-[2px_2px_0_rgba(0,0,0,1)]" />}
                         {!p.isReady && (
                           <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center rounded-2xl">
                              <div className="w-6 h-6 border-2 border-white border-t-transparent animate-spin rounded-full mb-1" />
@@ -1595,16 +1596,16 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
           {room?.status === 'round_over' && (
             <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center z-50">
-              <h2 className="text-9xl font-headline text-accent animate-bounce drop-shadow-[8px_8px_0px_rgba(0,0,0,1)]">{room.lastWinnerName === 'DRAW' ? 'DRAW!' : 'ROUND!'}</h2>
+              <h2 className="text-9xl font-headline text-accent animate-bounce drop-shadow-[8px_8px_0_rgba(0,0,0,1)]">{room.lastWinnerName === 'DRAW' ? 'DRAW!' : 'ROUND!'}</h2>
               {room.lastWinnerName && room.lastWinnerName !== 'DRAW' && (
-                <span className="text-4xl font-headline text-white drop-shadow-[4px_4px_0px_rgba(0,0,0,1)] mt-4">{room.lastWinnerName.toUpperCase()} WINS</span>
+                <span className="text-4xl font-headline text-white drop-shadow-[4px_4px_0_rgba(0,0,0,1)] mt-4">{room.lastWinnerName.toUpperCase()} WINS</span>
               )}
             </div>
           )}
 
           {showResults && room && (
              <div className="absolute inset-0 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center z-50 p-10 text-center space-y-10">
-                <Trophy className="w-32 h-32 text-yellow-500 animate-pulse drop-shadow-[8px_8px_0px_rgba(0,0,0,1)]" />
+                <Trophy className="w-32 h-32 text-yellow-500 animate-pulse drop-shadow-[8px_8px_0_rgba(0,0,0,1)]" />
                 <h2 className="text-8xl font-headline text-white italic">{room.lastWinnerName ? `${room.lastWinnerName.toUpperCase()} IS CHAMPION!` : 'CHAMPION!'}</h2>
                 <div className="flex gap-4">
                   <Button onClick={handlePlayAgain} size="lg" className="cartoon-button bg-accent text-black text-2xl h-16 px-16 flex items-center gap-3"><RotateCcw className="w-6 h-6" /> PLAY AGAIN</Button>
@@ -1636,12 +1637,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             <span className="font-headline text-[10px] text-white/80 uppercase tracking-tight flex items-center gap-1">
                <Zap className="w-3 h-3 fill-current text-[#60a5fa]" /> STAMINA
             </span>
-            <span className="font-headline text-sm text-[#60a5fa] drop-shadow-[1px_1px_0px_rgba(0,0,0,1)]">{Math.floor(myP?.stamina || 0)}</span>
+            <span className="font-headline text-sm text-[#60a5fa] drop-shadow-[1px_1px_0_rgba(0,0,0,1)]">{Math.floor(myP?.stamina || 0)}</span>
           </div>
 
           {isStunned && (
             <div className="absolute inset-0 flex items-center justify-center z-[60] pointer-events-none">
-               <span className="font-headline text-6xl text-white drop-shadow-[4px_4px_0px_rgba(0,0,0,1)]">{(stunRemaining / 1000).toFixed(1)}</span>
+               <span className="font-headline text-6xl text-white drop-shadow-[4px_4px_0_rgba(0,0,0,1)]">{(stunRemaining / 1000).toFixed(1)}</span>
             </div>
           )}
           
@@ -1650,7 +1651,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
               <span className="font-headline text-[10px] text-white/80 uppercase tracking-tight flex items-center gap-1">
                  <Zap className="w-3 h-3 fill-current text-[#60a5fa]" /> DASH
               </span>
-              <span className="font-headline text-sm text-accent drop-shadow-[1px_1px_0px_rgba(0,0,0,1)]">
+              <span className="font-headline text-sm text-accent drop-shadow-[1px_1px_0_rgba(0,0,0,1)]">
                 {myP && myP.dashCharges === maxDash ? 'READY' : `${((myWeaponStats?.dashCooldown || 4.0) - (myP?.dashRechargeProgress || 0)).toFixed(1)}s`}
               </span>
             </div>
@@ -1669,7 +1670,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                 <span className="font-headline text-[10px] text-white/80 uppercase tracking-tight flex items-center gap-1">
                    <ShieldAlert className="w-3 h-3 fill-current text-yellow-500" /> STUN CD
                 </span>
-                <span className="font-headline text-sm text-yellow-500 drop-shadow-[1px_1px_0px_rgba(0,0,0,1)]">
+                <span className="font-headline text-sm text-yellow-500 drop-shadow-[1px_1px_0_rgba(0,0,0,1)]">
                   {myP && now > (myP.stunCooldownUntil || 0) ? 'READY' : `${(((myP?.stunCooldownUntil || 0) - now) / 1000).toFixed(1)}s`}
                 </span>
               </div>

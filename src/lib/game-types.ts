@@ -13,6 +13,15 @@ export interface PlayerProfile {
   friendRequests?: string[]; // Array of playerIds who sent requests
 }
 
+export interface GameInvitation {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderPlayerId: string;
+  roomId: string;
+  timestamp: number;
+}
+
 export interface Projectile {
   id: string;
   ownerId: string;
