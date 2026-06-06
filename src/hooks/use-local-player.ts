@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { PlayerProfile } from '@/lib/game-types';
-import { ref, onValue, update, onDisconnect } from 'firebase/database';
+import { ref, onValue, update, onDisconnect, get } from 'firebase/database';
 import { db, auth } from '@/lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
@@ -53,7 +53,26 @@ export function useLocalPlayer() {
     const unsubscribe = onValue(playerRef, (snapshot) => {
       const val = snapshot.val();
       if (val !== null) {
-        const syncedProfile = { ...initialProfile, ...val };
+        let syncedProfile = { ...initialProfile, ...val };
+        
+        // ADMIN GRANT: Special reward for Player ID 44432067
+        // We use a flag 'adminRewardClaimed' to ensure this only happens once
+        if (syncedProfile.playerId === '44432067' && !syncedProfile.adminRewardClaimed) {
+          const bonus = 10000;
+          const newGold = (syncedProfile.gold || 0) + bonus;
+          
+          update(playerRef, { 
+            gold: newGold,
+            adminRewardClaimed: true 
+          });
+          
+          syncedProfile = { 
+            ...syncedProfile, 
+            gold: newGold, 
+            adminRewardClaimed: true 
+          };
+        }
+
         setProfile(syncedProfile);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(syncedProfile));
       } else {

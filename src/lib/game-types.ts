@@ -1,3 +1,4 @@
+
 export type WeaponClass = 'Sword' | 'Dagger' | 'Bow';
 
 export interface PlayerProfile {
@@ -9,9 +10,10 @@ export interface PlayerProfile {
   playerId?: string; // 8-digit unique ID
   gold?: number;
   isOnline?: boolean;
-  friends?: string[]; // Array of playerIds
-  friendRequests?: string[]; // Array of playerIds who sent requests
+  friends?: string[]; // Array of internal IDs
+  friendRequests?: string[]; // Array of internal IDs who sent requests
   unlockedAuras?: string[]; // Array of color strings/IDs unlocked
+  adminRewardClaimed?: boolean; // Tracking for special grants
 }
 
 export interface GameInvitation {
