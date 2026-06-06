@@ -131,13 +131,13 @@ export default function EntryScreen() {
         color: auraToPurchase.id
       });
       toast({
-        title: "PREMIUM AURA UNLOCKED!",
-        description: `You purchased ${auraToPurchase.label.toUpperCase()} for ${PREMIUM_PRICE}G.`,
+        title: "Purchase successful!",
+        description: `-200 Gold`,
       });
     } else {
       toast({
         variant: "destructive",
-        title: "INSUFFICIENT GOLD!",
+        title: "Insufficient funds!",
         description: `You need ${PREMIUM_PRICE - gold} more gold to unlock this aura.`,
       });
     }
@@ -383,4 +383,3 @@ export default function EntryScreen() {
     </div>
   );
 }
-

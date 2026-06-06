@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -35,14 +36,7 @@ import { Trophy, ArrowLeft, Play, Zap, Heart, Users, Crown, RotateCcw, WifiOff, 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { toast } from '@/hooks/use-toast';
 import { FriendsSidebar } from '@/components/FriendsSidebar';
 
 const WeaponIcon = ({ weapon, className = "w-6 h-6" }: { weapon: WeaponClass; className?: string }) => {
@@ -111,6 +105,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const [keys] = useState<Set<string>>(new Set());
   const [isConnected, setIsConnected] = useState(true);
   const matchProcessedRef = useRef<string | null>(null);
+  const feeProcessedRef = useRef<string | null>(null);
   
   const isChargingRef = useRef(false);
   const [isCharging, setIsCharging] = useState(false);
@@ -131,9 +126,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   const [localEffects, setLocalEffects] = useState<GameEffect[]>([]);
   const effectsRef = useRef<GameEffect[]>([]);
-  const lastHpRef = useRef<number>(1000);
-  const [recentHeal, setRecentHeal] = useState<{ amount: number, time: number } | null>(null);
-
   const interpPlayersRef = useRef<Record<string, GamePlayer>>({});
   const lastSyncTimeRef = useRef(0);
 
@@ -156,10 +148,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     router.push('/lobby');
   }, [roomId, router]);
 
-  const handleLogout = () => {
-    signOut(auth);
-  };
-
   const handlePlayAgain = useCallback(async () => {
     if (!db || !roomId || !profileRef.current) return;
     const myPlayerRef = ref(db, `rooms/${roomId}/players/${profileRef.current.id}`);
@@ -172,7 +160,28 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     profileRef.current = profile;
   }, [profile]);
 
-  // Gold Economy Logic
+  // Match Entry Fee Logic
+  useEffect(() => {
+    if (room?.status === 'starting' && profile && authUser) {
+      const matchId = `${roomId}_${room.startTime}`;
+      if (feeProcessedRef.current === matchId) return;
+      feeProcessedRef.current = matchId;
+
+      const currentGold = profile.gold || 0;
+      if (currentGold >= 5) {
+        updateProfile({ gold: currentGold - 5 });
+        toast({
+          title: "Match started!",
+          description: "Entry fee: -5 Gold",
+        });
+      }
+    }
+    if (room?.status === 'lobby') {
+      feeProcessedRef.current = null;
+    }
+  }, [room?.status, room?.startTime, profile?.id, roomId, authUser]);
+
+  // Gold Economy & Victory Notification Logic
   useEffect(() => {
     if (room?.status === 'finished' && room.lastWinnerName && profile && authUser) {
       if (matchProcessedRef.current === roomId) return;
@@ -186,6 +195,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         if (weapon === 'Dagger') change = 15;
         else if (weapon === 'Sword') change = 5;
         else if (weapon === 'Bow') change = 10;
+
+        toast({
+          title: "Champion!",
+          description: `Received +${change} Gold!`,
+        });
       }
 
       const currentGold = profile.gold || 0;
@@ -393,8 +407,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           stunCooldownUntil: 0,
           isReady: true
         };
-
-        lastHpRef.current = weaponStats.maxHp;
         
         set(myPlayerRef, initialPlayer);
         update(roomPath, { lastUpdate: Date.now() });
@@ -452,7 +464,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             const dist = Math.sqrt(dx * dx + dy * dy);
             const maxRange = proj.range || WEAPON_STATS.Bow.range;
             
-            // Scaled damage from 50 (min) to 200 (max)
             const scaledDamage = 50 + (150 * Math.min(1, dist / maxRange));
             
             thisHit(hitId, currentRoom.players[hitId], false, scaledDamage);
@@ -1137,7 +1148,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           ctx.save();
           ctx.globalAlpha = 0.3 * (1 - (i / ghostCount));
           
-          // Handle Premium Aura Colors for Dash Ghost
           if (p.color.startsWith('aura-')) {
              ctx.fillStyle = p.color === 'aura-black' ? '#000000' : '#ffffff';
           } else {
@@ -1214,16 +1224,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
       ctx.save();
       
-      // Character Fill Logic (Support Premium Gradients)
       if (p.color.startsWith('aura-')) {
         if (p.color === 'aura-black') {
           ctx.fillStyle = '#000000';
         } else if (p.color === 'aura-white-no-border') {
           ctx.fillStyle = '#ffffff';
         } else {
-          // Animated Gradient Logic
           const grad = ctx.createLinearGradient(px, py, px + pw, py + ph);
-          const t = (now % 3000) / 3000; // 3 second cycle
+          const t = (now % 3000) / 3000; 
           
           if (p.color === 'aura-pink-blue') { grad.addColorStop(t, '#ec4899'); grad.addColorStop((t+0.5)%1, '#3b82f6'); }
           else if (p.color === 'aura-red-blue') { grad.addColorStop(t, '#ef4444'); grad.addColorStop((t+0.5)%1, '#3b82f6'); }
@@ -1240,7 +1248,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.fillStyle = p.color;
       }
 
-      // Border Logic
       if (p.color === 'aura-white-no-border') {
         ctx.strokeStyle = 'transparent';
       } else {
@@ -1461,65 +1468,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           </span>
         ))}
       </div>
-
-      {authUser && (
-        <div className="fixed top-6 right-6 z-[100] animate-in slide-in-from-top-4 fade-in duration-500">
-          <DropdownMenu modal={false}>
-            <DropdownMenuTrigger asChild>
-              <div 
-                id="user-profile"
-                className="relative flex items-center gap-4 bg-black/60 backdrop-blur-md p-2 pl-4 rounded-full border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)] cursor-pointer hover:bg-black/80 transition-colors"
-              >
-                <span id="user-name" className="font-headline text-lg text-white" style={{ WebkitTextStroke: '1px black' }}>{authUser?.displayName}</span>
-                <Avatar className="w-10 h-10 border-2 border-white/20">
-                  <AvatarImage id="user-pic" src={authUser?.photoURL || undefined} className="rounded-full" />
-                  <AvatarFallback className="bg-primary text-white font-headline text-xs">{authUser?.displayName?.charAt(0)}</AvatarFallback>
-                </Avatar>
-              </div>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="cartoon-card bg-black/90 border-4 border-black p-4 min-w-[240px] text-white">
-              <DropdownMenuLabel className="font-headline text-xl text-primary mb-2">WARRIOR INFO</DropdownMenuLabel>
-              <DropdownMenuSeparator className="bg-white/10" />
-              <div className="space-y-4 py-2">
-                <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1">
-                    <Swords className="w-3 h-3" /> CURRENT WEAPON
-                  </span>
-                  <div className="flex items-center gap-2 bg-black/40 p-2 rounded-xl border border-white/10">
-                    <WeaponIcon weapon={profile.weaponClass} className="w-6 h-6" />
-                    <span className="font-headline text-sm text-white">{profile.weaponClass}</span>
-                  </div>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1">
-                    <Fingerprint className="w-3 h-3" /> PLAYER ID
-                  </span>
-                  <span id="player-id" className="font-headline text-lg text-white">{profile.playerId}</span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1">
-                    <Wallet className="w-3 h-3" /> GOLD BALANCE
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 bg-yellow-500 rounded-full border-2 border-black" />
-                    <span id="gold-currency" className="font-headline text-2xl text-accent">{profile.gold || 0} G</span>
-                  </div>
-                </div>
-              </div>
-              <DropdownMenuSeparator className="bg-white/10" />
-              <DropdownMenuItem 
-                id="logout-btn"
-                onClick={handleLogout}
-                className="mt-2 focus:bg-transparent"
-              >
-                <Button className="cartoon-button bg-destructive text-white w-full h-10 gap-2">
-                  <LogOut className="w-4 h-4" /> LOGOUT
-                </Button>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      )}
 
       {authUser && <FriendsSidebar currentRoomId={roomId} />}
 
