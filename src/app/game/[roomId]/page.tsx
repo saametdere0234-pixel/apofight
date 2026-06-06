@@ -170,12 +170,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   // Presence for current room
   useEffect(() => {
     if (!db || !profile?.id || !roomId) return;
-    const profileRef = ref(db, `players/${profile.id}`);
-    update(profileRef, { currentRoomId: roomId });
-    onDisconnect(profileRef).update({ currentRoomId: null });
+    const profileDbRef = ref(db, `players/${profile.id}`);
+    update(profileDbRef, { currentRoomId: roomId });
+    onDisconnect(profileDbRef).update({ currentRoomId: null });
     
     return () => {
-      update(profileRef, { currentRoomId: null });
+      update(profileDbRef, { currentRoomId: null });
     };
   }, [profile?.id, roomId]);
 
@@ -449,6 +449,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     return () => {
       unsubscribe();
+      // Explicitly cleanup player from the room when leaving the page
+      if (db && profile?.id) {
+        remove(ref(db, `rooms/${roomId}/players/${profile.id}`));
+      }
     };
   }, [profile, profileLoading, roomId, router]);
 

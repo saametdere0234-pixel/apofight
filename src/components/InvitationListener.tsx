@@ -38,31 +38,37 @@ export function InvitationListener() {
     return () => unsubscribe();
   }, [profile?.id]);
 
-  const handleAccept = () => {
+  const handleAccept = async () => {
     if (!activeInvite || !profile || !db) return;
     const invite = activeInvite;
     
+    // Safety cleanup: If joining from another room, remove player from old room first
+    if (profile.currentRoomId && profile.currentRoomId !== invite.roomId) {
+      const oldPlayerRef = ref(db, `rooms/${profile.currentRoomId}/players/${profile.id}`);
+      await remove(oldPlayerRef);
+    }
+
     if (invite.type === 'invite') {
       // Recipient joins the room immediately
       setActiveInvite(null);
-      remove(ref(db, `invitations/${profile.id}/${invite.id}`));
+      await remove(ref(db, `invitations/${profile.id}/${invite.id}`));
       router.push(`/game/${invite.roomId}`);
     } else {
       // Join request: Host accepts, friend (sender) will join automatically via status listener
-      update(ref(db, `invitations/${profile.id}/${invite.id}`), { 
+      await update(ref(db, `invitations/${profile.id}/${invite.id}`), { 
         status: 'accepted' 
       });
       setActiveInvite(null);
     }
   };
 
-  const handleReject = () => {
+  const handleReject = async () => {
     if (!activeInvite || !profile || !db) return;
     const invite = activeInvite;
     setActiveInvite(null);
     
     // Update status to rejected so sender gets the notification
-    update(ref(db, `invitations/${profile.id}/${invite.id}`), { 
+    await update(ref(db, `invitations/${profile.id}/${invite.id}`), { 
       status: 'rejected' 
     });
     
