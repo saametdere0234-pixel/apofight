@@ -187,7 +187,7 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
     });
   };
 
-  if (!authUser) return null;
+  if (!authUser || !profile) return null;
 
   return (
     <div className={cn(
