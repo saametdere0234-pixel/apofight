@@ -13,6 +13,7 @@ import { GameRoom, WeaponClass } from '@/lib/game-types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Slider } from '@/components/ui/slider';
 import { cn } from '@/lib/utils';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 const WeaponIcon = ({ weapon, className = "w-8 h-8" }: { weapon: WeaponClass; className?: string }) => {
   const baseClasses = "font-headline flex items-center justify-center select-none leading-none";
@@ -41,7 +42,7 @@ const WeaponIcon = ({ weapon, className = "w-8 h-8" }: { weapon: WeaponClass; cl
 };
 
 export default function LobbyScreen() {
-  const { profile, loading: profileLoading } = useLocalPlayer();
+  const { profile, authUser, loading: profileLoading } = useLocalPlayer();
   const [rooms, setRooms] = useState<Record<string, GameRoom>>({});
   const [newRoomName, setNewRoomName] = useState('');
   const [maxPlayers, setMaxPlayers] = useState(4);
@@ -96,6 +97,19 @@ export default function LobbyScreen() {
   return (
     <div className="min-h-screen bg-[#1a1a2e] p-4 md:p-8 flex flex-col items-center relative overflow-hidden">
       <div className="scanline"></div>
+      
+      {/* Top Right Profile Display */}
+      {authUser && (
+        <div className="fixed top-6 right-6 z-[100] animate-in slide-in-from-top-4 fade-in duration-500">
+           <div className="flex items-center gap-4 bg-black/60 backdrop-blur-md p-2 pl-4 rounded-full border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]">
+              <span className="font-headline text-lg text-white" style={{ WebkitTextStroke: '1px black' }}>{authUser.displayName}</span>
+              <Avatar className="w-10 h-10 border-2 border-white/20">
+                <AvatarImage src={authUser.photoURL || undefined} />
+                <AvatarFallback className="bg-primary text-white font-headline text-xs">{authUser.displayName?.charAt(0)}</AvatarFallback>
+              </Avatar>
+           </div>
+        </div>
+      )}
       
       <div className="w-full max-w-5xl space-y-10 relative z-20">
         {!db && (

@@ -33,6 +33,7 @@ import { useRouter } from 'next/navigation';
 import { Trophy, ArrowLeft, Play, Zap, Heart, Users, Crown, RotateCcw, WifiOff, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 const WeaponIcon = ({ weapon, className = "w-6 h-6" }: { weapon: WeaponClass; className?: string }) => {
   const baseClasses = "font-headline flex items-center justify-center select-none leading-none";
@@ -88,7 +89,7 @@ const getBestSpawnPoint = (points: typeof SPAWN_POINTS, existingPositions: {x: n
 
 export default function GamePage({ params }: { params: Promise<{ roomId: string }> }) {
   const { roomId } = use(params);
-  const { profile, loading: profileLoading } = useLocalPlayer();
+  const { profile, authUser, loading: profileLoading } = useLocalPlayer();
   const router = useRouter();
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1403,6 +1404,19 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           </span>
         ))}
       </div>
+
+      {/* Top Right Profile Display */}
+      {authUser && (
+        <div className="fixed top-6 right-6 z-[100] animate-in slide-in-from-top-4 fade-in duration-500">
+           <div className="flex items-center gap-4 bg-black/60 backdrop-blur-md p-2 pl-4 rounded-full border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]">
+              <span className="font-headline text-lg text-white" style={{ WebkitTextStroke: '1px black' }}>{authUser.displayName}</span>
+              <Avatar className="w-10 h-10 border-2 border-white/20">
+                <AvatarImage src={authUser.photoURL || undefined} />
+                <AvatarFallback className="bg-primary text-white font-headline text-xs">{authUser.displayName?.charAt(0)}</AvatarFallback>
+              </Avatar>
+           </div>
+        </div>
+      )}
 
       {playerCount === 1 && (
         <div className="w-full bg-destructive/20 py-2 border-b-4 border-black text-center z-[100]">

@@ -2,16 +2,23 @@
 
 import { useState, useEffect } from 'react';
 import { PlayerProfile } from '@/lib/game-types';
-import { ref, onValue, set } from 'firebase/database';
-import { db } from '@/lib/firebase';
+import { ref, onValue, set, update } from 'firebase/database';
+import { db, auth } from '@/lib/firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
 
 const STORAGE_KEY = 'apo54_profile';
 
 export function useLocalPlayer() {
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
+  const [authUser, setAuthUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Listen for Auth changes
+    const unsubAuth = onAuthStateChanged(auth, (user) => {
+      setAuthUser(user);
+    });
+
     const stored = localStorage.getItem(STORAGE_KEY);
     let initialProfile: PlayerProfile;
 
@@ -30,7 +37,7 @@ export function useLocalPlayer() {
     if (!db) {
       setProfile(initialProfile);
       setLoading(false);
-      return;
+      return () => unsubAuth();
     }
 
     // Sync profile data from Firebase if needed
@@ -47,8 +54,28 @@ export function useLocalPlayer() {
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      unsubAuth();
+    };
   }, []);
+
+  // Sync Auth User to Profile
+  useEffect(() => {
+    if (authUser && profile) {
+      const updates: Partial<PlayerProfile> = {};
+      if (!profile.name || profile.name === '') {
+        updates.name = authUser.displayName || '';
+      }
+      if (!profile.avatarUrl || profile.avatarUrl !== authUser.photoURL) {
+        updates.avatarUrl = authUser.photoURL || undefined;
+      }
+      
+      if (Object.keys(updates).length > 0) {
+        updateProfile(updates);
+      }
+    }
+  }, [authUser]);
 
   const updateProfile = (updates: Partial<PlayerProfile>) => {
     if (!profile) return;
@@ -57,12 +84,10 @@ export function useLocalPlayer() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newProfile));
     
     if (db) {
-      // Sync to Firebase
-      set(ref(db, `players/${profile.id}/name`), newProfile.name);
-      set(ref(db, `players/${profile.id}/color`), newProfile.color);
-      set(ref(db, `players/${profile.id}/weaponClass`), newProfile.weaponClass);
+      const playerPathRef = ref(db, `players/${profile.id}`);
+      update(playerPathRef, updates);
     }
   };
 
-  return { profile, updateProfile, loading };
+  return { profile, updateProfile, authUser, loading };
 }

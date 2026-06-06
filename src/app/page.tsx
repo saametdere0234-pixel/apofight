@@ -5,10 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { User, Trophy, Zap } from 'lucide-react';
+import { User, Trophy, Zap, LogIn } from 'lucide-react';
 import { WeaponClass, WEAPON_STATS } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { auth, googleProvider } from '@/lib/firebase';
+import { signInWithPopup } from 'firebase/auth';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 const WeaponIcon = ({ weapon, className = "w-8 h-8" }: { weapon: WeaponClass; className?: string }) => {
   const baseClasses = "font-headline flex items-center justify-center select-none leading-none";
@@ -45,10 +48,11 @@ const BATTLE_AURAS = [
   '#ffffff', // White
   '#78350f', // Brown
   '#22c55e', // Green
+  '#06b6d4', // Cyan
 ];
 
 export default function EntryScreen() {
-  const { profile, updateProfile, loading } = useLocalPlayer();
+  const { profile, updateProfile, authUser, loading } = useLocalPlayer();
   const router = useRouter();
 
   if (loading || !profile) {
@@ -58,6 +62,14 @@ export default function EntryScreen() {
       </div>
     );
   }
+
+  const handleGoogleSignIn = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error) {
+      console.error("Google Sign-In failed", error);
+    }
+  };
 
   const handlePlay = () => {
     router.push('/lobby');
@@ -82,6 +94,19 @@ export default function EntryScreen() {
     <div className="min-h-screen bg-[#1a1a2e] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
       <div className="scanline"></div>
       
+      {/* Top Right Profile Display */}
+      {authUser && (
+        <div className="fixed top-6 right-6 z-[100] animate-in slide-in-from-top-4 fade-in duration-500">
+           <div className="flex items-center gap-4 bg-black/60 backdrop-blur-md p-2 pl-4 rounded-full border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)]">
+              <span className="font-headline text-lg text-white" style={{ WebkitTextStroke: '1px black' }}>{authUser.displayName}</span>
+              <Avatar className="w-10 h-10 border-2 border-white/20">
+                <AvatarImage src={authUser.photoURL || undefined} />
+                <AvatarFallback className="bg-primary text-white font-headline text-xs">{authUser.displayName?.charAt(0)}</AvatarFallback>
+              </Avatar>
+           </div>
+        </div>
+      )}
+
       <div className="absolute top-10 left-10 w-32 h-32 bg-primary/20 rounded-full blur-3xl animate-pulse"></div>
       <div className="absolute bottom-10 right-10 w-48 h-48 bg-accent/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
 
@@ -101,12 +126,24 @@ export default function EntryScreen() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <Card className="cartoon-card">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-headline text-2xl text-accent">
-                <User className="w-6 h-6" />
-                CHARACTER ID
-              </CardTitle>
-              <CardDescription className="font-bold text-white/60">YOUR ARENA LEGACY BEGINS HERE</CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div className="space-y-1.5">
+                <CardTitle className="flex items-center gap-2 font-headline text-2xl text-accent">
+                  <User className="w-6 h-6" />
+                  CHARACTER ID
+                </CardTitle>
+                <CardDescription className="font-bold text-white/60">YOUR ARENA LEGACY BEGINS HERE</CardDescription>
+              </div>
+              {!authUser && (
+                <Button 
+                  onClick={handleGoogleSignIn}
+                  variant="ghost" 
+                  size="icon" 
+                  className="cartoon-button bg-white text-black h-10 w-10 p-0 flex items-center justify-center overflow-hidden hover:bg-white/90"
+                >
+                  <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-6 h-6" alt="G" />
+                </Button>
+              )}
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-3">

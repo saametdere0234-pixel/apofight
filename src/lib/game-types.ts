@@ -5,6 +5,7 @@ export interface PlayerProfile {
   name: string;
   color: string;
   weaponClass: WeaponClass;
+  avatarUrl?: string;
 }
 
 export interface Projectile {
