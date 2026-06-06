@@ -48,7 +48,6 @@ const BATTLE_AURAS = [
   '#ffffff', // White
   '#78350f', // Brown
   '#22c55e', // Green
-  '#06b6d4', // Cyan
 ];
 
 export default function EntryScreen() {
