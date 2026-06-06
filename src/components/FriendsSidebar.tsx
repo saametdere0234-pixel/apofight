@@ -1,13 +1,14 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { ref, onValue, query, orderByChild, equalTo, get, update, push, remove } from 'firebase/database';
+import { ref, onValue, get, update, push, remove } from 'firebase/database';
 import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Users, Plus, X, ArrowRight, Bell, ChevronLeft, ChevronRight, ArrowLeft, Send } from 'lucide-react';
+import { Users, Plus, X, ArrowRight, Bell, ChevronLeft, ChevronRight, Send } from 'lucide-react';
 import { PlayerProfile, GameInvitation } from '@/lib/game-types';
 import { cn } from '@/lib/utils';
 
@@ -27,17 +28,16 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
       setFriendsData([]);
       return;
     }
-    const playersRef = ref(db, 'players');
     const friendList = profile.friends;
     
     const unsubscribers = friendList.map(fId => {
-      const q = query(playersRef, orderByChild('playerId'), equalTo(fId));
-      return onValue(q, (snap) => {
-        const data = snap.val();
-        if (data) {
-          const friend = Object.values(data)[0] as PlayerProfile;
+      // fId is now the internal random string ID for direct access
+      const friendRef = ref(db, `players/${fId}`);
+      return onValue(friendRef, (snap) => {
+        const friend = snap.val() as PlayerProfile;
+        if (friend) {
           setFriendsData(prev => {
-            const index = prev.findIndex(p => p.playerId === friend.playerId);
+            const index = prev.findIndex(p => p.id === friend.id);
             if (index > -1) {
               const next = [...prev];
               next[index] = friend;
@@ -56,17 +56,16 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
       setRequestsData([]);
       return;
     }
-    const playersRef = ref(db, 'players');
     const requestList = profile.friendRequests;
     
     const unsubscribers = requestList.map(fId => {
-      const q = query(playersRef, orderByChild('playerId'), equalTo(fId));
-      return onValue(q, (snap) => {
-        const data = snap.val();
-        if (data) {
-          const sender = Object.values(data)[0] as PlayerProfile;
+      // fId is the internal random string ID
+      const senderRef = ref(db, `players/${fId}`);
+      return onValue(senderRef, (snap) => {
+        const sender = snap.val() as PlayerProfile;
+        if (sender) {
           setRequestsData(prev => {
-            const index = prev.findIndex(p => p.playerId === sender.playerId);
+            const index = prev.findIndex(p => p.id === sender.id);
             if (index > -1) {
               const next = [...prev];
               next[index] = sender;
@@ -80,7 +79,6 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
     return () => unsubscribers.forEach(u => u());
   }, [profile?.friendRequests]);
 
-  // Handle Invitation Cooldown Timer
   useEffect(() => {
     const timer = setInterval(() => {
       const now = Date.now();
@@ -102,102 +100,96 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
   const sendFriendRequest = async () => {
     if (!db || !profile || !friendIdInput || friendIdInput.length !== 8) return;
     
-    const playersRef = ref(db, 'players');
-    const q = query(playersRef, orderByChild('playerId'), equalTo(friendIdInput));
+    // Resolve playerId -> internal ID using mapping node to avoid unindexed queries
+    const mappingRef = ref(db, `playerIds/${friendIdInput}`);
+    const mappingSnap = await get(mappingRef);
     
-    const snap = await get(q);
-    if (snap.exists()) {
-      const targetData = snap.val();
-      const targetId = Object.keys(targetData)[0];
-      const targetProfile = Object.values(targetData)[0] as PlayerProfile;
+    if (mappingSnap.exists()) {
+      const targetId = mappingSnap.val();
+      const targetRef = ref(db, `players/${targetId}`);
+      const targetSnap = await get(targetRef);
       
-      const currentRequests = targetProfile.friendRequests || [];
-      if (!currentRequests.includes(profile.playerId!)) {
-        await update(ref(db, `players/${targetId}`), {
-          friendRequests: [...currentRequests, profile.playerId]
-        });
+      if (targetSnap.exists()) {
+        const targetProfile = targetSnap.val() as PlayerProfile;
+        const currentRequests = targetProfile.friendRequests || [];
+        
+        // Add MY internal ID (random string) to their requests
+        if (!currentRequests.includes(profile.id)) {
+          await update(targetRef, {
+            friendRequests: [...currentRequests, profile.id]
+          });
+        }
+        setSearchStatus('Request sent');
+      } else {
+        setSearchStatus('Player not found');
       }
-      setSearchStatus('İstek gönderildi');
     } else {
-      setSearchStatus('Oyuncu bulunamadı');
+      setSearchStatus('Player not found');
     }
 
     setFriendIdInput('');
     setTimeout(() => setSearchStatus(null), 3000);
   };
 
-  const handleAcceptRequest = async (senderPlayerId: string) => {
+  const handleAcceptRequest = async (senderId: string) => {
     if (!db || !profile) return;
-    const playersRef = ref(db, 'players');
-    const q = query(playersRef, orderByChild('playerId'), equalTo(senderPlayerId));
-    const snap = await get(q);
+    
+    const senderRef = ref(db, `players/${senderId}`);
+    const snap = await get(senderRef);
     
     if (snap.exists()) {
-      const senderData = snap.val();
-      const senderId = Object.keys(senderData)[0];
-      const senderProfile = Object.values(senderData)[0] as PlayerProfile;
-      
+      const senderProfile = snap.val() as PlayerProfile;
       const myFriends = profile.friends || [];
       const senderFriends = senderProfile.friends || [];
       
-      if (!myFriends.includes(senderPlayerId)) {
+      if (!myFriends.includes(senderId)) {
         await update(ref(db, `players/${profile.id}`), {
-          friends: [...myFriends, senderPlayerId],
-          friendRequests: (profile.friendRequests || []).filter(id => id !== senderPlayerId)
+          friends: [...myFriends, senderId],
+          friendRequests: (profile.friendRequests || []).filter(id => id !== senderId)
         });
       }
       
-      if (!senderFriends.includes(profile.playerId!)) {
-        await update(ref(db, `players/${senderId}`), {
-          friends: [...senderFriends, profile.playerId]
+      if (!senderFriends.includes(profile.id)) {
+        await update(senderRef, {
+          friends: [...senderFriends, profile.id]
         });
       }
     }
   };
 
-  const handleRejectRequest = async (senderPlayerId: string) => {
+  const handleRejectRequest = async (senderId: string) => {
     if (!db || !profile) return;
     await update(ref(db, `players/${profile.id}`), {
-      friendRequests: (profile.friendRequests || []).filter(id => id !== senderPlayerId)
+      friendRequests: (profile.friendRequests || []).filter(id => id !== senderId)
     });
   };
 
   const handleInvite = async (friend: PlayerProfile) => {
-    if (!db || !profile || !currentRoomId || inviteCooldowns[friend.playerId!]) return;
+    if (!db || !profile || !currentRoomId || inviteCooldowns[friend.id]) return;
 
-    // 1. Get friend's internal ID
-    const playersRef = ref(db, 'players');
-    const q = query(playersRef, orderByChild('playerId'), equalTo(friend.playerId));
-    const snap = await get(q);
+    const friendInternalId = friend.id;
+    const inviteRef = push(ref(db, `invitations/${friendInternalId}`));
+    const invite: GameInvitation = {
+      id: inviteRef.key!,
+      senderId: profile.id,
+      senderName: profile.name,
+      senderPlayerId: profile.playerId!,
+      roomId: currentRoomId,
+      timestamp: Date.now()
+    };
     
-    if (snap.exists()) {
-      const friendData = snap.val();
-      const friendInternalId = Object.keys(friendData)[0];
-      
-      const inviteRef = push(ref(db, `invitations/${friendInternalId}`));
-      const invite: GameInvitation = {
-        id: inviteRef.key!,
-        senderId: profile.id,
-        senderName: profile.name,
-        senderPlayerId: profile.playerId!,
-        roomId: currentRoomId,
-        timestamp: Date.now()
-      };
-      
-      await set(inviteRef, invite);
-      
-      // Listen for rejection to trigger cooldown
-      const statusRef = ref(db, `invitations/${friendInternalId}/${invite.id}/status`);
-      onValue(statusRef, (snapshot) => {
-        if (snapshot.val() === 'rejected') {
-          setInviteCooldowns(prev => ({
-            ...prev,
-            [friend.playerId!]: Date.now() + 10000
-          }));
-          remove(ref(db, `invitations/${friendInternalId}/${invite.id}`));
-        }
-      });
-    }
+    await set(inviteRef, invite);
+    
+    const statusRef = ref(db, `invitations/${friendInternalId}/${invite.id}/status`);
+    onValue(statusRef, (snapshot) => {
+      if (snapshot.val() === 'rejected') {
+        setInviteCooldowns(prev => ({
+          ...prev,
+          [friend.id]: Date.now() + 10000
+        }));
+        remove(ref(db, `invitations/${friendInternalId}/${invite.id}`));
+      }
+    });
   };
 
   if (!authUser) return null;
@@ -218,33 +210,31 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
           <div className="flex flex-col h-full gap-4 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="flex flex-col gap-4 border-b-4 border-black pb-4">
               <div className="flex justify-between items-center">
-                <h3 className="font-headline text-2xl text-primary">ARKADAŞLAR</h3>
+                <h3 className="font-headline text-2xl text-primary">FRIENDS</h3>
                 <div className="flex gap-2">
-                  <Button 
-                    size="icon" 
+                  <button 
                     onClick={() => setSidebarView('notifications')}
                     className={cn(
-                      "w-8 h-8 rounded-full border-2 border-black transition-all relative",
-                      profile.friendRequests && profile.friendRequests.length > 0 ? "bg-red-600 animate-pulse" : "bg-accent"
+                      "w-8 h-8 rounded-full border-2 border-black flex items-center justify-center transition-all relative",
+                      profile.friendRequests && profile.friendRequests.length > 0 ? "bg-red-600 animate-pulse" : "bg-white/10"
                     )}
                   >
-                    <Bell className={cn("w-4 h-4", profile.friendRequests && profile.friendRequests.length > 0 ? "text-white" : "text-black")} />
+                    <Bell className={cn("w-4 h-4", profile.friendRequests && profile.friendRequests.length > 0 ? "text-white" : "text-white/60")} />
                     {profile.friendRequests && profile.friendRequests.length > 0 && (
                       <div className="absolute -top-2 -right-2 w-5 h-5 bg-white rounded-full border-2 border-red-600 flex items-center justify-center">
                         <span className="text-[10px] font-bold text-red-600">{profile.friendRequests.length}</span>
                       </div>
                     )}
-                  </Button>
-                  <Button 
-                    size="icon" 
+                  </button>
+                  <button 
                     onClick={() => setIsAddingFriend(!isAddingFriend)}
                     className={cn(
-                      "w-8 h-8 rounded-full border-2 border-black transition-all",
+                      "w-8 h-8 rounded-full border-2 border-black flex items-center justify-center transition-all",
                       isAddingFriend ? "bg-red-500 rotate-45" : "bg-primary"
                     )}
                   >
                     {isAddingFriend ? <X className="w-4 h-4 text-white" /> : <Plus className="w-4 h-4 text-white" />}
-                  </Button>
+                  </button>
                 </div>
               </div>
               
@@ -254,7 +244,7 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
                     <div className="relative flex-1">
                       <Input 
                         maxLength={8}
-                        placeholder="8-HANELİ ID" 
+                        placeholder="8-DIGIT ID" 
                         value={friendIdInput}
                         onChange={(e) => setFriendIdInput(e.target.value.replace(/\D/g, ''))}
                         onKeyDown={(e) => e.key === 'Enter' && friendIdInput.length === 8 && sendFriendRequest()}
@@ -272,7 +262,7 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
                   {searchStatus && (
                     <p className={cn(
                       "text-[10px] font-bold uppercase text-center",
-                      searchStatus.includes('bulunamadı') ? 'text-destructive' : 'text-green-500'
+                      searchStatus.includes('not found') ? 'text-destructive' : 'text-green-500'
                     )}>
                       {searchStatus}
                     </p>
@@ -285,11 +275,11 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
               {friendsData.length === 0 ? (
                 <div className="flex flex-col items-center justify-center mt-10 opacity-30">
                   <Users className="w-12 h-12 text-white mb-2" />
-                  <p className="text-[10px] font-bold text-white uppercase text-center">Henüz arkadaş yok</p>
+                  <p className="text-[10px] font-bold text-white uppercase text-center">No friends yet</p>
                 </div>
               ) : (
                 friendsData.map(friend => (
-                  <div key={friend.playerId} className="flex flex-col gap-2 bg-white/5 p-2 rounded-xl border-2 border-black hover:border-primary/50 transition-colors group">
+                  <div key={friend.id} className="flex flex-col gap-2 bg-white/5 p-2 rounded-xl border-2 border-black hover:border-primary/50 transition-colors group">
                     <div className="flex items-center gap-3">
                       <div className="relative">
                         <Avatar className="w-10 h-10 border border-white/10">
@@ -311,16 +301,16 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
                       <Button 
                         size="sm" 
                         onClick={() => handleInvite(friend)}
-                        disabled={!!inviteCooldowns[friend.playerId!]}
+                        disabled={!!inviteCooldowns[friend.id]}
                         className={cn(
                           "cartoon-button h-7 text-[10px] w-full gap-2",
-                          inviteCooldowns[friend.playerId!] ? "bg-zinc-800 text-white/40" : "bg-accent text-black"
+                          inviteCooldowns[friend.id] ? "bg-zinc-800 text-white/40" : "bg-accent text-black"
                         )}
                       >
                         <Send className="w-3 h-3" />
-                        {inviteCooldowns[friend.playerId!] 
-                          ? `${Math.ceil((inviteCooldowns[friend.playerId!] - Date.now()) / 1000)}s` 
-                          : "DAVET ET"}
+                        {inviteCooldowns[friend.id] 
+                          ? `${Math.ceil((inviteCooldowns[friend.id] - Date.now()) / 1000)}s` 
+                          : "INVITE"}
                       </Button>
                     )}
                   </div>
@@ -332,15 +322,13 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
           <div className="flex flex-col h-full gap-4 animate-in fade-in slide-in-from-left-4 duration-300">
             <div className="flex flex-col gap-4 border-b-4 border-black pb-4">
               <div className="flex items-center gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
+                <button 
                   onClick={() => setSidebarView('friends')}
-                  className="w-8 h-8 p-0 text-white/60 hover:text-white"
+                  className="w-8 h-8 flex items-center justify-center text-white/60 hover:text-white"
                 >
-                  <ArrowLeft className="w-5 h-5" />
-                </Button>
-                <h3 className="font-headline text-2xl text-accent">BİLDİRİMLER</h3>
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <h3 className="font-headline text-2xl text-accent">NOTIFICATIONS</h3>
               </div>
             </div>
 
@@ -348,11 +336,11 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
               {requestsData.length === 0 ? (
                 <div className="flex flex-col items-center justify-center mt-10 opacity-30">
                   <Bell className="w-12 h-12 text-white mb-2" />
-                  <p className="text-[10px] font-bold text-white uppercase text-center">Bildirim bulunamadı</p>
+                  <p className="text-[10px] font-bold text-white uppercase text-center">No notifications</p>
                 </div>
               ) : (
                 requestsData.map(sender => (
-                  <div key={sender.playerId} className="flex flex-col gap-3 bg-white/5 p-3 rounded-xl border-2 border-black">
+                  <div key={sender.id} className="flex flex-col gap-3 bg-white/5 p-3 rounded-xl border-2 border-black">
                     <div className="flex items-center gap-3">
                       <Avatar className="w-8 h-8 border border-white/10">
                         <AvatarImage src={sender.avatarUrl} />
@@ -360,21 +348,21 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
                       </Avatar>
                       <div className="flex flex-col">
                         <span className="font-headline text-xs text-white truncate w-32">{sender.name}</span>
-                        <span className="text-[8px] font-bold text-white/40 uppercase tracking-widest">Arkadaşlık İsteği</span>
+                        <span className="text-[8px] font-bold text-white/40 uppercase tracking-widest">Friend Request</span>
                       </div>
                     </div>
                     <div className="flex gap-2">
                       <Button 
-                        onClick={() => handleAcceptRequest(sender.playerId!)}
+                        onClick={() => handleAcceptRequest(sender.id)}
                         className="flex-1 cartoon-button bg-green-600 text-white h-8 text-[10px] p-0"
                       >
-                        KABUL ET
+                        ACCEPT
                       </Button>
                       <Button 
-                        onClick={() => handleRejectRequest(sender.playerId!)}
+                        onClick={() => handleRejectRequest(sender.id)}
                         className="flex-1 cartoon-button bg-destructive text-white h-8 text-[10px] p-0"
                       >
-                        REDDET
+                        REJECT
                       </Button>
                     </div>
                   </div>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -63,7 +64,16 @@ export function useLocalPlayer() {
 
     // Handle Online Presence
     const onlineRef = ref(db, `players/${initialProfile.id}/isOnline`);
-    update(ref(db, `players/${initialProfile.id}`), { isOnline: true });
+    update(ref(db, `players/${initialProfile.id}`), { 
+      isOnline: true,
+      playerId: initialProfile.playerId // Ensure it's in the cloud
+    });
+    
+    // Register mapping for search to avoid indexing issues
+    if (initialProfile.playerId) {
+      update(ref(db, 'playerIds'), { [initialProfile.playerId]: initialProfile.id });
+    }
+    
     onDisconnect(onlineRef).set(false);
 
     return () => {
@@ -97,6 +107,11 @@ export function useLocalPlayer() {
     if (db) {
       const playerPathRef = ref(db, `players/${profile.id}`);
       update(playerPathRef, updates);
+
+      // Always sync mapping
+      if (newProfile.playerId) {
+        update(ref(db, 'playerIds'), { [newProfile.playerId]: profile.id });
+      }
     }
   };
 
