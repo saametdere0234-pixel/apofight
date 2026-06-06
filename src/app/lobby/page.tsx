@@ -8,7 +8,7 @@ import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Plus, Users, ArrowRight, Home, LayoutGrid, ShieldAlert, LogOut, Wallet, Fingerprint } from 'lucide-react';
+import { Plus, Users, ArrowRight, Home, LayoutGrid, ShieldAlert, LogOut, Wallet, Fingerprint, Zap } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { GameRoom, WeaponClass } from '@/lib/game-types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -93,6 +93,41 @@ export default function LobbyScreen() {
     };
     await set(newRoomRef, room);
     router.push(`/game/${newRoomRef.key}`);
+  };
+
+  const handleQuickMatch = async () => {
+    if (!profile || !db) return;
+
+    // Find joinable rooms: not full and in lobby state
+    const joinableRooms = Object.values(rooms).filter(room => {
+      const playerCount = room.players ? Object.keys(room.players).length : 0;
+      const isFull = playerCount >= (room.maxPlayers || 4);
+      const isAvailable = room.status === 'lobby';
+      return !isFull && isAvailable;
+    });
+
+    if (joinableRooms.length > 0) {
+      // Pick a random joinable room
+      const randomRoom = joinableRooms[Math.floor(Math.random() * joinableRooms.length)];
+      router.push(`/game/${randomRoom.id}`);
+    } else {
+      // Create a new room if none are available
+      const roomsRef = ref(db, 'rooms');
+      const newRoomRef = push(roomsRef);
+      const roomName = profile.name ? `${profile.name}'s Game` : "New Arena";
+      const room: Partial<GameRoom> = {
+        id: newRoomRef.key!,
+        name: roomName,
+        createdBy: profile.id,
+        status: 'lobby',
+        currentRound: 1,
+        lastUpdate: Date.now(),
+        maxPlayers: 4,
+        players: {}
+      };
+      await set(newRoomRef, room);
+      router.push(`/game/${newRoomRef.key}`);
+    }
   };
 
   const handleLogout = () => {
@@ -194,7 +229,7 @@ export default function LobbyScreen() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
-          <div className="md:col-span-4 h-fit sticky top-8">
+          <div className="md:col-span-4 h-fit md:sticky md:top-8">
             <Card className="cartoon-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 font-headline text-2xl text-accent">
@@ -237,7 +272,7 @@ export default function LobbyScreen() {
             </Card>
           </div>
 
-          <div className="md:col-span-8 space-y-6">
+          <div className="md:col-span-8 space-y-6 flex flex-col">
             <div className="flex items-center justify-between">
               <h3 className="text-3xl font-headline flex items-center gap-3">
                 <LayoutGrid className="w-8 h-8 text-primary" />
@@ -305,6 +340,18 @@ export default function LobbyScreen() {
                 })}
               </div>
             )}
+
+            {/* Quick Match Button */}
+            <div className="mt-10 flex justify-center">
+              <Button 
+                onClick={handleQuickMatch}
+                size="lg"
+                className="cartoon-button bg-accent text-black text-3xl px-12 h-20 w-full md:w-auto flex items-center gap-4 hover:scale-105"
+              >
+                <Zap className="w-8 h-8 fill-current" />
+                QUICK MATCH
+              </Button>
+            </div>
           </div>
         </div>
       </div>
