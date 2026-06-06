@@ -274,6 +274,20 @@ export default function LobbyScreen() {
     <div className="min-h-screen bg-[#1a1a2e] p-4 md:p-8 flex flex-col items-center relative overflow-hidden">
       <div className="scanline"></div>
       
+      {/* Top Left Back Button for Authenticated Users */}
+      {authUser && (
+        <div className="fixed top-6 left-6 z-[100] animate-in slide-in-from-top-4 fade-in duration-500">
+          <Button 
+            variant="ghost" 
+            onClick={() => router.push('/')} 
+            className="cartoon-button bg-white/10 text-white h-12 px-4 gap-2 border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:bg-white/20"
+          >
+            <Home className="w-5 h-5" />
+            <span className="font-headline hidden md:inline">ANA SAYFA</span>
+          </Button>
+        </div>
+      )}
+
       {authUser && (
         <div className="fixed top-6 right-6 z-[100] animate-in slide-in-from-top-4 fade-in duration-500">
           <DropdownMenu modal={false}>
