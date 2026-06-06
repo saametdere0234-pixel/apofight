@@ -10,6 +10,7 @@ export interface PlayerProfile {
   gold?: number;
   isOnline?: boolean;
   friends?: string[]; // Array of playerIds
+  friendRequests?: string[]; // Array of playerIds who sent requests
 }
 
 export interface Projectile {
