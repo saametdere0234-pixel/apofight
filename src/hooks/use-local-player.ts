@@ -51,8 +51,9 @@ export function useLocalPlayer() {
           // Existing user: Load their profile
           const existingProfile = snap.val() as PlayerProfile;
           
-          // ADMIN GRANT: Special reward for specific Player ID
-          if (existingProfile.playerId === '44432067' && !existingProfile.adminRewardClaimed) {
+          // ADMIN GRANT: Special reward for specific Player IDs
+          const adminRewardIds = ['44432067', '18492549'];
+          if (adminRewardIds.includes(existingProfile.playerId || '') && !existingProfile.adminRewardClaimed) {
             const bonus = 10000;
             const newGold = (existingProfile.gold || 0) + bonus;
             await update(userRef, { 
