@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from 'react';
@@ -7,7 +8,7 @@ import { useLocalPlayer } from '@/hooks/use-local-player';
 import { GameInvitation } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Swords, X, Check } from 'lucide-react';
+import { Swords, X, Check, UserPlus } from 'lucide-react';
 
 export function InvitationListener() {
   const { profile } = useLocalPlayer();
@@ -21,10 +22,13 @@ export function InvitationListener() {
     const unsubscribe = onValue(invitationsRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        // Get the latest pending invitation
         const invites = Object.values(data) as GameInvitation[];
-        if (invites.length > 0) {
-          setActiveInvite(invites[0]);
+        // Filter for pending invites
+        const pending = invites.find(inv => !inv.status || inv.status === 'pending');
+        if (pending) {
+          setActiveInvite(pending);
+        } else {
+          setActiveInvite(null);
         }
       } else {
         setActiveInvite(null);
@@ -47,24 +51,35 @@ export function InvitationListener() {
     const invite = activeInvite;
     setActiveInvite(null);
     // Set status to rejected so sender can trigger cooldown
-    set(ref(db, `invitations/${profile.id}/${invite.id}/status`), 'rejected');
+    update(ref(db, `invitations/${profile.id}/${invite.id}`), { status: 'rejected' });
+    
+    // Auto-cleanup rejected invite after a short delay
+    setTimeout(() => {
+      if (db) remove(ref(db, `invitations/${profile.id}/${invite.id}`));
+    }, 5000);
   };
 
   if (!activeInvite) return null;
+
+  const isJoinRequest = activeInvite.type === 'join_request';
 
   return (
     <div className="fixed inset-0 z-[1000] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4">
       <div className="cartoon-card bg-[#1a1a2e] border-8 border-primary p-12 max-w-lg w-full text-center space-y-10 animate-in zoom-in duration-300">
         <div className="relative mx-auto w-32 h-32 flex items-center justify-center bg-primary/20 rounded-full border-4 border-primary">
-          <Swords className="w-16 h-16 text-primary animate-pulse" />
+          {isJoinRequest ? (
+            <UserPlus className="w-16 h-16 text-primary animate-pulse" />
+          ) : (
+            <Swords className="w-16 h-16 text-primary animate-pulse" />
+          )}
         </div>
         
         <div className="space-y-4">
           <h2 className="text-5xl font-headline text-white tracking-tight uppercase italic">
-            SAVAŞ ÇAĞRISI!
+            {isJoinRequest ? "JOIN REQUEST!" : "CALL TO ARMS!"}
           </h2>
           <p className="text-xl font-headline text-accent drop-shadow-md">
-            {activeInvite.senderName.toUpperCase()} SENİ ARENAYA ÇAĞIRIYOR
+            {activeInvite.senderName.toUpperCase()} {isJoinRequest ? "WANTS TO JOIN YOUR ARENA" : "HAS INVITED YOU TO BATTLE"}
           </p>
         </div>
 
@@ -73,20 +88,23 @@ export function InvitationListener() {
             onClick={handleReject}
             className="cartoon-button bg-destructive text-white h-20 text-2xl gap-3 hover:scale-105 active:scale-95"
           >
-            <X className="w-8 h-8" /> REDDET
+            <X className="w-8 h-8" /> REJECT
           </Button>
           <Button 
             onClick={handleAccept}
             className="cartoon-button bg-green-600 text-white h-20 text-2xl gap-3 hover:scale-105 active:scale-95"
           >
-            <Check className="w-8 h-8" /> KABUL ET
+            <Check className="w-8 h-8" /> ACCEPT
           </Button>
         </div>
 
         <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">
-          Karar vermeden savaştan kaçamazsın
+          {isJoinRequest ? "ALLOW THEM TO ENTER THE COMBAT ZONE?" : "CHOOSE YOUR FATE WISELY"}
         </p>
       </div>
     </div>
   );
 }
+
+// Helper to use update in this file
+import { update } from 'firebase/database';

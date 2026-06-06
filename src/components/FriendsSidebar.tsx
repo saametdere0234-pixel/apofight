@@ -1,18 +1,21 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
-import { ref, onValue, get, update, push, remove } from 'firebase/database';
+import { ref, onValue, get, update, push, remove, set } from 'firebase/database';
 import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Users, Plus, X, ArrowRight, Bell, ChevronLeft, ChevronRight, Send } from 'lucide-react';
+import { Users, Plus, X, ArrowRight, Bell, ChevronLeft, ChevronRight, Send, Gamepad2 } from 'lucide-react';
 import { PlayerProfile, GameInvitation } from '@/lib/game-types';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
   const { profile, authUser } = useLocalPlayer();
+  const { toast } = useToast();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarView, setSidebarView] = useState<'friends' | 'notifications'>('friends');
   const [isAddingFriend, setIsAddingFriend] = useState(false);
@@ -159,31 +162,31 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
     });
   };
 
-  const handleInvite = async (friend: PlayerProfile) => {
-    if (!db || !profile || !currentRoomId || inviteCooldowns[friend.id]) return;
+  const handleSendInvitation = async (friendId: string, type: 'invite' | 'join_request', targetRoomId: string) => {
+    if (!db || !profile || inviteCooldowns[friendId]) return;
 
-    const friendInternalId = friend.id;
-    const inviteRef = push(ref(db, `invitations/${friendInternalId}`));
+    const inviteRef = push(ref(db, `invitations/${friendId}`));
     const invite: GameInvitation = {
       id: inviteRef.key!,
       senderId: profile.id,
       senderName: profile.name,
       senderPlayerId: profile.playerId!,
-      roomId: currentRoomId,
-      timestamp: Date.now()
+      roomId: targetRoomId,
+      type: type,
+      timestamp: Date.now(),
+      status: 'pending'
     };
     
     await set(inviteRef, invite);
     
-    const statusRef = ref(db, `invitations/${friendInternalId}/${invite.id}/status`);
-    onValue(statusRef, (snapshot) => {
-      if (snapshot.val() === 'rejected') {
-        setInviteCooldowns(prev => ({
-          ...prev,
-          [friend.id]: Date.now() + 10000
-        }));
-        remove(ref(db, `invitations/${friendInternalId}/${invite.id}`));
-      }
+    setInviteCooldowns(prev => ({
+      ...prev,
+      [friendId]: Date.now() + 15000 // 15s cooldown
+    }));
+
+    toast({
+      title: type === 'invite' ? "Invitation Sent" : "Join Request Sent",
+      description: `Sent to ${friendsData.find(f => f.id === friendId)?.name}`,
     });
   };
 
@@ -273,43 +276,57 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
                   <p className="text-[10px] font-bold text-white uppercase text-center">No friends yet</p>
                 </div>
               ) : (
-                friendsData.map(friend => (
-                  <div key={friend.id} className="flex flex-col gap-2 bg-white/5 p-2 rounded-xl border-2 border-black hover:border-primary/50 transition-colors group">
-                    <div className="flex items-center gap-3">
-                      <div className="relative">
-                        <Avatar className="w-10 h-10 border border-white/10">
-                          <AvatarImage src={friend.avatarUrl} />
-                          <AvatarFallback className="font-headline text-xs">{friend.name?.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div className={cn(
-                          "absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-black",
-                          friend.isOnline ? "bg-green-500 shadow-[0_0_8px_#22c55e]" : "bg-zinc-600"
-                        )} />
+                friendsData.map(friend => {
+                  const isFriendInGame = friend.isOnline && friend.currentRoomId && friend.currentRoomId !== currentRoomId;
+                  const canInvite = profile.currentRoomId && friend.isOnline && !friend.currentRoomId;
+                  const canJoin = isFriendInGame;
+
+                  return (
+                    <div key={friend.id} className="flex flex-col gap-2 bg-white/5 p-2 rounded-xl border-2 border-black hover:border-primary/50 transition-colors group">
+                      <div className="flex items-center gap-3">
+                        <div className="relative">
+                          <Avatar className="w-10 h-10 border border-white/10">
+                            <AvatarImage src={friend.avatarUrl} />
+                            <AvatarFallback className="font-headline text-xs">{friend.name?.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          <div className={cn(
+                            "absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-black",
+                            friend.isOnline ? "bg-green-500 shadow-[0_0_8px_#22c55e]" : "bg-zinc-600"
+                          )} />
+                        </div>
+                        <div className="flex flex-col flex-1">
+                          <span className="font-headline text-sm text-white truncate w-32">{friend.name}</span>
+                          <span className="text-[8px] font-bold text-white/40 uppercase tracking-widest">#{friend.playerId}</span>
+                          {isFriendInGame && (
+                            <span className="text-[8px] font-bold text-accent uppercase flex items-center gap-1">
+                              <Gamepad2 className="w-2 h-2" /> IN COMBAT
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex flex-col flex-1">
-                        <span className="font-headline text-sm text-white truncate w-32">{friend.name}</span>
-                        <span className="text-[8px] font-bold text-white/40 uppercase tracking-widest">#{friend.playerId}</span>
-                      </div>
+                      
+                      {(canInvite || canJoin) && (
+                        <Button 
+                          size="sm" 
+                          onClick={() => {
+                            if (canInvite) handleSendInvitation(friend.id, 'invite', profile.currentRoomId!);
+                            else if (canJoin) handleSendInvitation(friend.id, 'join_request', friend.currentRoomId!);
+                          }}
+                          disabled={!!inviteCooldowns[friend.id]}
+                          className={cn(
+                            "cartoon-button h-7 text-[10px] w-full gap-2",
+                            inviteCooldowns[friend.id] ? "bg-zinc-800 text-white/40" : (canJoin ? "bg-accent text-black" : "bg-primary text-white")
+                          )}
+                        >
+                          <Send className="w-3 h-3" />
+                          {inviteCooldowns[friend.id] 
+                            ? `${Math.ceil((inviteCooldowns[friend.id] - Date.now()) / 1000)}s` 
+                            : (canJoin ? "REQUEST JOIN" : "INVITE")}
+                        </Button>
+                      )}
                     </div>
-                    
-                    {currentRoomId && friend.isOnline && (
-                      <Button 
-                        size="sm" 
-                        onClick={() => handleInvite(friend)}
-                        disabled={!!inviteCooldowns[friend.id]}
-                        className={cn(
-                          "cartoon-button h-7 text-[10px] w-full gap-2",
-                          inviteCooldowns[friend.id] ? "bg-zinc-800 text-white/40" : "bg-accent text-black"
-                        )}
-                      >
-                        <Send className="w-3 h-3" />
-                        {inviteCooldowns[friend.id] 
-                          ? `${Math.ceil((inviteCooldowns[friend.id] - Date.now()) / 1000)}s` 
-                          : "INVITE"}
-                      </Button>
-                    )}
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>

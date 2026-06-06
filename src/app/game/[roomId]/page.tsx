@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -148,6 +149,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         await remove(myPlayerRef);
       }
     }
+
+    // Clear current room on quit
+    update(ref(db, `players/${profileRef.current.id}`), { currentRoomId: null });
     router.push('/lobby');
   }, [roomId, router, isLocked]);
 
@@ -162,6 +166,18 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   useEffect(() => {
     profileRef.current = profile;
   }, [profile]);
+
+  // Presence for current room
+  useEffect(() => {
+    if (!db || !profile?.id || !roomId) return;
+    const profileRef = ref(db, `players/${profile.id}`);
+    update(profileRef, { currentRoomId: roomId });
+    onDisconnect(profileRef).update({ currentRoomId: null });
+    
+    return () => {
+      update(profileRef, { currentRoomId: null });
+    };
+  }, [profile?.id, roomId]);
 
   // Match Entry Fee Logic
   useEffect(() => {
@@ -593,6 +609,47 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     }
   }, [roomId, keys]);
 
+  const triggerDash = useCallback(() => {
+    const currentRoom = roomRef.current;
+    if (!profileRef.current || !currentRoom || !currentRoom.players?.[profileRef.current.id] || !db || (currentRoom.status !== 'playing' && currentRoom.status !== 'starting')) return;
+    const p = currentRoom.players[profileRef.current.id];
+    if (p.hp <= 0) return;
+    
+    const now = Date.now();
+    const isStunned = now < (p.stunnedUntil || 0);
+    if (isStunned) return;
+
+    const hasCharges = p.dashCharges > 0;
+    const dashCost = p.weaponClass === 'Dagger' ? STAMINA_DASH_COST_DAGGER : STAMINA_DASH_COST;
+    const hasStamina = (p.stamina || 0) >= dashCost;
+
+    if (!hasCharges || !hasStamina) {
+      setShakeUntil(now + 80);
+      setFeedback(prev => ({
+        ...prev,
+        lastDashFail: !hasCharges ? now : prev.lastDashFail,
+        lastStaminaFail: !hasStamina ? now : prev.lastStaminaFail,
+        staminaMsg: ''
+      }));
+      return;
+    }
+
+    const dx = mouseRef.current.x - (p.x + PLAYER_WIDTH/2);
+    const dy = mouseRef.current.y - (p.y + PLAYER_HEIGHT/2);
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    
+    if (dist > 0.1) {
+      update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), {
+        isDashing: true,
+        dashTimeLeft: DASH_DURATION,
+        dashDirX: dx / dist,
+        dashDirY: dy / dist,
+        dashCharges: p.dashCharges - 1,
+        stamina: (p.stamina || 0) - dashCost
+      });
+    }
+  }, [roomId]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       keys.add(e.code);
@@ -612,38 +669,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             vy: JUMP_FORCE,
             isJumping: true,
             jumpCount: currentJumpCount + 1
-          });
-        }
-      }
-      
-      if (e.code === 'Space') {
-        const hasCharges = p.dashCharges > 0;
-        const dashCost = p.weaponClass === 'Dagger' ? STAMINA_DASH_COST_DAGGER : STAMINA_DASH_COST;
-        const hasStamina = (p.stamina || 0) >= dashCost;
-
-        if (!hasCharges || !hasStamina) {
-          setShakeUntil(now + 80);
-          setFeedback(prev => ({
-            ...prev,
-            lastDashFail: !hasCharges ? now : prev.lastDashFail,
-            lastStaminaFail: !hasStamina ? now : prev.lastStaminaFail,
-            staminaMsg: ''
-          }));
-          return;
-        }
-
-        const dx = mouseRef.current.x - (p.x + PLAYER_WIDTH/2);
-        const dy = mouseRef.current.y - (p.y + PLAYER_HEIGHT/2);
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        
-        if (dist > 0.1) {
-          update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), {
-            isDashing: true,
-            dashTimeLeft: DASH_DURATION,
-            dashDirX: dx / dist,
-            dashDirY: dy / dist,
-            dashCharges: p.dashCharges - 1,
-            stamina: (p.stamina || 0) - dashCost
           });
         }
       }
@@ -694,16 +719,20 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     mouseRef.current = { x: gameX, y: gameY };
   };
 
-  const handleMouseDown = () => {
-    const p = room?.players?.[profileRef.current?.id || ''];
-    if (p && p.hp > 0 && room?.status === 'playing') {
-      setIsCharging(true);
-      isChargingRef.current = true;
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button === 0) { // Left click
+      const p = room?.players?.[profileRef.current?.id || ''];
+      if (p && p.hp > 0 && room?.status === 'playing') {
+        setIsCharging(true);
+        isChargingRef.current = true;
+      }
+    } else if (e.button === 2) { // Right click
+      triggerDash();
     }
   };
 
-  const handleMouseUp = () => {
-    if (isChargingRef.current) {
+  const handleMouseUp = (e: React.MouseEvent) => {
+    if (e.button === 0 && isChargingRef.current) {
       const p = room?.players?.[profileRef.current?.id || ''];
       if (p?.weaponClass === 'Bow') {
         fireBow();
@@ -713,6 +742,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       setIsCharging(false);
       isChargingRef.current = false;
     }
+  };
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent right-click menu
   };
 
   const fireBow = () => {
@@ -1535,6 +1568,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             className="w-full h-auto cursor-crosshair" 
             onMouseDown={handleMouseDown}
             onMouseUp={handleMouseUp}
+            onContextMenu={handleContextMenu}
           />
           
           {showCountdown && (
@@ -1643,7 +1677,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           <div className="space-y-1 pt-1 border-t border-white/10">
             <div className="flex justify-between items-center px-1">
               <span className="font-headline text-[10px] text-white/80 uppercase tracking-tight flex items-center gap-1">
-                 <Zap className="w-3 h-3 fill-current text-[#60a5fa]" /> DASH
+                 <Zap className="w-3 h-3 fill-current text-[#60a5fa]" /> DASH (RIGHT CLICK)
               </span>
               <span className="font-headline text-sm text-accent drop-shadow-[1px_1px_0_rgba(0,0,0,1)]">
                 {myP && myP.dashCharges === maxDash ? 'READY' : `${((myWeaponStats?.dashCooldown || 4.0) - (myP?.dashRechargeProgress || 0)).toFixed(1)}s`}

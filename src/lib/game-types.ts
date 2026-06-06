@@ -10,6 +10,7 @@ export interface PlayerProfile {
   playerId?: string; // 8-digit unique ID
   gold?: number;
   isOnline?: boolean;
+  currentRoomId?: string; // Track current room for invites/joins
   friends?: string[]; // Array of internal IDs
   friendRequests?: string[]; // Array of internal IDs who sent requests
   unlockedAuras?: string[]; // Array of color strings/IDs unlocked
@@ -22,7 +23,9 @@ export interface GameInvitation {
   senderName: string;
   senderPlayerId: string;
   roomId: string;
+  type: 'invite' | 'join_request';
   timestamp: number;
+  status?: 'pending' | 'accepted' | 'rejected';
 }
 
 export interface Projectile {
