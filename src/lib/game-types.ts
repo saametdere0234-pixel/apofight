@@ -11,6 +11,7 @@ export interface PlayerProfile {
   isOnline?: boolean;
   friends?: string[]; // Array of playerIds
   friendRequests?: string[]; // Array of playerIds who sent requests
+  unlockedAuras?: string[]; // Array of color strings/IDs unlocked
 }
 
 export interface GameInvitation {

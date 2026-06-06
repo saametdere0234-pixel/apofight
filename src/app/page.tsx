@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useLocalPlayer } from '@/hooks/use-local-player';
@@ -6,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { User, Zap, LogOut, Wallet, Fingerprint, Swords } from 'lucide-react';
+import { User, Zap, LogOut, Wallet, Fingerprint, Swords, Sparkles, Lock } from 'lucide-react';
 import { WeaponClass, WEAPON_STATS } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -21,43 +20,41 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { toast } from '@/hooks/use-toast';
 
 const WeaponIcon = ({ weapon, className = "w-8 h-8" }: { weapon: WeaponClass; className?: string }) => {
   const baseClasses = "font-headline flex items-center justify-center select-none leading-none";
-  if (weapon === 'Sword') {
-    return (
-      <div className={cn(baseClasses, className, "text-yellow-400")} style={{ textShadow: '2px 2px 0px black' }}>
-        S
-      </div>
-    );
-  }
-  if (weapon === 'Dagger') {
-    return (
-      <div className={cn(baseClasses, className, "text-purple-500")} style={{ textShadow: '2px 2px 0px black' }}>
-        D
-      </div>
-    );
-  }
-  if (weapon === 'Bow') {
-    return (
-      <div className={cn(baseClasses, className, "text-white")} style={{ textShadow: '2px 2px 0px black' }}>
-        B
-      </div>
-    );
-  }
+  if (weapon === 'Sword') return <div className={cn(baseClasses, className, "text-yellow-400")} style={{ textShadow: '2px 2px 0px black' }}>S</div>;
+  if (weapon === 'Dagger') return <div className={cn(baseClasses, className, "text-purple-500")} style={{ textShadow: '2px 2px 0px black' }}>D</div>;
+  if (weapon === 'Bow') return <div className={cn(baseClasses, className, "text-white")} style={{ textShadow: '2px 2px 0px black' }}>B</div>;
   return null;
 };
 
 const BATTLE_AURAS = [
-  '#ef4444', // Red
-  '#f97316', // Orange
-  '#ec4899', // Pink
-  '#a855f7', // Purple
-  '#3b82f6', // Blue
-  '#ffffff', // White
-  '#78350f', // Brown
-  '#22c55e', // Green
+  { id: '#ef4444', label: 'Red' },
+  { id: '#f97316', label: 'Orange' },
+  { id: '#ec4899', label: 'Pink' },
+  { id: '#a855f7', label: 'Purple' },
+  { id: '#3b82f6', label: 'Blue' },
+  { id: '#ffffff', label: 'White' },
+  { id: '#78350f', label: 'Brown' },
+  { id: '#22c55e', label: 'Green' },
 ];
+
+const PREMIUM_AURAS = [
+  { id: 'aura-pink-blue', label: 'Pink-Blue', class: 'aura-pink-blue' },
+  { id: 'aura-red-blue', label: 'Red-Blue', class: 'aura-red-blue' },
+  { id: 'aura-red-green', label: 'Red-Green', class: 'aura-red-green' },
+  { id: 'aura-orange-white', label: 'Orange-White', class: 'aura-orange-white' },
+  { id: 'aura-pink-white', label: 'Pink-White', class: 'aura-pink-white' },
+  { id: 'aura-blue-white', label: 'Blue-White', class: 'aura-blue-white' },
+  { id: 'aura-red-white', label: 'Red-White', class: 'aura-red-white' },
+  { id: 'aura-green-white', label: 'Green-White', class: 'aura-green-white' },
+  { id: 'aura-white-no-border', label: 'Pure White', class: 'aura-white-no-border' },
+  { id: 'aura-black', label: 'Deep Black', class: 'aura-black' },
+];
+
+const PREMIUM_PRICE = 200;
 
 export default function EntryScreen() {
   const { profile, updateProfile, authUser, loading } = useLocalPlayer();
@@ -93,6 +90,36 @@ export default function EntryScreen() {
     router.push('/lobby');
   };
 
+  const selectAura = (auraId: string, isPremium: boolean) => {
+    if (isPremium) {
+      const unlocked = profile.unlockedAuras || [];
+      if (unlocked.includes(auraId)) {
+        updateProfile({ color: auraId });
+      } else {
+        const gold = profile.gold || 0;
+        if (gold >= PREMIUM_PRICE) {
+          updateProfile({
+            gold: gold - PREMIUM_PRICE,
+            unlockedAuras: [...unlocked, auraId],
+            color: auraId
+          });
+          toast({
+            title: "PREMIUM AURA UNLOCKED!",
+            description: `You purchased ${auraId.replace('aura-', '').toUpperCase()} for ${PREMIUM_PRICE}G.`,
+          });
+        } else {
+          toast({
+            variant: "destructive",
+            title: "INSUFFICIENT GOLD!",
+            description: `You need ${PREMIUM_PRICE - gold} more gold to unlock this aura.`,
+          });
+        }
+      }
+    } else {
+      updateProfile({ color: auraId });
+    }
+  };
+
   const weapons: { id: WeaponClass; desc: string }[] = [
     { 
       id: 'Sword', 
@@ -112,7 +139,6 @@ export default function EntryScreen() {
     <div className="min-h-screen bg-[#1a1a2e] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
       <div className="scanline"></div>
       
-      {/* Top Right Profile Display */}
       {authUser && (
         <div className="fixed top-6 right-6 z-[100] animate-in slide-in-from-top-4 fade-in duration-500">
           <DropdownMenu modal={false}>
@@ -172,9 +198,6 @@ export default function EntryScreen() {
         </div>
       )}
 
-      <div className="absolute top-10 left-10 w-32 h-32 bg-primary/20 rounded-full blur-3xl animate-pulse"></div>
-      <div className="absolute bottom-10 right-10 w-48 h-48 bg-accent/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
-
       <div className="w-full max-w-4xl space-y-12 relative z-20">
         <header className="text-center space-y-4">
           <h1 className="text-7xl md:text-9xl font-headline italic tracking-tighter text-white drop-shadow-[6px_6px_0px_rgba(0,0,0,1)] animate-bounce-subtle">
@@ -228,16 +251,50 @@ export default function EntryScreen() {
               <div className="space-y-3">
                 <Label className="font-bold text-sm uppercase">BATTLE AURA</Label>
                 <div className="flex gap-3 flex-wrap">
-                  {BATTLE_AURAS.map(c => (
+                  {BATTLE_AURAS.map(a => (
                     <button
-                      key={c}
-                      onClick={() => updateProfile({ color: c })}
-                      className={`w-10 h-10 rounded-full border-4 transition-transform ${profile.color === c ? 'scale-125 border-white shadow-[0_0_15px_rgba(255,255,255,0.5)]' : 'border-black hover:scale-110'}`}
-                      style={{ backgroundColor: c }}
+                      key={a.id}
+                      title={a.label}
+                      onClick={() => selectAura(a.id, false)}
+                      className={`w-10 h-10 rounded-full border-4 transition-transform ${profile.color === a.id ? 'scale-125 border-white shadow-[0_0_15px_rgba(255,255,255,0.5)]' : 'border-black hover:scale-110'}`}
+                      style={{ backgroundColor: a.id }}
                     />
                   ))}
                 </div>
               </div>
+
+              {authUser && (
+                <div className="space-y-3 pt-4 border-t border-white/10">
+                  <div className="flex justify-between items-center">
+                    <Label className="font-bold text-sm uppercase flex items-center gap-2 text-primary">
+                      <Sparkles className="w-4 h-4" /> PREMIUM ARSENAL
+                    </Label>
+                    <span className="font-headline text-xs text-accent bg-black/40 px-3 py-1 rounded-full border border-accent/20">
+                      COST: {PREMIUM_PRICE}G
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-5 gap-3">
+                    {PREMIUM_AURAS.map(a => {
+                      const isUnlocked = (profile.unlockedAuras || []).includes(a.id);
+                      const isSelected = profile.color === a.id;
+                      return (
+                        <button
+                          key={a.id}
+                          title={a.label}
+                          onClick={() => selectAura(a.id, true)}
+                          className={cn(
+                            "w-full aspect-square rounded-full border-4 transition-all relative flex items-center justify-center",
+                            isSelected ? "scale-110 border-white shadow-[0_0_15px_rgba(255,255,255,0.8)]" : "border-black hover:scale-105",
+                            a.class
+                          )}
+                        >
+                          {!isUnlocked && <Lock className="w-3 h-3 text-white/40" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 

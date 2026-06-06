@@ -108,3 +108,26 @@
 .animate-pulse-once {
   animation: pulse-once 0.8s ease-out forwards;
 }
+
+/* Premium Aura Animations */
+@keyframes aura-gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-aura-gradient {
+  background-size: 200% 200%;
+  animation: aura-gradient 3s ease infinite;
+}
+
+.aura-pink-blue { background: linear-gradient(45deg, #ec4899, #3b82f6); @apply animate-aura-gradient; }
+.aura-red-blue { background: linear-gradient(45deg, #ef4444, #3b82f6); @apply animate-aura-gradient; }
+.aura-red-green { background: linear-gradient(45deg, #ef4444, #22c55e); @apply animate-aura-gradient; }
+.aura-orange-white { background: linear-gradient(45deg, #f97316, #ffffff); @apply animate-aura-gradient; }
+.aura-pink-white { background: linear-gradient(45deg, #ec4899, #ffffff); @apply animate-aura-gradient; }
+.aura-blue-white { background: linear-gradient(45deg, #3b82f6, #ffffff); @apply animate-aura-gradient; }
+.aura-red-white { background: linear-gradient(45deg, #ef4444, #ffffff); @apply animate-aura-gradient; }
+.aura-green-white { background: linear-gradient(45deg, #22c55e, #ffffff); @apply animate-aura-gradient; }
+.aura-white-no-border { background: #ffffff; }
+.aura-black { background: #000000; }
