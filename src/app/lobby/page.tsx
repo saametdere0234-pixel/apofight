@@ -201,11 +201,11 @@ export default function LobbyScreen() {
               <DropdownMenuSeparator className="bg-white/10" />
               <div className="space-y-4 py-2">
                 <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1"><Fingerprint className="w-3 h-3" /> PLAYER ID</span>
+                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest"><Fingerprint className="w-3 h-3" /> PLAYER ID</span>
                   <span id="player-id" className="font-headline text-lg text-white">{profile.playerId}</span>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1"><Wallet className="w-3 h-3" /> GOLD BALANCE</span>
+                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest"><Wallet className="w-3 h-3" /> GOLD BALANCE</span>
                   <div className="flex items-center gap-2">
                     <div className="w-5 h-5 bg-yellow-500 rounded-full border-2 border-black" />
                     <span id="gold-currency" className="font-headline text-2xl text-accent">{profile.gold || 0} G</span>
@@ -221,28 +221,31 @@ export default function LobbyScreen() {
         </div>
       )}
 
-      {/* Friends Sidebar - Only for Google Users */}
+      {/* Floating Friends Sidebar - Only for Google Users */}
       {authUser && (
         <div className={cn(
-          "fixed top-0 right-0 h-full z-50 transition-transform duration-300 flex",
-          isSidebarOpen ? "translate-x-0" : "translate-x-[calc(100%-40px)]"
+          "fixed top-4 right-4 bottom-4 z-50 transition-transform duration-300 flex",
+          isSidebarOpen ? "translate-x-0" : "translate-x-[calc(100%-12px)]"
         )}>
           <button 
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="w-10 h-full bg-black/80 backdrop-blur-md border-l-4 border-black flex items-center justify-center hover:bg-black transition-colors"
+            className="w-10 h-16 my-auto bg-black/80 backdrop-blur-md border-4 border-r-0 border-black rounded-l-[20px] flex items-center justify-center hover:bg-black transition-colors shadow-[-4px_0_10px_rgba(0,0,0,0.3)]"
           >
             {isSidebarOpen ? <ChevronRight className="text-white" /> : <ChevronLeft className="text-white" />}
           </button>
-          <div className="w-64 bg-black/90 backdrop-blur-xl border-l-4 border-black p-6 flex flex-col gap-6 shadow-[-10px_0_30px_rgba(0,0,0,0.5)]">
+          <div className="w-72 bg-black/90 backdrop-blur-xl border-4 border-black p-6 flex flex-col gap-6 shadow-[-10px_0_30px_rgba(0,0,0,0.5)] rounded-[30px]">
             <h3 className="font-headline text-2xl text-primary border-b-4 border-black pb-2">FRIENDS</h3>
-            <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+            <div className="flex-1 overflow-y-auto space-y-4 pr-2 scrollbar-hide">
               {friendsData.length === 0 ? (
-                <p className="text-[10px] font-bold text-white/20 uppercase text-center mt-10">No friends yet</p>
+                <div className="flex flex-col items-center justify-center mt-10 opacity-30">
+                  <Users className="w-12 h-12 text-white mb-2" />
+                  <p className="text-[10px] font-bold text-white uppercase text-center">No friends yet</p>
+                </div>
               ) : (
                 friendsData.map(friend => (
                   <div key={friend.playerId} className="flex items-center gap-3 bg-white/5 p-2 rounded-xl border-2 border-black hover:border-primary/50 transition-colors group">
                     <div className="relative">
-                      <Avatar className="w-10 h-10">
+                      <Avatar className="w-10 h-10 border border-white/10">
                         <AvatarImage src={friend.avatarUrl} />
                         <AvatarFallback className="font-headline text-xs">{friend.name?.charAt(0)}</AvatarFallback>
                       </Avatar>
@@ -253,7 +256,7 @@ export default function LobbyScreen() {
                     </div>
                     <div className="flex flex-col">
                       <span className="font-headline text-sm text-white truncate w-32">{friend.name}</span>
-                      <span className="text-[8px] font-bold text-white/40 uppercase">#{friend.playerId}</span>
+                      <span className="text-[8px] font-bold text-white/40 uppercase tracking-widest">#{friend.playerId}</span>
                     </div>
                   </div>
                 ))
