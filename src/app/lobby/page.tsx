@@ -8,7 +8,7 @@ import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Plus, Users, ArrowRight, Home, LayoutGrid, ShieldAlert, LogOut, Wallet, Fingerprint, Zap, Search, UserPlus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Users, ArrowRight, Home, LayoutGrid, ShieldAlert, LogOut, Wallet, Fingerprint, Zap, Search, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { GameRoom, WeaponClass, PlayerProfile } from '@/lib/game-types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -23,15 +23,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 
 const WeaponIcon = ({ weapon, className = "w-8 h-8" }: { weapon: WeaponClass; className?: string }) => {
   const baseClasses = "font-headline flex items-center justify-center select-none leading-none";
@@ -49,6 +40,7 @@ export default function LobbyScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSearch, setActiveSearch] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isAddingFriend, setIsAddingFriend] = useState(false);
   const [friendIdInput, setFriendIdInput] = useState('');
   const [friendsData, setFriendsData] = useState<PlayerProfile[]>([]);
   const [pulseTrigger, setPulseTrigger] = useState(0);
@@ -155,14 +147,14 @@ export default function LobbyScreen() {
   };
 
   const sendFriendRequest = async () => {
-    if (!db || !profile || !friendIdInput) return;
+    if (!db || !profile || !friendIdInput || friendIdInput.length !== 8) return;
     const currentFriends = profile.friends || [];
     if (!currentFriends.includes(friendIdInput)) {
       const updatedFriends = [...currentFriends, friendIdInput];
-      const playerPathRef = ref(db, `players/${profile.id}`);
       set(ref(db, `players/${profile.id}/friends`), updatedFriends);
     }
     setFriendIdInput('');
+    setIsAddingFriend(false);
   };
 
   const filteredRooms = useMemo(() => {
@@ -189,7 +181,6 @@ export default function LobbyScreen() {
     <div className="min-h-screen bg-[#1a1a2e] p-4 md:p-8 flex flex-col items-center relative overflow-hidden">
       <div className="scanline"></div>
       
-      {/* Top Right Profile Display */}
       {authUser && (
         <div className="fixed top-6 right-6 z-[100] animate-in slide-in-from-top-4 fade-in duration-500">
           <DropdownMenu modal={false}>
@@ -231,7 +222,6 @@ export default function LobbyScreen() {
         </div>
       )}
 
-      {/* Floating Friends Sidebar - Pushed down to top-24 to avoid profile overlap */}
       {authUser && (
         <div className={cn(
           "fixed right-4 top-24 bottom-4 z-50 transition-transform duration-300 flex",
@@ -244,34 +234,44 @@ export default function LobbyScreen() {
             {isSidebarOpen ? <ChevronRight className="text-white" /> : <ChevronLeft className="text-white" />}
           </button>
           <div className="w-72 bg-black/90 backdrop-blur-xl border-4 border-black p-6 flex flex-col gap-6 shadow-[-10px_0_30px_rgba(0,0,0,0.5)] rounded-[30px]">
-            <div className="flex justify-between items-center border-b-4 border-black pb-2">
-              <h3 className="font-headline text-2xl text-primary">FRIENDS</h3>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button size="icon" className="w-8 h-8 rounded-full bg-primary hover:bg-primary/80 border-2 border-black">
-                    <UserPlus className="w-4 h-4 text-white" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="cartoon-card bg-black/90 border-4 border-black text-white">
-                  <DialogHeader>
-                    <DialogTitle className="font-headline text-3xl text-accent">RECRUIT ALLY</DialogTitle>
-                    <DialogDescription className="text-white/60 font-bold uppercase text-[10px] tracking-widest">Enter the 8-digit Player ID of your comrade</DialogDescription>
-                  </DialogHeader>
-                  <div className="py-6">
+            <div className="flex flex-col gap-4 border-b-4 border-black pb-4">
+              <div className="flex justify-between items-center">
+                <h3 className="font-headline text-2xl text-primary">FRIENDS</h3>
+                <Button 
+                  size="icon" 
+                  onClick={() => setIsAddingFriend(!isAddingFriend)}
+                  className={cn(
+                    "w-8 h-8 rounded-full border-2 border-black transition-all",
+                    isAddingFriend ? "bg-accent rotate-45" : "bg-primary"
+                  )}
+                >
+                  {isAddingFriend ? <X className="w-4 h-4 text-black" /> : <Plus className="w-4 h-4 text-white" />}
+                </Button>
+              </div>
+              
+              {isAddingFriend && (
+                <div className="flex gap-2 animate-in slide-in-from-top-2 duration-300">
+                  <div className="relative flex-1">
                     <Input 
                       maxLength={8}
-                      placeholder="ENTER 8-DIGIT ID..." 
+                      placeholder="8-DIGIT ID" 
                       value={friendIdInput}
                       onChange={(e) => setFriendIdInput(e.target.value.replace(/\D/g, ''))}
-                      className="bg-black/40 border-4 border-black h-16 font-headline text-2xl text-center text-primary"
+                      onKeyDown={(e) => e.key === 'Enter' && friendIdInput.length === 8 && sendFriendRequest()}
+                      className="bg-black/40 border-2 border-black h-10 font-headline text-xs text-primary placeholder:text-white/20 focus-visible:ring-0"
                     />
                   </div>
-                  <DialogFooter>
-                    <Button onClick={sendFriendRequest} disabled={friendIdInput.length !== 8} className="cartoon-button bg-primary text-white w-full h-14 text-xl">SEND REQUEST</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+                  <Button 
+                    onClick={sendFriendRequest} 
+                    disabled={friendIdInput.length !== 8}
+                    className="cartoon-button bg-primary text-white h-10 px-3 min-w-[40px]"
+                  >
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
             </div>
+
             <div className="flex-1 overflow-y-auto space-y-4 pr-2 scrollbar-hide">
               {friendsData.length === 0 ? (
                 <div className="flex flex-col items-center justify-center mt-10 opacity-30">
@@ -357,7 +357,6 @@ export default function LobbyScreen() {
           </div>
 
           <div className="md:col-span-8 space-y-6 flex flex-col">
-            {/* Search Bar */}
             <div className="relative group flex gap-3">
               <div className="relative flex-1">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-6 h-6 text-primary group-focus-within:text-accent transition-colors" />
@@ -424,7 +423,6 @@ export default function LobbyScreen() {
               </div>
             )}
 
-            {/* Bottom Actions */}
             <div className="mt-10 flex items-center justify-center gap-4">
               <Button onClick={handleQuickMatch} size="lg" className="cartoon-button bg-accent text-black text-3xl px-12 h-20 flex items-center gap-4 hover:scale-105">
                 <Zap className="w-8 h-8 fill-current" /> QUICK MATCH
