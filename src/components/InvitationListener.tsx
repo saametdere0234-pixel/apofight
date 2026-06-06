@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
-import { ref, onValue, set, remove } from 'firebase/database';
+import { ref, onValue, set, remove, update } from 'firebase/database';
 import { useLocalPlayer } from '@/hooks/use-local-player';
 import { GameInvitation } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
@@ -39,24 +39,37 @@ export function InvitationListener() {
   }, [profile?.id]);
 
   const handleAccept = () => {
-    if (!activeInvite || !profile) return;
+    if (!activeInvite || !profile || !db) return;
     const invite = activeInvite;
-    setActiveInvite(null);
-    remove(ref(db, `invitations/${profile.id}/${invite.id}`));
-    router.push(`/game/${invite.roomId}`);
+    
+    if (invite.type === 'invite') {
+      // Recipient joins the room immediately
+      setActiveInvite(null);
+      remove(ref(db, `invitations/${profile.id}/${invite.id}`));
+      router.push(`/game/${invite.roomId}`);
+    } else {
+      // Join request: Host accepts, friend (sender) will join automatically via status listener
+      update(ref(db, `invitations/${profile.id}/${invite.id}`), { 
+        status: 'accepted' 
+      });
+      setActiveInvite(null);
+    }
   };
 
   const handleReject = () => {
-    if (!activeInvite || !profile) return;
+    if (!activeInvite || !profile || !db) return;
     const invite = activeInvite;
     setActiveInvite(null);
-    // Set status to rejected so sender can trigger cooldown
-    update(ref(db, `invitations/${profile.id}/${invite.id}`), { status: 'rejected' });
     
-    // Auto-cleanup rejected invite after a short delay
+    // Update status to rejected so sender gets the notification
+    update(ref(db, `invitations/${profile.id}/${invite.id}`), { 
+      status: 'rejected' 
+    });
+    
+    // Auto-cleanup rejected invite after a short delay to allow sender to see it
     setTimeout(() => {
       if (db) remove(ref(db, `invitations/${profile.id}/${invite.id}`));
-    }, 5000);
+    }, 10000);
   };
 
   if (!activeInvite) return null;
@@ -105,6 +118,3 @@ export function InvitationListener() {
     </div>
   );
 }
-
-// Helper to use update in this file
-import { update } from 'firebase/database';

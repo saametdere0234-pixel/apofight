@@ -1,9 +1,9 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { db } from '@/lib/firebase';
-import { ref, onValue, get, update, push, remove, set } from 'firebase/database';
+import { ref, onValue, get, update, push, remove, set, off } from 'firebase/database';
 import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,10 +12,12 @@ import { Users, Plus, X, ArrowRight, Bell, ChevronLeft, ChevronRight, Send, Game
 import { PlayerProfile, GameInvitation } from '@/lib/game-types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
   const { profile, authUser } = useLocalPlayer();
   const { toast } = useToast();
+  const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [sidebarView, setSidebarView] = useState<'friends' | 'notifications'>('friends');
   const [isAddingFriend, setIsAddingFriend] = useState(false);
@@ -24,6 +26,9 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
   const [friendsData, setFriendsData] = useState<PlayerProfile[]>([]);
   const [requestsData, setRequestsData] = useState<PlayerProfile[]>([]);
   const [inviteCooldowns, setInviteCooldowns] = useState<Record<string, number>>({});
+  
+  // Track listeners for sent requests to handle responses automatically
+  const sentRequestListeners = useRef<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!db || !profile?.friends) {
@@ -165,7 +170,12 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
   const handleSendInvitation = async (friendId: string, type: 'invite' | 'join_request', targetRoomId: string) => {
     if (!db || !profile || inviteCooldowns[friendId]) return;
 
+    const friend = friendsData.find(f => f.id === friendId);
+    if (!friend) return;
+
     const inviteRef = push(ref(db, `invitations/${friendId}`));
+    const invitePath = `invitations/${friendId}/${inviteRef.key}`;
+    
     const invite: GameInvitation = {
       id: inviteRef.key!,
       senderId: profile.id,
@@ -186,7 +196,31 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
 
     toast({
       title: type === 'invite' ? "Invitation Sent" : "Join Request Sent",
-      description: `Sent to ${friendsData.find(f => f.id === friendId)?.name}`,
+      description: `Sent to ${friend.name}`,
+    });
+
+    // Listen for response
+    const listenerRef = ref(db, invitePath);
+    onValue(listenerRef, (snapshot) => {
+      const data = snapshot.val() as GameInvitation;
+      if (!data) return;
+
+      if (data.status === 'accepted') {
+        off(listenerRef);
+        if (data.type === 'join_request') {
+          // Automatic join for the requester
+          router.push(`/game/${data.roomId}`);
+        }
+        remove(listenerRef);
+      } else if (data.status === 'rejected') {
+        off(listenerRef);
+        toast({
+          variant: "destructive",
+          title: data.type === 'invite' ? "Invitation Declined" : "Join Request Declined",
+          description: `${friend.name} declined your ${data.type === 'invite' ? 'invitation' : 'request'}.`,
+        });
+        remove(listenerRef);
+      }
     });
   };
 
