@@ -231,10 +231,10 @@ export default function LobbyScreen() {
         </div>
       )}
 
-      {/* Floating Friends Sidebar - Only for Google Users */}
+      {/* Floating Friends Sidebar - Pushed down to top-24 to avoid profile overlap */}
       {authUser && (
         <div className={cn(
-          "fixed right-4 top-4 bottom-4 z-50 transition-transform duration-300 flex",
+          "fixed right-4 top-24 bottom-4 z-50 transition-transform duration-300 flex",
           isSidebarOpen ? "translate-x-0" : "translate-x-[calc(100%-12px)]"
         )}>
           <button 
