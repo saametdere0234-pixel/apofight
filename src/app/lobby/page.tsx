@@ -114,11 +114,11 @@ export default function LobbyScreen() {
       {/* Top Right Profile Display */}
       {authUser && (
         <div className="fixed top-6 right-6 z-[100] animate-in slide-in-from-top-4 fade-in duration-500">
-          <DropdownMenu>
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <div 
                 id="user-profile"
-                className="flex items-center gap-4 bg-black/60 backdrop-blur-md p-2 pl-4 rounded-full border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)] cursor-pointer hover:bg-black/80 transition-colors"
+                className="relative flex items-center gap-4 bg-black/60 backdrop-blur-md p-2 pl-4 rounded-full border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)] cursor-pointer hover:bg-black/80 transition-colors"
               >
                 <span id="user-name" className="font-headline text-lg text-white" style={{ WebkitTextStroke: '1px black' }}>{authUser?.displayName}</span>
                 <Avatar className="w-10 h-10 border-2 border-white/20">
@@ -127,7 +127,7 @@ export default function LobbyScreen() {
                 </Avatar>
               </div>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="cartoon-card bg-black/90 border-4 border-black p-4 min-w-[220px] text-white">
+            <DropdownMenuContent align="end" className="cartoon-card bg-black/90 border-4 border-black p-4 min-w-[220px] text-white">
               <DropdownMenuLabel className="font-headline text-xl text-primary mb-2">WARRIOR INFO</DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-white/10" />
               <div className="space-y-4 py-2">
