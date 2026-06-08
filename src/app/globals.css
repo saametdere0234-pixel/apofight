@@ -121,13 +121,14 @@
   animation: aura-gradient 3s ease infinite;
 }
 
-.aura-pink-blue { background: linear-gradient(45deg, #ec4899, #3b82f6); @apply animate-aura-gradient; }
-.aura-red-blue { background: linear-gradient(45deg, #ef4444, #3b82f6); @apply animate-aura-gradient; }
-.aura-red-green { background: linear-gradient(45deg, #ef4444, #22c55e); @apply animate-aura-gradient; }
-.aura-orange-white { background: linear-gradient(45deg, #f97316, #ffffff); @apply animate-aura-gradient; }
-.aura-pink-white { background: linear-gradient(45deg, #ec4899, #ffffff); @apply animate-aura-gradient; }
-.aura-blue-white { background: linear-gradient(45deg, #3b82f6, #ffffff); @apply animate-aura-gradient; }
-.aura-red-white { background: linear-gradient(45deg, #ef4444, #ffffff); @apply animate-aura-gradient; }
-.aura-green-white { background: linear-gradient(45deg, #22c55e, #ffffff); @apply animate-aura-gradient; }
+.aura-g1 { background: linear-gradient(45deg, #8A2387, #E94057); @apply animate-aura-gradient; }
+.aura-g2 { background: linear-gradient(45deg, #00F2FE, #4FACFE); @apply animate-aura-gradient; }
+.aura-g3 { background: linear-gradient(45deg, #FF416C, #FF4B2B); @apply animate-aura-gradient; }
+.aura-g4 { background: linear-gradient(45deg, #11998E, #38EF7D); @apply animate-aura-gradient; }
+.aura-g5 { background: linear-gradient(45deg, #1F1C2C, #928DAB); @apply animate-aura-gradient; }
+.aura-g6 { background: linear-gradient(45deg, #00C6FF, #0072FF); @apply animate-aura-gradient; }
+.aura-g7 { background: linear-gradient(45deg, #7F00FF, #E100FF); @apply animate-aura-gradient; }
+.aura-g8 { background: linear-gradient(45deg, #F857A6, #FF5858); @apply animate-aura-gradient; }
+.aura-g9 { background: linear-gradient(45deg, #0B132B, #1C2541); @apply animate-aura-gradient; }
+.aura-g10 { background: linear-gradient(45deg, #F21B3F, #330033); @apply animate-aura-gradient; }
 .aura-white-no-border { background: #ffffff; }
-.aura-black { background: #000000; }

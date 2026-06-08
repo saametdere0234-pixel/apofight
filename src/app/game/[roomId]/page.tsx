@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -1281,14 +1280,16 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           const grad = ctx.createLinearGradient(px, py, px + pw, py + ph);
           const t = (now % 3000) / 3000; 
           
-          if (p.color === 'aura-pink-blue') { grad.addColorStop(t, '#ec4899'); grad.addColorStop((t+0.5)%1, '#3b82f6'); }
-          else if (p.color === 'aura-red-blue') { grad.addColorStop(t, '#ef4444'); grad.addColorStop((t+0.5)%1, '#3b82f6'); }
-          else if (p.color === 'aura-red-green') { grad.addColorStop(t, '#ef4444'); grad.addColorStop((t+0.5)%1, '#22c55e'); }
-          else if (p.color === 'aura-orange-white') { grad.addColorStop(t, '#f97316'); grad.addColorStop((t+0.5)%1, '#ffffff'); }
-          else if (p.color === 'aura-pink-white') { grad.addColorStop(t, '#ec4899'); grad.addColorStop((t+0.5)%1, '#ffffff'); }
-          else if (p.color === 'aura-blue-white') { grad.addColorStop(t, '#3b82f6'); grad.addColorStop((t+0.5)%1, '#ffffff'); }
-          else if (p.color === 'aura-red-white') { grad.addColorStop(t, '#ef4444'); grad.addColorStop((t+0.5)%1, '#ffffff'); }
-          else if (p.color === 'aura-green-white') { grad.addColorStop(t, '#22c55e'); grad.addColorStop((t+0.5)%1, '#ffffff'); }
+          if (p.color === 'aura-g1') { grad.addColorStop(t, '#8A2387'); grad.addColorStop((t+0.5)%1, '#E94057'); }
+          else if (p.color === 'aura-g2') { grad.addColorStop(t, '#00F2FE'); grad.addColorStop((t+0.5)%1, '#4FACFE'); }
+          else if (p.color === 'aura-g3') { grad.addColorStop(t, '#FF416C'); grad.addColorStop((t+0.5)%1, '#FF4B2B'); }
+          else if (p.color === 'aura-g4') { grad.addColorStop(t, '#11998E'); grad.addColorStop((t+0.5)%1, '#38EF7D'); }
+          else if (p.color === 'aura-g5') { grad.addColorStop(t, '#1F1C2C'); grad.addColorStop((t+0.5)%1, '#928DAB'); }
+          else if (p.color === 'aura-g6') { grad.addColorStop(t, '#00C6FF'); grad.addColorStop((t+0.5)%1, '#0072FF'); }
+          else if (p.color === 'aura-g7') { grad.addColorStop(t, '#7F00FF'); grad.addColorStop((t+0.5)%1, '#E100FF'); }
+          else if (p.color === 'aura-g8') { grad.addColorStop(t, '#F857A6'); grad.addColorStop((t+0.5)%1, '#FF5858'); }
+          else if (p.color === 'aura-g9') { grad.addColorStop(t, '#0B132B'); grad.addColorStop((t+0.5)%1, '#1C2541'); }
+          else if (p.color === 'aura-g10') { grad.addColorStop(t, '#F21B3F'); grad.addColorStop((t+0.5)%1, '#330033'); }
           
           ctx.fillStyle = grad;
         }
@@ -1591,7 +1592,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                   {(room.players ? Object.values(room.players) : []).map(p => (
                     <div key={p.id} className="flex flex-col items-center gap-3">
                       <div className="relative">
-                        <div className="w-16 h-16 rounded-2xl border-4 border-black shadow-[4px_4px_0_rgba(0,0,0,1)]" style={{ backgroundColor: p.color.startsWith('aura-') ? (p.color === 'aura-black' ? '#000000' : '#ffffff') : p.color }} />
+                        <div className={cn("w-16 h-16 rounded-2xl border-4 shadow-[4px_4px_0_rgba(0,0,0,1)]", p.color.startsWith('aura-') ? p.color : "", p.color === 'aura-white-no-border' ? "border-transparent" : "border-black")} style={{ backgroundColor: p.color.startsWith('aura-') ? (p.color === 'aura-white-no-border' ? '#ffffff' : (p.color === 'aura-black' ? '#000000' : "")) : p.color }} />
                         {p.id === room?.createdBy && <Crown className="absolute -top-6 -right-6 w-10 h-10 text-yellow-500 fill-yellow-500 rotate-12 drop-shadow-[2px_2px_0_rgba(0,0,0,1)]" />}
                         {!p.isReady && (
                           <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center rounded-2xl">

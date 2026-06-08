@@ -53,16 +53,17 @@ const BATTLE_AURAS = [
 ];
 
 const PREMIUM_AURAS = [
-  { id: 'aura-pink-blue', label: 'Pink-Blue', class: 'aura-pink-blue' },
-  { id: 'aura-red-blue', label: 'Red-Blue', class: 'aura-red-blue' },
-  { id: 'aura-red-green', label: 'Red-Green', class: 'aura-red-green' },
-  { id: 'aura-orange-white', label: 'Orange-White', class: 'aura-orange-white' },
-  { id: 'aura-pink-white', label: 'Pink-White', class: 'aura-pink-white' },
-  { id: 'aura-blue-white', label: 'Blue-White', class: 'aura-blue-white' },
-  { id: 'aura-red-white', label: 'Red-White', class: 'aura-red-white' },
-  { id: 'aura-green-white', label: 'Green-White', class: 'aura-green-white' },
-  { id: 'aura-white-no-border', label: 'Pure White', class: 'aura-white-no-border' },
-  { id: 'aura-black', label: 'Deep Black', class: 'aura-black' },
+  { id: 'aura-g1', label: 'Mystic Berry', class: 'aura-g1' },
+  { id: 'aura-g2', label: 'Cyan Sky', class: 'aura-g2' },
+  { id: 'aura-g3', label: 'Flaming Sun', class: 'aura-g3' },
+  { id: 'aura-g4', label: 'Emerald Mint', class: 'aura-g4' },
+  { id: 'aura-g5', label: 'Night Mist', class: 'aura-g5' },
+  { id: 'aura-g6', label: 'Deep Ocean', class: 'aura-g6' },
+  { id: 'aura-g7', label: 'Royal Violet', class: 'aura-g7' },
+  { id: 'aura-g8', label: 'Candy Rush', class: 'aura-g8' },
+  { id: 'aura-g9', label: 'Space Abyss', class: 'aura-g9' },
+  { id: 'aura-g10', label: 'Neon Velvet', class: 'aura-g10' },
+  { id: 'aura-white-no-border', label: 'No Border', class: 'aura-white-no-border' },
 ];
 
 const PREMIUM_PRICE = 200;
@@ -274,7 +275,7 @@ export default function EntryScreen() {
 
               <div className="space-y-3">
                 <Label className="font-bold text-sm uppercase">BATTLE AURA</Label>
-                <div className="flex gap-3 flex-wrap">
+                <div className="flex gap-3 flex-wrap items-center">
                   {BATTLE_AURAS.map(a => (
                     <button
                       key={a.id}
@@ -284,6 +285,20 @@ export default function EntryScreen() {
                       style={{ backgroundColor: a.id }}
                     />
                   ))}
+                  {authUser && (
+                    <button
+                      onClick={() => selectAura('aura-white-no-border', true)}
+                      className={cn(
+                        "w-12 h-12 rounded-full border-4 transition-all relative flex items-center justify-center overflow-hidden aura-white-no-border",
+                        profile.color === 'aura-white-no-border' ? "scale-110 border-white shadow-[0_0_15px_rgba(255,255,255,0.8)]" : "border-black hover:scale-105",
+                        !(profile.unlockedAuras || []).includes('aura-white-no-border') && "opacity-50 brightness-50"
+                      )}
+                      title="No Border (200G)"
+                    >
+                      <span className="text-[10px] font-bold text-black tracking-tighter leading-none text-center">NO<br/>BORDER</span>
+                      {!(profile.unlockedAuras || []).includes('aura-white-no-border') && <Lock className="absolute w-4 h-4 text-black drop-shadow-sm" />}
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -298,7 +313,7 @@ export default function EntryScreen() {
                     </span>
                   </div>
                   <div className="grid grid-cols-5 gap-3">
-                    {PREMIUM_AURAS.map(a => {
+                    {PREMIUM_AURAS.filter(a => a.id !== 'aura-white-no-border').map(a => {
                       const isUnlocked = (profile.unlockedAuras || []).includes(a.id);
                       const isSelected = profile.color === a.id;
                       return (
