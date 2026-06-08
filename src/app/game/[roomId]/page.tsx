@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -1272,32 +1273,27 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.save();
       
       if (p.color.startsWith('aura-')) {
-        if (p.color === 'aura-black') {
-          ctx.fillStyle = '#000000';
-        } else if (p.color === 'aura-white-no-border') {
-          ctx.fillStyle = '#ffffff';
-        } else {
-          const grad = ctx.createLinearGradient(px, py, px + pw, py + ph);
-          const t = (now % 3000) / 3000; 
-          
-          if (p.color === 'aura-g1') { grad.addColorStop(t, '#8A2387'); grad.addColorStop((t+0.5)%1, '#E94057'); }
-          else if (p.color === 'aura-g2') { grad.addColorStop(t, '#00F2FE'); grad.addColorStop((t+0.5)%1, '#4FACFE'); }
-          else if (p.color === 'aura-g3') { grad.addColorStop(t, '#FF416C'); grad.addColorStop((t+0.5)%1, '#FF4B2B'); }
-          else if (p.color === 'aura-g4') { grad.addColorStop(t, '#11998E'); grad.addColorStop((t+0.5)%1, '#38EF7D'); }
-          else if (p.color === 'aura-g5') { grad.addColorStop(t, '#1F1C2C'); grad.addColorStop((t+0.5)%1, '#928DAB'); }
-          else if (p.color === 'aura-g6') { grad.addColorStop(t, '#00C6FF'); grad.addColorStop((t+0.5)%1, '#0072FF'); }
-          else if (p.color === 'aura-g7') { grad.addColorStop(t, '#7F00FF'); grad.addColorStop((t+0.5)%1, '#E100FF'); }
-          else if (p.color === 'aura-g8') { grad.addColorStop(t, '#F857A6'); grad.addColorStop((t+0.5)%1, '#FF5858'); }
-          else if (p.color === 'aura-g9') { grad.addColorStop(t, '#0B132B'); grad.addColorStop((t+0.5)%1, '#1C2541'); }
-          else if (p.color === 'aura-g10') { grad.addColorStop(t, '#F21B3F'); grad.addColorStop((t+0.5)%1, '#330033'); }
-          
-          ctx.fillStyle = grad;
-        }
+        const grad = ctx.createLinearGradient(px, py, px + pw, py + ph);
+        const t = (now % 3000) / 3000; 
+        
+        if (p.color === 'aura-g1') { grad.addColorStop(t, '#8A2387'); grad.addColorStop((t+0.5)%1, '#E94057'); }
+        else if (p.color === 'aura-g2') { grad.addColorStop(t, '#00F2FE'); grad.addColorStop((t+0.5)%1, '#4FACFE'); }
+        else if (p.color === 'aura-g3') { grad.addColorStop(t, '#FF416C'); grad.addColorStop((t+0.5)%1, '#FF4B2B'); }
+        else if (p.color === 'aura-g4') { grad.addColorStop(t, '#11998E'); grad.addColorStop((t+0.5)%1, '#38EF7D'); }
+        else if (p.color === 'aura-g5') { grad.addColorStop(t, '#1F1C2C'); grad.addColorStop((t+0.5)%1, '#928DAB'); }
+        else if (p.color === 'aura-g6') { grad.addColorStop(t, '#00C6FF'); grad.addColorStop((t+0.5)%1, '#0072FF'); }
+        else if (p.color === 'aura-g7') { grad.addColorStop(t, '#7F00FF'); grad.addColorStop((t+0.5)%1, '#E100FF'); }
+        else if (p.color === 'aura-g8') { grad.addColorStop(t, '#F857A6'); grad.addColorStop((t+0.5)%1, '#FF5858'); }
+        else if (p.color === 'aura-g9') { grad.addColorStop(t, '#0B132B'); grad.addColorStop((t+0.5)%1, '#1C2541'); }
+        else if (p.color === 'aura-g10') { grad.addColorStop(t, '#F21B3F'); grad.addColorStop((t+0.5)%1, '#330033'); }
+        
+        ctx.fillStyle = grad;
       } else {
         ctx.fillStyle = p.color;
       }
 
-      if (p.color === 'aura-white-no-border') {
+      // RESPECT NO BORDER SETTING
+      if (p.noBorderEnabled) {
         ctx.strokeStyle = 'transparent';
       } else {
         ctx.strokeStyle = 'black';
@@ -1316,7 +1312,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.lineTo(px, py + radius);
       ctx.quadraticCurveTo(px, py, px + radius, py);
       ctx.fill();
-      if (p.color !== 'aura-white-no-border') ctx.stroke();
+      if (!p.noBorderEnabled) ctx.stroke();
 
       if (now < (p.slowUntil || 0)) {
         ctx.fillStyle = 'rgba(100, 100, 255, 0.4)';
@@ -1440,10 +1436,31 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.fillRect(hpX + 2, py - 16, fillWidth, 4);
       }
       
-      ctx.fillStyle = '#fff'; ctx.strokeStyle = 'black'; ctx.lineWidth = 3;
+      ctx.save();
       ctx.font = 'bold 12px Fredoka'; ctx.textAlign = 'center';
+      
+      if (p.color.startsWith('aura-')) {
+        const t = (now % 3000) / 3000;
+        const grad = ctx.createLinearGradient(px, py - 35, px + pw, py - 20);
+        if (p.color === 'aura-g1') { grad.addColorStop(t, '#8A2387'); grad.addColorStop((t+0.5)%1, '#E94057'); }
+        else if (p.color === 'aura-g2') { grad.addColorStop(t, '#00F2FE'); grad.addColorStop((t+0.5)%1, '#4FACFE'); }
+        else if (p.color === 'aura-g3') { grad.addColorStop(t, '#FF416C'); grad.addColorStop((t+0.5)%1, '#FF4B2B'); }
+        else if (p.color === 'aura-g4') { grad.addColorStop(t, '#11998E'); grad.addColorStop((t+0.5)%1, '#38EF7D'); }
+        else if (p.color === 'aura-g5') { grad.addColorStop(t, '#1F1C2C'); grad.addColorStop((t+0.5)%1, '#928DAB'); }
+        else if (p.color === 'aura-g6') { grad.addColorStop(t, '#00C6FF'); grad.addColorStop((t+0.5)%1, '#0072FF'); }
+        else if (p.color === 'aura-g7') { grad.addColorStop(t, '#7F00FF'); grad.addColorStop((t+0.5)%1, '#E100FF'); }
+        else if (p.color === 'aura-g8') { grad.addColorStop(t, '#F857A6'); grad.addColorStop((t+0.5)%1, '#FF5858'); }
+        else if (p.color === 'aura-g9') { grad.addColorStop(t, '#0B132B'); grad.addColorStop((t+0.5)%1, '#1C2541'); }
+        else if (p.color === 'aura-g10') { grad.addColorStop(t, '#F21B3F'); grad.addColorStop((t+0.5)%1, '#330033'); }
+        ctx.fillStyle = grad;
+      } else {
+        ctx.fillStyle = p.color;
+      }
+
+      ctx.strokeStyle = 'black'; ctx.lineWidth = 3;
       ctx.strokeText(p.name, px + pw/2, py - 25);
       ctx.fillText(p.name, px + pw/2, py - 25);
+      ctx.restore();
     });
 
     ctx.save();
@@ -1592,7 +1609,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                   {(room.players ? Object.values(room.players) : []).map(p => (
                     <div key={p.id} className="flex flex-col items-center gap-3">
                       <div className="relative">
-                        <div className={cn("w-16 h-16 rounded-2xl border-4 shadow-[4px_4px_0_rgba(0,0,0,1)]", p.color.startsWith('aura-') ? p.color : "", p.color === 'aura-white-no-border' ? "border-transparent" : "border-black")} style={{ backgroundColor: p.color.startsWith('aura-') ? (p.color === 'aura-white-no-border' ? '#ffffff' : (p.color === 'aura-black' ? '#000000' : "")) : p.color }} />
+                        <div className={cn(
+                           "w-16 h-16 rounded-2xl shadow-[4px_4px_0_rgba(0,0,0,1)]",
+                           p.color.startsWith('aura-') ? p.color : "",
+                           p.noBorderEnabled ? "border-0" : "border-4 border-black"
+                        )} style={{ backgroundColor: p.color.startsWith('aura-') ? "" : p.color }} />
                         {p.id === room?.createdBy && <Crown className="absolute -top-6 -right-6 w-10 h-10 text-yellow-500 fill-yellow-500 rotate-12 drop-shadow-[2px_2px_0_rgba(0,0,0,1)]" />}
                         {!p.isReady && (
                           <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center rounded-2xl">

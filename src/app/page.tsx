@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -6,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/label';
 import { Label } from '@/components/ui/label';
-import { User, Zap, LogOut, Wallet, Fingerprint, Swords, Sparkles, Lock } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { User, Zap, LogOut, Wallet, Fingerprint, Swords, Sparkles, Lock, ShieldCheck } from 'lucide-react';
 import { WeaponClass, WEAPON_STATS } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -63,7 +65,6 @@ const PREMIUM_AURAS = [
   { id: 'aura-g8', label: 'Candy Rush', class: 'aura-g8' },
   { id: 'aura-g9', label: 'Space Abyss', class: 'aura-g9' },
   { id: 'aura-g10', label: 'Neon Velvet', class: 'aura-g10' },
-  { id: 'aura-white-no-border', label: 'No Border', class: 'aura-white-no-border' },
 ];
 
 const PREMIUM_PRICE = 200;
@@ -73,6 +74,7 @@ export default function EntryScreen() {
   const router = useRouter();
   const { toast } = useToast();
   const [auraToPurchase, setAuraToPurchase] = useState<{id: string, label: string} | null>(null);
+  const [purchaseType, setPurchaseType] = useState<'aura' | 'no-border'>('aura');
 
   if (loading || !profile) {
     return (
@@ -112,6 +114,7 @@ export default function EntryScreen() {
       } else {
         const aura = PREMIUM_AURAS.find(a => a.id === auraId);
         if (aura) {
+          setPurchaseType('aura');
           setAuraToPurchase({ id: aura.id, label: aura.label });
         }
       }
@@ -120,17 +123,34 @@ export default function EntryScreen() {
     }
   };
 
+  const handleNoBorderToggle = (enabled: boolean) => {
+    if (profile.noBorderOwned) {
+      updateProfile({ noBorderEnabled: enabled });
+    } else {
+      setPurchaseType('no-border');
+      setAuraToPurchase({ id: 'no-border', label: 'NO BORDER MODE' });
+    }
+  };
+
   const confirmPurchase = () => {
     if (!auraToPurchase) return;
     const gold = profile.gold || 0;
-    const unlocked = profile.unlockedAuras || [];
-
+    
     if (gold >= PREMIUM_PRICE) {
-      updateProfile({
-        gold: gold - PREMIUM_PRICE,
-        unlockedAuras: [...unlocked, auraToPurchase.id],
-        color: auraToPurchase.id
-      });
+      if (purchaseType === 'aura') {
+        const unlocked = profile.unlockedAuras || [];
+        updateProfile({
+          gold: gold - PREMIUM_PRICE,
+          unlockedAuras: [...unlocked, auraToPurchase.id],
+          color: auraToPurchase.id
+        });
+      } else {
+        updateProfile({
+          gold: gold - PREMIUM_PRICE,
+          noBorderOwned: true,
+          noBorderEnabled: true
+        });
+      }
       toast({
         title: "Purchase successful!",
         description: `-200 Gold`,
@@ -285,53 +305,68 @@ export default function EntryScreen() {
                       style={{ backgroundColor: a.id }}
                     />
                   ))}
-                  {authUser && (
-                    <button
-                      onClick={() => selectAura('aura-white-no-border', true)}
-                      className={cn(
-                        "w-12 h-12 rounded-full border-4 transition-all relative flex items-center justify-center overflow-hidden aura-white-no-border",
-                        profile.color === 'aura-white-no-border' ? "scale-110 border-white shadow-[0_0_15px_rgba(255,255,255,0.8)]" : "border-black hover:scale-105",
-                        !(profile.unlockedAuras || []).includes('aura-white-no-border') && "opacity-50 brightness-50"
-                      )}
-                      title="No Border (200G)"
-                    >
-                      <span className="text-[10px] font-bold text-black tracking-tighter leading-none text-center">NO<br/>BORDER</span>
-                      {!(profile.unlockedAuras || []).includes('aura-white-no-border') && <Lock className="absolute w-4 h-4 text-black drop-shadow-sm" />}
-                    </button>
-                  )}
                 </div>
               </div>
 
               {authUser && (
-                <div className="space-y-3 pt-4 border-t border-white/10">
-                  <div className="flex justify-between items-center">
-                    <Label className="font-bold text-sm uppercase flex items-center gap-2 text-primary">
-                      <Sparkles className="w-4 h-4" /> PREMIUM ARSENAL
-                    </Label>
-                    <span className="font-headline text-xs text-accent bg-black/40 px-3 py-1 rounded-full border border-accent/20">
-                      COST: {PREMIUM_PRICE}G
-                    </span>
+                <div className="space-y-4 pt-4 border-t border-white/10">
+                  {/* NO BORDER TOGGLE - HORIZONTAL EXTENDED */}
+                  <div className="flex items-center justify-between bg-black/40 p-4 rounded-[20px] border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 transition-all group">
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "p-2 rounded-lg border-2 border-black transition-colors",
+                        profile.noBorderOwned ? "bg-accent" : "bg-zinc-800"
+                      )}>
+                        {profile.noBorderOwned ? <ShieldCheck className="w-5 h-5 text-black" /> : <Lock className="w-5 h-5 text-white/40" />}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-headline text-lg text-white leading-none">NO BORDER MODE</span>
+                        <span className="text-[10px] font-bold text-white/40 uppercase">REMOVES BLACK OUTLINES</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-4">
+                      {!profile.noBorderOwned && (
+                         <span className="font-headline text-xs text-accent">200G</span>
+                      )}
+                      <Switch 
+                        checked={profile.noBorderEnabled} 
+                        onCheckedChange={handleNoBorderToggle}
+                        className="data-[state=checked]:bg-accent"
+                      />
+                    </div>
                   </div>
-                  <div className="grid grid-cols-5 gap-3">
-                    {PREMIUM_AURAS.filter(a => a.id !== 'aura-white-no-border').map(a => {
-                      const isUnlocked = (profile.unlockedAuras || []).includes(a.id);
-                      const isSelected = profile.color === a.id;
-                      return (
-                        <button
-                          key={a.id}
-                          title={a.label}
-                          onClick={() => selectAura(a.id, true)}
-                          className={cn(
-                            "w-full aspect-square rounded-full border-4 transition-all relative flex items-center justify-center overflow-hidden",
-                            isSelected ? "scale-110 border-white shadow-[0_0_15px_rgba(255,255,255,0.8)]" : "border-black hover:scale-105",
-                            !isUnlocked && "opacity-50 brightness-50",
-                            a.class
-                          )}
-                        >
-                          {!isUnlocked && <Lock className="w-5 h-5 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]" />}
-                        </button>
-                      );
-                    })}
+
+                  <div className="space-y-3 pt-2">
+                    <div className="flex justify-between items-center">
+                      <Label className="font-bold text-sm uppercase flex items-center gap-2 text-primary">
+                        <Sparkles className="w-4 h-4" /> PREMIUM ARSENAL
+                      </Label>
+                      <span className="font-headline text-xs text-accent bg-black/40 px-3 py-1 rounded-full border border-accent/20">
+                        COST: {PREMIUM_PRICE}G
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-3">
+                      {PREMIUM_AURAS.map(a => {
+                        const isUnlocked = (profile.unlockedAuras || []).includes(a.id);
+                        const isSelected = profile.color === a.id;
+                        return (
+                          <button
+                            key={a.id}
+                            title={a.label}
+                            onClick={() => selectAura(a.id, true)}
+                            className={cn(
+                              "w-full aspect-square rounded-full border-4 transition-all relative flex items-center justify-center overflow-hidden",
+                              isSelected ? "scale-110 border-white shadow-[0_0_15px_rgba(255,255,255,0.8)]" : "border-black hover:scale-105",
+                              !isUnlocked && "opacity-50 brightness-50",
+                              a.class
+                            )}
+                          >
+                            {!isUnlocked && <Lock className="w-5 h-5 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]" />}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               )}
@@ -384,9 +419,11 @@ export default function EntryScreen() {
             <div className="mx-auto w-16 h-16 rounded-full border-4 border-accent flex items-center justify-center bg-accent/20">
               <Sparkles className="w-8 h-8 text-accent" />
             </div>
-            <AlertDialogTitle className="font-headline text-2xl text-center uppercase tracking-tight">Unlock Aura?</AlertDialogTitle>
+            <AlertDialogTitle className="font-headline text-2xl text-center uppercase tracking-tight">Unlock {purchaseType === 'no-border' ? 'Feature' : 'Aura'}?</AlertDialogTitle>
             <AlertDialogDescription className="text-white/80 font-bold text-center uppercase text-xs">
-              Unlock the {auraToPurchase?.label} color for {PREMIUM_PRICE} Gold?
+              {purchaseType === 'no-border' 
+                ? `Unlock NO BORDER setting for ${PREMIUM_PRICE} Gold?`
+                : `Unlock the ${auraToPurchase?.label} color for ${PREMIUM_PRICE} Gold?`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-8 flex gap-4">

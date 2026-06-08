@@ -14,6 +14,8 @@ export interface PlayerProfile {
   friends?: string[]; // Array of internal IDs
   friendRequests?: string[]; // Array of internal IDs who sent requests
   unlockedAuras?: string[]; // Array of color strings/IDs unlocked
+  noBorderOwned?: boolean; // If they purchased the No Border setting
+  noBorderEnabled?: boolean; // If they have the setting turned on
   adminRewardClaimed?: boolean; // Tracking for special grants
 }
 
