@@ -128,7 +128,7 @@ export default function EntryScreen() {
       updateProfile({ noBorderEnabled: enabled });
     } else {
       setPurchaseType('no-border');
-      setAuraToPurchase({ id: 'no-border', label: 'NO BORDER MODE' });
+      setAuraToPurchase({ id: 'no-border', label: 'NO BORDER' });
     }
   };
 
@@ -167,15 +167,15 @@ export default function EntryScreen() {
   const weapons: { id: WeaponClass; desc: string }[] = [
     { 
       id: 'Sword', 
-      desc: `Balanced: ${WEAPON_STATS.Sword.damage} DMG, ${WEAPON_STATS.Sword.range}m Cone, ${WEAPON_STATS.Sword.delay}s Delay` 
+      desc: `SLOW, TANK, STUN` 
     },
     { 
       id: 'Dagger', 
-      desc: `Fast: ${WEAPON_STATS.Dagger.damage} DMG, ${WEAPON_STATS.Dagger.range}m AoE, ${WEAPON_STATS.Dagger.delay}s Delay` 
+      desc: `FAST, FRAGILE, MULTIPLE DASH` 
     },
     { 
       id: 'Bow', 
-      desc: `Range: distance scaling (50-200), ${WEAPON_STATS.Bow.range}m Range` 
+      desc: `RANGED, LIFESTEAL` 
     },
   ];
 
@@ -247,13 +247,6 @@ export default function EntryScreen() {
           <h1 className="text-7xl md:text-9xl font-headline italic tracking-tighter text-white drop-shadow-[6px_6px_0px_rgba(0,0,0,1)] animate-bounce-subtle">
             APO54 <span className="text-accent">BATTLE!</span>
           </h1>
-          <div className="inline-block bg-black/40 backdrop-blur-md px-6 py-2 rounded-full border-2 border-white/10">
-            <p className="text-accent uppercase tracking-[0.2em] text-sm font-bold flex items-center gap-2">
-              <Zap className="w-4 h-4 fill-current" />
-              ULTRA ARCADE EDITION
-              <Zap className="w-4 h-4 fill-current" />
-            </p>
-          </div>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -264,7 +257,6 @@ export default function EntryScreen() {
                   <User className="w-6 h-6" />
                   CHARACTER ID
                 </h3>
-                <p className="font-bold text-white/60 text-xs uppercase">YOUR ARENA LEGACY BEGINS HERE</p>
               </div>
               {!authUser && (
                 <Button 
@@ -281,7 +273,7 @@ export default function EntryScreen() {
             
             <div className="space-y-6">
               <div className="space-y-3">
-                <Label htmlFor="name" className="font-bold text-sm uppercase">WARRIOR ALIAS</Label>
+                <Label htmlFor="name" className="font-bold text-sm uppercase">CHAR NAME</Label>
                 <div className="flex gap-3">
                   <Input 
                     id="name" 
@@ -294,7 +286,7 @@ export default function EntryScreen() {
               </div>
 
               <div className="space-y-3">
-                <Label className="font-bold text-sm uppercase">BATTLE AURA</Label>
+                <Label className="font-bold text-sm uppercase">COLOUR</Label>
                 <div className="flex gap-3 flex-wrap items-center">
                   {BATTLE_AURAS.map(a => (
                     <button
@@ -310,7 +302,6 @@ export default function EntryScreen() {
 
               {authUser && (
                 <div className="space-y-4 pt-4 border-t border-white/10">
-                  {/* NO BORDER TOGGLE - HORIZONTAL EXTENDED */}
                   <div className="flex items-center justify-between bg-black/40 p-4 rounded-[20px] border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 transition-all group">
                     <div className="flex items-center gap-3">
                       <div className={cn(
@@ -320,7 +311,7 @@ export default function EntryScreen() {
                         {profile.noBorderOwned ? <ShieldCheck className="w-5 h-5 text-black" /> : <Lock className="w-5 h-5 text-white/40" />}
                       </div>
                       <div className="flex flex-col">
-                        <span className="font-headline text-lg text-white leading-none">NO BORDER MODE</span>
+                        <span className="font-headline text-lg text-white leading-none">NO BORDER</span>
                         <span className="text-[10px] font-bold text-white/40 uppercase">REMOVES BLACK OUTLINES</span>
                       </div>
                     </div>
@@ -340,7 +331,7 @@ export default function EntryScreen() {
                   <div className="space-y-3 pt-2">
                     <div className="flex justify-between items-center">
                       <Label className="font-bold text-sm uppercase flex items-center gap-2 text-primary">
-                        <Sparkles className="w-4 h-4" /> PREMIUM ARSENAL
+                        <Sparkles className="w-4 h-4" /> PRO COLOURS
                       </Label>
                       <span className="font-headline text-xs text-accent bg-black/40 px-3 py-1 rounded-full border border-accent/20">
                         COST: {PREMIUM_PRICE}G
@@ -379,7 +370,6 @@ export default function EntryScreen() {
                 <Zap className="w-6 h-6" />
                 SELECT ARSENAL
               </h3>
-              <p className="font-bold text-white/60 text-xs uppercase">CHOOSE YOUR COMBAT STYLE</p>
             </div>
             <div className="space-y-4">
               {weapons.map((w) => (
@@ -419,11 +409,11 @@ export default function EntryScreen() {
             <div className="mx-auto w-16 h-16 rounded-full border-4 border-accent flex items-center justify-center bg-accent/20">
               <Sparkles className="w-8 h-8 text-accent" />
             </div>
-            <AlertDialogTitle className="font-headline text-2xl text-center uppercase tracking-tight">Unlock {purchaseType === 'no-border' ? 'Feature' : 'Aura'}?</AlertDialogTitle>
+            <AlertDialogTitle className="font-headline text-2xl text-center uppercase tracking-tight">Unlock {purchaseType === 'no-border' ? 'Feature' : 'Colour'}?</AlertDialogTitle>
             <AlertDialogDescription className="text-white/80 font-bold text-center uppercase text-xs">
               {purchaseType === 'no-border' 
                 ? `Unlock NO BORDER setting for ${PREMIUM_PRICE} Gold?`
-                : `Unlock the ${auraToPurchase?.label} color for ${PREMIUM_PRICE} Gold?`}
+                : `Unlock the ${auraToPurchase?.label} colour for ${PREMIUM_PRICE} Gold?`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-8 flex gap-4">

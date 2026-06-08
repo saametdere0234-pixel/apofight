@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -104,7 +105,7 @@ export default function LobbyScreen() {
       const room: Partial<GameRoom> = {
         id: newRoomRef.key!,
         shortId: generateShortId(),
-        name: profile.name ? `${profile.name}'s Game` : "New Arena",
+        name: profile.name ? `${profile.name}'s Arena` : "New Arena",
         createdBy: profile.id,
         status: 'lobby',
         currentRound: 1,
@@ -149,7 +150,7 @@ export default function LobbyScreen() {
             className="cartoon-button bg-white/10 text-white h-12 px-4 gap-2 border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:bg-white/20"
           >
             <Home className="w-5 h-5" />
-            <span className="font-headline hidden md:inline">ANA SAYFA</span>
+            <span className="font-headline hidden md:inline">HOME</span>
           </Button>
         </div>
       )}
@@ -210,15 +211,15 @@ export default function LobbyScreen() {
         {!db && (
           <Alert variant="destructive" className="cartoon-card bg-destructive/20 border-black mb-10">
             <ShieldAlert className="h-6 w-6 text-destructive" />
-            <AlertTitle className="font-headline text-2xl text-destructive">SİSTEM HATASI</AlertTitle>
-            <AlertDescription className="font-bold uppercase text-xs">FIREBASE BAĞLANTISI KESİLDİ.</AlertDescription>
+            <AlertTitle className="font-headline text-2xl text-destructive">SYSTEM ERROR</AlertTitle>
+            <AlertDescription className="font-bold uppercase text-xs">FIREBASE CONNECTION LOST.</AlertDescription>
           </Alert>
         )}
         
         <div className="flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="space-y-1 text-center md:text-left">
-            <h2 className="text-5xl md:text-6xl font-headline text-primary">LOBİ MERKEZİ</h2>
-            <p className="text-white/40 text-xs font-bold uppercase tracking-[0.3em]">SAVAŞ ALANINI SEÇ</p>
+            <h2 className="text-5xl md:text-6xl font-headline text-primary">LOBBY HUB</h2>
+            <p className="text-white/40 text-xs font-bold uppercase tracking-[0.3em]">CHOOSE BATTLEFIELD</p>
           </div>
           
           {!authUser && (
@@ -227,7 +228,7 @@ export default function LobbyScreen() {
                 <WeaponIcon weapon={profile.weaponClass} className="w-10 h-10 text-3xl" />
               </div>
               <div className="flex flex-col items-start">
-                <span className="text-[10px] font-bold text-white/40 uppercase">SAVAŞÇI</span>
+                <span className="text-[10px] font-bold text-white/40 uppercase">WARRIOR</span>
                 <span className="font-headline text-xl text-accent">{profile.name || 'ANON'}</span>
               </div>
               <Button variant="ghost" size="icon" onClick={() => router.push('/')} className="cartoon-button bg-white/10 p-2 ml-4">
@@ -241,22 +242,22 @@ export default function LobbyScreen() {
           <div className="md:col-span-4 h-fit md:sticky md:top-8">
             <Card className="cartoon-card">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 font-headline text-2xl text-accent"><Plus className="w-6 h-6" /> YENİ ARENA</CardTitle>
-                <CardDescription className="font-bold text-white/50 uppercase text-xs">SAVAŞ OTURUMU BAŞLAT</CardDescription>
+                <CardTitle className="flex items-center gap-2 font-headline text-2xl text-accent"><Plus className="w-6 h-6" /> NEW ARENA</CardTitle>
+                <CardDescription className="font-bold text-white/50 uppercase text-xs">START BATTLE SESSION</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-3">
-                  <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest">ADLANDIRMA</label>
-                  <Input placeholder="ÖR: NEO TOKYO..." value={newRoomName} onChange={(e) => setNewRoomName(e.target.value)} className="bg-black/20 border-4 border-black rounded-[15px] h-12 font-bold" />
+                  <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest">ARENA NAME</label>
+                  <Input placeholder="E.G. NEO TOKYO..." value={newRoomName} onChange={(e) => setNewRoomName(e.target.value)} className="bg-black/20 border-4 border-black rounded-[15px] h-12 font-bold" />
                 </div>
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest">MAKS OYUNCU</label>
+                    <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest">MAX PLAYERS</label>
                     <span className="font-headline text-xl text-primary">{maxPlayers}</span>
                   </div>
                   <Slider value={[maxPlayers]} onValueChange={(v) => setMaxPlayers(v[0])} min={2} max={6} step={1} className="py-4" />
                 </div>
-                <Button className="cartoon-button bg-primary text-white w-full h-14 text-xl" onClick={createRoom} disabled={!newRoomName.trim() || !db}>ARENA KUR</Button>
+                <Button className="cartoon-button bg-primary text-white w-full h-14 text-xl" onClick={createRoom} disabled={!newRoomName.trim() || !db}>CREATE ARENA</Button>
               </CardContent>
             </Card>
           </div>
@@ -266,7 +267,7 @@ export default function LobbyScreen() {
               <div className="relative flex-1">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-6 h-6 text-primary group-focus-within:text-accent transition-colors" />
                 <Input 
-                  placeholder="ARENA ADI VEYA 6-HANELİ ID ARA..." 
+                  placeholder="SEARCH ARENA OR 6-DIGIT ID..." 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
@@ -275,19 +276,19 @@ export default function LobbyScreen() {
               </div>
               <Button onClick={handleSearch} className="cartoon-button bg-primary text-white h-14 px-6 flex items-center gap-2">
                 <Search className="w-5 h-5" />
-                <span>ARA</span>
+                <span>SEARCH</span>
               </Button>
             </div>
 
             <div className="flex items-center justify-between">
-              <h3 className="text-3xl font-headline flex items-center gap-3"><LayoutGrid className="w-8 h-8 text-primary" /> AKTİF BÖLGELER</h3>
-              <span className="font-headline text-sm bg-black/40 border-2 border-white/10 px-4 py-1 rounded-full text-white/60">{filteredRooms.length} ÇEVRİMİÇİ</span>
+              <h3 className="text-3xl font-headline flex items-center gap-3"><LayoutGrid className="w-8 h-8 text-primary" /> ACTIVE REGIONS</h3>
+              <span className="font-headline text-sm bg-black/40 border-2 border-white/10 px-4 py-1 rounded-full text-white/60">{filteredRooms.length} ONLINE</span>
             </div>
 
             {filteredRooms.length === 0 ? (
               <div className="flex flex-col items-center justify-center p-20 cartoon-card bg-black/20 border-dashed opacity-50">
                 <Users className="w-20 h-20 text-white/10 mb-6" />
-                <p className="font-headline text-2xl text-white/20 uppercase">ARENA BULUNAMADI</p>
+                <p className="font-headline text-2xl text-white/20 uppercase">NO ARENAS FOUND</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-6">
@@ -314,7 +315,7 @@ export default function LobbyScreen() {
                               "px-4 py-1 rounded-full border-2 border-black text-[10px] font-headline uppercase",
                               isFull ? "bg-black text-destructive" : isLocked ? "bg-orange-500 text-white" : "bg-primary text-white"
                             )}>
-                              {isFull ? 'DOLU' : room.status}
+                              {isFull ? 'FULL' : room.status.toUpperCase()}
                             </span>
                           </div>
                         </div>
@@ -330,7 +331,7 @@ export default function LobbyScreen() {
 
             <div className="mt-10 flex items-center justify-center gap-4">
               <Button onClick={handleQuickMatch} size="lg" className="cartoon-button bg-accent text-black text-3xl px-12 h-20 flex items-center gap-4 hover:scale-105">
-                <Zap className="w-8 h-8 fill-current" /> HIZLI MAÇ
+                <Zap className="w-8 h-8 fill-current" /> QUICK MATCH
               </Button>
             </div>
           </div>
