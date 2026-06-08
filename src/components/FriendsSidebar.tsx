@@ -10,7 +10,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Users, Plus, X, ArrowRight, Bell, ChevronLeft, ChevronRight, Send, Gamepad2, UserX, Info, Check } from 'lucide-react';
 import { PlayerProfile, GameInvitation } from '@/lib/game-types';
 import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/toast';
+import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
 export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
