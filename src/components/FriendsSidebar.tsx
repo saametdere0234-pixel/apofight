@@ -1,15 +1,15 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { ref, onValue, get, update, push, remove, set, off } from 'firebase/database';
 import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Users, Plus, X, ArrowRight, Bell, ChevronLeft, ChevronRight, Send, Gamepad2 } from 'lucide-react';
-import { PlayerProfile, GameInvitation, GameRoom } from '@/lib/game-types';
+import { Users, Plus, X, ArrowRight, Bell, ChevronLeft, ChevronRight, Send, Gamepad2, UserX, Info } from 'lucide-react';
+import { PlayerProfile, GameInvitation } from '@/lib/game-types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -19,7 +19,8 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
   const { toast } = useToast();
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [sidebarView, setSidebarView] = useState<'friends' | 'notifications'>('friends');
+  const [sidebarView, setSidebarView] = useState<'friends' | 'notifications' | 'detail'>('friends');
+  const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
   const [isAddingFriend, setIsAddingFriend] = useState(false);
   const [friendIdInput, setFriendIdInput] = useState('');
   const [searchStatus, setSearchStatus] = useState<string | null>(null);
@@ -176,10 +177,34 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
     });
   };
 
+  const handleRemoveFriend = async (friendId: string) => {
+    if (!db || !profile) return;
+    
+    const friendRef = ref(db, `players/${friendId}`);
+    const snap = await get(friendRef);
+    
+    if (snap.exists()) {
+      const friendProfile = snap.val() as PlayerProfile;
+      const myUpdatedFriends = (profile.friends || []).filter(id => id !== friendId);
+      const friendUpdatedFriends = (friendProfile.friends || []).filter(id => id !== profile.id);
+      
+      await update(ref(db, `players/${profile.id}`), { friends: myUpdatedFriends });
+      await update(friendRef, { friends: friendUpdatedFriends });
+      
+      setFriendsData(prev => prev.filter(f => f.id !== friendId));
+      setSidebarView('friends');
+      setSelectedFriendId(null);
+      
+      toast({
+        title: "Friend Removed",
+        description: `${friendProfile.name} is no longer in your friends list.`,
+      });
+    }
+  };
+
   const handleSendInvitation = async (friendId: string, type: 'invite' | 'join_request', targetRoomId: string) => {
     if (!db || !profile || inviteCooldowns[friendId]) return;
 
-    // Combat Lock check
     if (type === 'invite' && currentRoomStatus !== 'lobby' && currentRoomStatus !== 'finished') {
       toast({ variant: "destructive", title: "Cannot Invite", description: "You cannot invite while in combat." });
       return;
@@ -214,7 +239,6 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
       description: `Sent to ${friend.name}`,
     });
 
-    // Listen for response
     const listenerRef = ref(db, invitePath);
     onValue(listenerRef, (snapshot) => {
       const data = snapshot.val() as GameInvitation;
@@ -223,10 +247,8 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
       if (data.status === 'accepted') {
         off(listenerRef);
         if (data.type === 'join_request') {
-          // Automatic join for the requester
           router.push(`/game/${data.roomId}`);
         }
-        // Cleanup accepted request definitively
         remove(listenerRef);
       } else if (data.status === 'rejected') {
         off(listenerRef);
@@ -235,13 +257,14 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
           title: data.type === 'invite' ? "Invitation Declined" : "Join Request Declined",
           description: `${friend.name} declined your ${data.type === 'invite' ? 'invitation' : 'request'}.`,
         });
-        // Cleanup rejected request
         remove(listenerRef);
       }
     });
   };
 
   if (!authUser || !profile) return null;
+
+  const selectedFriend = friendsData.find(f => f.id === selectedFriendId);
 
   return (
     <div className={cn(
@@ -254,8 +277,10 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
       >
         {isSidebarOpen ? <ChevronRight className="text-white" /> : <ChevronLeft className="text-white" />}
       </button>
+      
       <div className="w-72 bg-black/90 backdrop-blur-xl border-4 border-black p-6 flex flex-col gap-6 shadow-[-10px_0_30px_rgba(0,0,0,0.5)] rounded-[30px]">
-        {sidebarView === 'friends' ? (
+        
+        {sidebarView === 'friends' && (
           <div className="flex flex-col h-full gap-4 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="flex flex-col gap-4 border-b-4 border-black pb-4">
               <div className="flex justify-between items-center">
@@ -335,7 +360,13 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
 
                   return (
                     <div key={friend.id} className="flex flex-col gap-2 bg-white/5 p-2 rounded-xl border-2 border-black hover:border-primary/50 transition-colors group">
-                      <div className="flex items-center gap-3">
+                      <div 
+                        className="flex items-center gap-3 cursor-pointer p-1"
+                        onClick={() => {
+                          setSelectedFriendId(friend.id);
+                          setSidebarView('detail');
+                        }}
+                      >
                         <div className="relative">
                           <Avatar className="w-10 h-10 border border-white/10">
                             <AvatarImage src={friend.avatarUrl} />
@@ -346,14 +377,11 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
                             friend.isOnline ? "bg-green-500 shadow-[0_0_8px_#22c55e]" : "bg-zinc-600"
                           )} />
                         </div>
-                        <div className="flex flex-col flex-1">
-                          <span className="font-headline text-sm text-white truncate w-32">{friend.name}</span>
-                          <span className="text-[8px] font-bold text-white/40 uppercase tracking-widest">#{friend.playerId}</span>
-                          {isFriendInGame && (
-                            <span className="text-[8px] font-bold text-accent uppercase flex items-center gap-1">
-                              <Gamepad2 className="w-2 h-2" /> IN COMBAT
-                            </span>
-                          )}
+                        <div className="flex flex-col flex-1 overflow-hidden">
+                          <span className="font-headline text-sm text-white truncate">{friend.name}</span>
+                          <span className="text-[8px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1">
+                            <Info className="w-2 h-2" /> VIEW INFO
+                          </span>
                         </div>
                       </div>
                       
@@ -382,7 +410,9 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
               )}
             </div>
           </div>
-        ) : (
+        )}
+
+        {sidebarView === 'notifications' && (
           <div className="flex flex-col h-full gap-4 animate-in fade-in slide-in-from-left-4 duration-300">
             <div className="flex flex-col gap-4 border-b-4 border-black pb-4">
               <div className="flex items-center gap-2">
@@ -432,6 +462,62 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
                   </div>
                 ))
               )}
+            </div>
+          </div>
+        )}
+
+        {sidebarView === 'detail' && selectedFriend && (
+          <div className="flex flex-col h-full gap-6 animate-in zoom-in duration-300">
+            <div className="flex flex-col gap-4 border-b-4 border-black pb-4">
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setSidebarView('friends')}
+                  className="w-10 h-10 flex items-center justify-center text-white/60 hover:text-white bg-white/5 rounded-full border-2 border-black"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+                <h3 className="font-headline text-2xl text-primary uppercase">WARRIOR INFO</h3>
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center gap-6 p-4 bg-white/5 rounded-[20px] border-4 border-black shadow-[4px_4px_0_rgba(0,0,0,1)]">
+              <div className="relative">
+                <Avatar className="w-24 h-24 border-4 border-black shadow-[4px_4px_0_rgba(0,0,0,1)]">
+                  <AvatarImage src={selectedFriend.avatarUrl} />
+                  <AvatarFallback className="font-headline text-4xl bg-primary text-white">{selectedFriend.name?.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <div className={cn(
+                  "absolute bottom-0 right-0 w-8 h-8 rounded-full border-4 border-black flex items-center justify-center",
+                  selectedFriend.isOnline ? "bg-green-500" : "bg-zinc-600"
+                )} />
+              </div>
+              
+              <div className="flex flex-col items-center text-center gap-2">
+                <span className="font-headline text-2xl text-white">{selectedFriend.name}</span>
+                <div className="flex flex-col items-center bg-black/40 px-4 py-2 rounded-xl border border-white/10 w-full">
+                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">PLAYER ID</span>
+                  <span className="font-headline text-lg text-accent">#{selectedFriend.playerId}</span>
+                </div>
+                
+                <div className="flex items-center gap-2 mt-2">
+                  <div className={cn(
+                    "w-3 h-3 rounded-full",
+                    selectedFriend.isOnline ? "bg-green-500" : "bg-zinc-600"
+                  )} />
+                  <span className="text-[10px] font-bold text-white uppercase tracking-tighter">
+                    {selectedFriend.isOnline ? (selectedFriend.currentRoomId ? 'IN COMBAT' : 'ONLINE') : 'OFFLINE'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="w-full pt-4 border-t border-white/10">
+                <Button 
+                  onClick={() => handleRemoveFriend(selectedFriend.id)}
+                  className="cartoon-button bg-destructive text-white w-full h-12 gap-2 text-xs font-headline"
+                >
+                  <UserX className="w-4 h-4" /> REMOVE FRIEND
+                </Button>
+              </div>
             </div>
           </div>
         )}
