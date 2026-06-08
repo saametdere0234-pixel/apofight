@@ -243,24 +243,26 @@ export default function EntryScreen() {
       )}
 
       <div className="w-full max-w-4xl space-y-12 relative z-20">
-        <header className="text-center">
-          <h1 className="flex flex-col items-center justify-center font-headline italic tracking-tighter animate-bounce-subtle select-none">
+        <header className="text-center py-8">
+          <h1 className="flex flex-col items-center justify-center font-headline tracking-tighter animate-bounce-subtle select-none">
             <span 
-              className="text-6xl md:text-8xl text-[#f43f5e] drop-shadow-[8px_8px_0px_#4c0519] mb-[-0.2em] z-10" 
+              className="text-7xl md:text-9xl text-[#f43f5e] mb-[-0.25em] z-10" 
               style={{ 
-                WebkitTextStroke: '14px #4c0519', 
+                WebkitTextStroke: '16px #4c0519', 
                 paintOrder: 'stroke fill',
-                letterSpacing: '-0.05em'
+                textShadow: '10px 10px 0px #4c0519',
+                letterSpacing: '-0.06em'
               }}
             >
               colorful
             </span>
             <span 
-              className="text-6xl md:text-8xl text-[#fffbeb] drop-shadow-[8px_8px_0px_#4c0519] z-0" 
+              className="text-7xl md:text-9xl text-[#fffbeb] z-0" 
               style={{ 
-                WebkitTextStroke: '14px #4c0519', 
+                WebkitTextStroke: '16px #4c0519', 
                 paintOrder: 'stroke fill',
-                letterSpacing: '-0.05em'
+                textShadow: '10px 10px 0px #4c0519',
+                letterSpacing: '-0.06em'
               }}
             >
               sausages
