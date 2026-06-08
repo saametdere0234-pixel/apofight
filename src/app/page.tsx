@@ -246,24 +246,24 @@ export default function EntryScreen() {
         <header className="text-center">
           <h1 className="flex flex-col items-center justify-center font-headline italic tracking-tighter animate-bounce-subtle select-none">
             <span 
-              className="text-7xl md:text-9xl text-[#f43f5e] drop-shadow-[8px_8px_0px_#4c0519] mb-[-0.2em] z-10" 
+              className="text-6xl md:text-8xl text-[#f43f5e] drop-shadow-[8px_8px_0px_#4c0519] mb-[-0.2em] z-10" 
               style={{ 
-                WebkitTextStroke: '16px #4c0519', 
+                WebkitTextStroke: '14px #4c0519', 
                 paintOrder: 'stroke fill',
                 letterSpacing: '-0.05em'
               }}
             >
-              apo54
+              colorful
             </span>
             <span 
-              className="text-7xl md:text-9xl text-[#fffbeb] drop-shadow-[8px_8px_0px_#4c0519] z-0" 
+              className="text-6xl md:text-8xl text-[#fffbeb] drop-shadow-[8px_8px_0px_#4c0519] z-0" 
               style={{ 
-                WebkitTextStroke: '16px #4c0519', 
+                WebkitTextStroke: '14px #4c0519', 
                 paintOrder: 'stroke fill',
                 letterSpacing: '-0.05em'
               }}
             >
-              battle
+              sausages
             </span>
           </h1>
         </header>

@@ -4,7 +4,7 @@ import { InvitationListener } from '@/components/InvitationListener';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'Apo54 Battleground',
+  title: 'Colorful Sausages Battleground',
   description: 'Real-time multiplayer arena combat game',
 };
 
