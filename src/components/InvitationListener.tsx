@@ -3,12 +3,13 @@
 
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
-import { ref, onValue, set, remove, update } from 'firebase/database';
+import { ref, onValue, set, remove, update, get } from 'firebase/database';
 import { useLocalPlayer } from '@/hooks/use-local-player';
-import { GameInvitation } from '@/lib/game-types';
+import { GameInvitation, PlayerProfile } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Swords, X, Check, UserPlus } from 'lucide-react';
+import { Swords, X, Check, UserPlus, UserCheck, Bell } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export function InvitationListener() {
   const { profile } = useLocalPlayer();
@@ -42,25 +43,51 @@ export function InvitationListener() {
     if (!activeInvite || !profile || !db) return;
     const invite = activeInvite;
     const inviteId = invite.id;
-    
-    // 1. Force cleanup of old room presence
-    if (profile.currentRoomId) {
-      const oldPlayerRef = ref(db, `rooms/${profile.currentRoomId}/players/${profile.id}`);
-      await remove(oldPlayerRef);
-    }
 
     if (invite.type === 'invite') {
-      // 2. For Invites: Recipient clears the record and moves in
+      // Cleanup old presence
+      if (profile.currentRoomId) {
+        await remove(ref(db, `rooms/${profile.currentRoomId}/players/${profile.id}`));
+      }
       setActiveInvite(null);
       await remove(ref(db, `invitations/${profile.id}/${inviteId}`));
       router.push(`/game/${invite.roomId}`);
-    } else {
-      // 2. For Join Requests: Recipient (Host) marks as accepted.
-      // The requester (sender) is listening and will cleanup + join.
+    } else if (invite.type === 'join_request') {
+      // Host accepts requester
       await update(ref(db, `invitations/${profile.id}/${inviteId}`), { 
         status: 'accepted' 
       });
       setActiveInvite(null);
+    } else if (invite.type === 'friend_request') {
+      // Acceptance of friend request
+      const senderId = invite.senderId;
+      const myId = profile.id;
+
+      const myRef = ref(db, `players/${myId}`);
+      const senderRef = ref(db, `players/${senderId}`);
+
+      const [mySnap, senderSnap] = await Promise.all([get(myRef), get(senderRef)]);
+
+      if (mySnap.exists() && senderSnap.exists()) {
+        const myData = mySnap.val() as PlayerProfile;
+        const senderData = senderSnap.val() as PlayerProfile;
+
+        const myFriends = myData.friends || [];
+        const senderFriends = senderData.friends || [];
+
+        const updates: any = {};
+        if (!myFriends.includes(senderId)) {
+          updates[`players/${myId}/friends`] = [...myFriends, senderId];
+        }
+        if (!senderFriends.includes(myId)) {
+          updates[`players/${senderId}/friends`] = [...senderFriends, myId];
+        }
+        
+        await update(ref(db), updates);
+      }
+
+      setActiveInvite(null);
+      await remove(ref(db, `invitations/${profile.id}/${inviteId}`));
     }
   };
 
@@ -78,51 +105,66 @@ export function InvitationListener() {
     // Auto-cleanup rejected invite after a short delay
     setTimeout(() => {
       if (db) remove(ref(db, `invitations/${profile.id}/${inviteId}`));
-    }, 5000);
+    }, 2000);
   };
 
   if (!activeInvite) return null;
 
-  const isJoinRequest = activeInvite.type === 'join_request';
+  const getTitle = () => {
+    switch (activeInvite.type) {
+      case 'friend_request': return "NEW ALLY REQUEST!";
+      case 'join_request': return "ENTRY REQUEST!";
+      case 'invite': return "CALL TO ARMS!";
+      default: return "NOTIFICATION";
+    }
+  };
+
+  const getSubTitle = () => {
+    const name = activeInvite.senderName.toUpperCase();
+    switch (activeInvite.type) {
+      case 'friend_request': return `${name} WANTS TO BE FRIENDS`;
+      case 'join_request': return `${name} WANTS TO JOIN YOU`;
+      case 'invite': return `${name} INVITED YOU TO BATTLE`;
+      default: return `MESSAGE FROM ${name}`;
+    }
+  };
+
+  const getIcon = () => {
+    switch (activeInvite.type) {
+      case 'friend_request': return <UserPlus className="w-6 h-6 text-primary" />;
+      case 'join_request': return <Bell className="w-6 h-6 text-primary" />;
+      case 'invite': return <Swords className="w-6 h-6 text-primary" />;
+      default: return <Bell className="w-6 h-6 text-primary" />;
+    }
+  };
 
   return (
-    <div className="fixed inset-0 z-[1000] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4">
-      <div className="cartoon-card bg-[#1a1a2e] border-8 border-primary p-12 max-w-lg w-full text-center space-y-10 animate-in zoom-in duration-300">
-        <div className="relative mx-auto w-32 h-32 flex items-center justify-center bg-primary/20 rounded-full border-4 border-primary">
-          {isJoinRequest ? (
-            <UserPlus className="w-16 h-16 text-primary animate-pulse" />
-          ) : (
-            <Swords className="w-16 h-16 text-primary animate-pulse" />
-          )}
-        </div>
-        
-        <div className="space-y-4">
-          <h2 className="text-5xl font-headline text-white tracking-tight uppercase italic">
-            {isJoinRequest ? "JOIN REQUEST!" : "CALL TO ARMS!"}
-          </h2>
-          <p className="text-xl font-headline text-accent drop-shadow-md">
-            {activeInvite.senderName.toUpperCase()} {isJoinRequest ? "WANTS TO ENTER YOUR ARENA" : "INVITED YOU TO GLORY"}
-          </p>
+    <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[2000] w-full max-w-sm px-4 animate-in slide-in-from-top duration-300">
+      <div className="cartoon-card bg-black/95 border-4 border-primary p-4 shadow-[0_10px_40px_rgba(0,0,0,0.8)]">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="w-12 h-12 flex items-center justify-center bg-primary/20 rounded-xl border-2 border-primary">
+            {getIcon()}
+          </div>
+          <div className="flex-1 text-left">
+            <h4 className="font-headline text-lg text-white leading-none mb-1">{getTitle()}</h4>
+            <p className="text-[10px] font-bold text-accent uppercase tracking-wider">{getSubTitle()}</p>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-2 gap-3">
           <Button 
             onClick={handleReject}
-            className="cartoon-button bg-destructive text-white h-20 text-2xl gap-3 hover:scale-105 active:scale-95"
+            className="cartoon-button bg-destructive text-white h-10 text-xs gap-2"
           >
-            <X className="w-8 h-8" /> REJECT
+            <X className="w-4 h-4" /> REJECT
           </Button>
           <Button 
             onClick={handleAccept}
-            className="cartoon-button bg-green-600 text-white h-20 text-2xl gap-3 hover:scale-105 active:scale-95"
+            className="cartoon-button bg-green-600 text-white h-10 text-xs gap-2"
           >
-            <Check className="w-8 h-8" /> ACCEPT
+            <Check className="w-4 h-4" /> ACCEPT
           </Button>
         </div>
-
-        <p className="text-[10px] font-bold text-white/20 uppercase tracking-widest">
-          {isJoinRequest ? "ALLOW ENTRY TO THE COMBAT ZONE?" : "CHOOSE YOUR FATE WISELY"}
-        </p>
       </div>
     </div>
   );

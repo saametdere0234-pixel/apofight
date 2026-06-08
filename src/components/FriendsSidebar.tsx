@@ -120,22 +120,21 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
     
     if (mappingSnap.exists()) {
       const targetId = mappingSnap.val();
-      const targetRef = ref(db, `players/${targetId}`);
-      const targetSnap = await get(targetRef);
       
-      if (targetSnap.exists()) {
-        const targetProfile = targetSnap.val() as PlayerProfile;
-        const currentRequests = targetProfile.friendRequests || [];
-        
-        if (!currentRequests.includes(profile.id)) {
-          await update(targetRef, {
-            friendRequests: [...currentRequests, profile.id]
-          });
-        }
-        setSearchStatus('Request sent');
-      } else {
-        setSearchStatus('Player not found');
-      }
+      // Send real-time invitation pop-up
+      const inviteRef = push(ref(db, `invitations/${targetId}`));
+      const invite: GameInvitation = {
+        id: inviteRef.key!,
+        senderId: profile.id,
+        senderName: profile.name,
+        senderPlayerId: profile.playerId!,
+        type: 'friend_request',
+        timestamp: Date.now(),
+        status: 'pending'
+      };
+      
+      await set(inviteRef, invite);
+      setSearchStatus('Request sent');
     } else {
       setSearchStatus('Player not found');
     }
@@ -155,18 +154,18 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
       const myFriends = profile.friends || [];
       const senderFriends = senderProfile.friends || [];
       
+      const updates: any = {};
       if (!myFriends.includes(senderId)) {
-        await update(ref(db, `players/${profile.id}`), {
-          friends: [...myFriends, senderId],
-          friendRequests: (profile.friendRequests || []).filter(id => id !== senderId)
-        });
+        updates[`players/${profile.id}/friends`] = [...myFriends, senderId];
+      }
+      if (!senderFriends.includes(profile.id)) {
+        updates[`players/${senderId}/friends`] = [...senderFriends, profile.id];
       }
       
-      if (!senderFriends.includes(profile.id)) {
-        await update(senderRef, {
-          friends: [...senderFriends, profile.id]
-        });
-      }
+      // Cleanup the old array request if it exists
+      updates[`players/${profile.id}/friendRequests`] = (profile.friendRequests || []).filter(id => id !== senderId);
+      
+      await update(ref(db), updates);
     }
   };
 
@@ -247,6 +246,7 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
       if (data.status === 'accepted') {
         off(listenerRef);
         if (data.type === 'join_request') {
+          // Requester joins host's room
           router.push(`/game/${data.roomId}`);
         }
         remove(listenerRef);

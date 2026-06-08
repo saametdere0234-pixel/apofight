@@ -24,8 +24,8 @@ export interface GameInvitation {
   senderId: string;
   senderName: string;
   senderPlayerId: string;
-  roomId: string;
-  type: 'invite' | 'join_request';
+  roomId?: string; // Room ID (not needed for friend requests)
+  type: 'invite' | 'join_request' | 'friend_request';
   timestamp: number;
   status?: 'pending' | 'accepted' | 'rejected';
 }
