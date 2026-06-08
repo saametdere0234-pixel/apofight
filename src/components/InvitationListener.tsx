@@ -8,7 +8,8 @@ import { useLocalPlayer } from '@/hooks/use-local-player';
 import { GameInvitation, PlayerProfile } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Swords, X, Check, UserPlus, UserCheck, Bell } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Swords, X, Check, UserPlus, Bell } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function InvitationListener() {
@@ -131,10 +132,10 @@ export function InvitationListener() {
 
   const getIcon = () => {
     switch (activeInvite.type) {
-      case 'friend_request': return <UserPlus className="w-6 h-6 text-primary" />;
-      case 'join_request': return <Bell className="w-6 h-6 text-primary" />;
-      case 'invite': return <Swords className="w-6 h-6 text-primary" />;
-      default: return <Bell className="w-6 h-6 text-primary" />;
+      case 'friend_request': return <UserPlus className="w-5 h-5 text-primary" />;
+      case 'join_request': return <Bell className="w-5 h-5 text-primary" />;
+      case 'invite': return <Swords className="w-5 h-5 text-primary" />;
+      default: return <Bell className="w-5 h-5 text-primary" />;
     }
   };
 
@@ -142,8 +143,16 @@ export function InvitationListener() {
     <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[2000] w-full max-w-sm px-4 animate-in slide-in-from-top duration-300">
       <div className="cartoon-card bg-black/95 border-4 border-primary p-4 shadow-[0_10px_40px_rgba(0,0,0,0.8)]">
         <div className="flex items-center gap-4 mb-4">
-          <div className="w-12 h-12 flex items-center justify-center bg-primary/20 rounded-xl border-2 border-primary">
-            {getIcon()}
+          <div className="relative">
+            <Avatar className="w-14 h-14 border-2 border-primary shadow-[4px_4px_0_rgba(0,0,0,1)]">
+              <AvatarImage src={activeInvite.senderAvatarUrl} />
+              <AvatarFallback className="bg-primary text-white font-headline text-lg">
+                {activeInvite.senderName.charAt(0)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-black rounded-full border-2 border-primary flex items-center justify-center">
+              {getIcon()}
+            </div>
           </div>
           <div className="flex-1 text-left">
             <h4 className="font-headline text-lg text-white leading-none mb-1">{getTitle()}</h4>

@@ -24,6 +24,7 @@ export interface GameInvitation {
   senderId: string;
   senderName: string;
   senderPlayerId: string;
+  senderAvatarUrl?: string;
   roomId?: string; // Room ID (not needed for friend requests)
   type: 'invite' | 'join_request' | 'friend_request';
   timestamp: number;

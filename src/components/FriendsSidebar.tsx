@@ -127,6 +127,7 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
         senderId: profile.id,
         senderName: profile.name,
         senderPlayerId: profile.playerId!,
+        senderAvatarUrl: profile.avatarUrl,
         type: 'friend_request',
         timestamp: Date.now(),
         status: 'pending'
@@ -218,6 +219,7 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
       senderId: profile.id,
       senderName: profile.name,
       senderPlayerId: profile.playerId!,
+      senderAvatarUrl: profile.avatarUrl,
       roomId: targetRoomId,
       type: type,
       timestamp: Date.now(),
@@ -298,8 +300,8 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
                   >
                     <Bell className={cn("w-5 h-5", pendingRequestsCount > 0 ? "text-white" : "text-white/60")} />
                     {pendingRequestsCount > 0 && (
-                      <div className="absolute -top-2 -right-2 w-6 h-6 bg-white rounded-full border-2 border-black flex items-center justify-center">
-                        <span className="text-xs font-headline text-destructive leading-none">{pendingRequestsCount}</span>
+                      <div className="absolute -top-2 -right-2 w-6 h-6 bg-destructive rounded-full border-2 border-black flex items-center justify-center">
+                        <span className="text-xs font-headline text-white leading-none">{pendingRequestsCount}</span>
                       </div>
                     )}
                   </button>
@@ -425,7 +427,14 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
                 >
                   <ChevronLeft className="w-6 h-6" />
                 </button>
-                <h3 className="font-headline text-2xl text-accent">NOTIFICATIONS</h3>
+                <div className="relative">
+                  <h3 className="font-headline text-2xl text-accent">NOTIFICATIONS</h3>
+                  {pendingRequestsCount > 0 && (
+                    <div className="absolute -top-3 -right-6 w-6 h-6 bg-destructive rounded-full border-2 border-black flex items-center justify-center">
+                      <span className="text-xs font-headline text-white leading-none">{pendingRequestsCount}</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
