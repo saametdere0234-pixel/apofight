@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState, use, useCallback } from 'react';
 import { useLocalPlayer } from '@/hooks/use-local-player';
 import { db, auth } from '@/lib/firebase';
-import { ref, onValue, set, update, onDisconnect, remove, get, push } from 'firebase/database';
+import { ref, onValue, set, update, onDisconnect, remove, get, push, off } from 'firebase/database';
 import { signOut } from 'firebase/auth';
 import { 
   GamePlayer, 
@@ -107,6 +107,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const [isConnected, setIsConnected] = useState(true);
   const matchProcessedRef = useRef<string | null>(null);
   const feeProcessedRef = useRef<string | null>(null);
+  const hasJoinedRef = useRef(false);
   
   const isChargingRef = useRef(false);
   const [isCharging, setIsCharging] = useState(false);
@@ -131,7 +132,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const lastSyncTimeRef = useRef(0);
 
   // Quitting is restricted during active match phases
-  const isLocked = room?.status !== 'lobby' && room?.status !== 'finished';
+  const isLocked = room?.status === 'starting' || room?.status === 'playing' || room?.status === 'celebrating' || room?.status === 'round_over';
 
   const handleQuit = useCallback(async () => {
     if (!db || !roomId || !profileRef.current || isLocked) return;
@@ -388,58 +389,62 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const getMaxDashCharges = (weapon: WeaponClass) => (weapon === 'Dagger' ? 4 : 1);
 
   useEffect(() => {
-    if (profileLoading || !profile || !db) return;
+    if (profileLoading || !profile || !db || !roomId) return;
 
     const roomPath = ref(db, `rooms/${roomId}`);
     const myPlayerRef = ref(db, `rooms/${roomId}/players/${profile.id}`);
     
-    const weaponStats = WEAPON_STATS[profile.weaponClass] || WEAPON_STATS.Sword;
+    // Join logic: Only run if we haven't already joined this room with this profile
+    if (!hasJoinedRef.current) {
+      hasJoinedRef.current = true;
+      const weaponStats = WEAPON_STATS[profile.weaponClass] || WEAPON_STATS.Sword;
 
-    get(roomPath).then((snapshot) => {
-      if (snapshot.exists()) {
-        const roomData = snapshot.val() as GameRoom;
-        const playerCount = roomData.players ? Object.keys(roomData.players).length : 0;
-        const isAlreadyIn = roomData.players && roomData.players[profile.id];
-        
-        if (!isAlreadyIn && playerCount >= (roomData.maxPlayers || 4)) {
-          router.push('/lobby');
-          return;
+      get(roomPath).then((snapshot) => {
+        if (snapshot.exists()) {
+          const roomData = snapshot.val() as GameRoom;
+          const playerCount = roomData.players ? Object.keys(roomData.players).length : 0;
+          const isAlreadyIn = roomData.players && roomData.players[profile.id];
+          
+          if (!isAlreadyIn && playerCount >= (roomData.maxPlayers || 4)) {
+            router.push('/lobby');
+            return;
+          }
+
+          const existingPositions = Object.values(roomData.players || {})
+            .filter(p => p.hp > 0)
+            .map(p => ({ x: p.x, y: p.y }));
+          
+          const bestSpawn = getBestSpawnPoint(SPAWN_POINTS, existingPositions);
+          
+          const initialPlayer: GamePlayer = {
+            ...profile,
+            x: bestSpawn.x,
+            y: bestSpawn.y,
+            vy: 0,
+            hp: weaponStats.maxHp,
+            stamina: weaponStats.maxStamina,
+            facing: 'right',
+            isJumping: false,
+            jumpCount: 0,
+            dashCharges: getMaxDashCharges(profile.weaponClass),
+            dashRechargeProgress: 0,
+            lastAttackTime: 0,
+            roundsWon: 0,
+            isDashing: false,
+            dashTimeLeft: 0,
+            dashDirX: 0,
+            dashDirY: 0,
+            stunnedUntil: 0,
+            stunCooldownUntil: 0,
+            isReady: true
+          };
+          
+          set(myPlayerRef, initialPlayer);
+          update(roomPath, { lastUpdate: Date.now() });
+          onDisconnect(myPlayerRef).remove();
         }
-
-        const existingPositions = Object.values(roomData.players || {})
-          .filter(p => p.hp > 0)
-          .map(p => ({ x: p.x, y: p.y }));
-        
-        const bestSpawn = getBestSpawnPoint(SPAWN_POINTS, existingPositions);
-        
-        const initialPlayer: GamePlayer = {
-          ...profile,
-          x: bestSpawn.x,
-          y: bestSpawn.y,
-          vy: 0,
-          hp: weaponStats.maxHp,
-          stamina: weaponStats.maxStamina,
-          facing: 'right',
-          isJumping: false,
-          jumpCount: 0,
-          dashCharges: getMaxDashCharges(profile.weaponClass),
-          dashRechargeProgress: 0,
-          lastAttackTime: 0,
-          roundsWon: 0,
-          isDashing: false,
-          dashTimeLeft: 0,
-          dashDirX: 0,
-          dashDirY: 0,
-          stunnedUntil: 0,
-          stunCooldownUntil: 0,
-          isReady: true
-        };
-        
-        set(myPlayerRef, initialPlayer);
-        update(roomPath, { lastUpdate: Date.now() });
-        onDisconnect(myPlayerRef).remove();
-      }
-    });
+      });
+    }
 
     const unsubscribe = onValue(roomPath, (snapshot) => {
       if (!snapshot.exists()) {
@@ -452,12 +457,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     return () => {
       unsubscribe();
-      // Definitive cleanup to prevent ghosts
-      if (db && profile?.id) {
-        remove(ref(db, `rooms/${roomId}/players/${profile.id}`));
+      // Use profileRef here to avoid issues with stale profile in the unmount closure
+      if (db && roomId && profileRef.current?.id) {
+        // If we are navigating away (unmounting), we remove the player
+        remove(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`));
       }
     };
-  }, [profile, profileLoading, roomId, router]);
+  }, [profile?.id, profileLoading, roomId, router]);
 
   const updateGameLogic = useCallback((dt: number) => {
     const currentRoom = roomRef.current;
@@ -613,6 +619,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         isDashing,
         dashTimeLeft
       });
+      // Also update room heartbeat
+      update(ref(db, `rooms/${roomId}`), { lastUpdate: Date.now() });
     }
   }, [roomId, keys]);
 
