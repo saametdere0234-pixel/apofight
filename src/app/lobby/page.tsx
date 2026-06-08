@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -218,8 +217,7 @@ export default function LobbyScreen() {
         
         <div className="flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="space-y-1 text-center md:text-left">
-            <h2 className="text-5xl md:text-6xl font-headline text-primary">LOBBY HUB</h2>
-            <p className="text-white/40 text-xs font-bold uppercase tracking-[0.3em]">CHOOSE BATTLEFIELD</p>
+            <h2 className="text-5xl md:text-6xl font-headline text-primary">MAIN LOBBY</h2>
           </div>
           
           {!authUser && (
@@ -243,12 +241,11 @@ export default function LobbyScreen() {
             <Card className="cartoon-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 font-headline text-2xl text-accent"><Plus className="w-6 h-6" /> NEW ARENA</CardTitle>
-                <CardDescription className="font-bold text-white/50 uppercase text-xs">START BATTLE SESSION</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-3">
                   <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest">ARENA NAME</label>
-                  <Input placeholder="E.G. NEO TOKYO..." value={newRoomName} onChange={(e) => setNewRoomName(e.target.value)} className="bg-black/20 border-4 border-black rounded-[15px] h-12 font-bold" />
+                  <Input placeholder="NAME HERE..." value={newRoomName} onChange={(e) => setNewRoomName(e.target.value)} className="bg-black/20 border-4 border-black rounded-[15px] h-12 font-bold" />
                 </div>
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
@@ -276,12 +273,11 @@ export default function LobbyScreen() {
               </div>
               <Button onClick={handleSearch} className="cartoon-button bg-primary text-white h-14 px-6 flex items-center gap-2">
                 <Search className="w-5 h-5" />
-                <span>SEARCH</span>
               </Button>
             </div>
 
             <div className="flex items-center justify-between">
-              <h3 className="text-3xl font-headline flex items-center gap-3"><LayoutGrid className="w-8 h-8 text-primary" /> ACTIVE REGIONS</h3>
+              <h3 className="text-3xl font-headline flex items-center gap-3"><LayoutGrid className="w-8 h-8 text-primary" /> ROOMS</h3>
               <span className="font-headline text-sm bg-black/40 border-2 border-white/10 px-4 py-1 rounded-full text-white/60">{filteredRooms.length} ONLINE</span>
             </div>
 
@@ -331,7 +327,7 @@ export default function LobbyScreen() {
 
             <div className="mt-10 flex items-center justify-center gap-4">
               <Button onClick={handleQuickMatch} size="lg" className="cartoon-button bg-accent text-black text-3xl px-12 h-20 flex items-center gap-4 hover:scale-105">
-                <Zap className="w-8 h-8 fill-current" /> QUICK MATCH
+                <Zap className="w-8 h-8 fill-current" /> PLAY
               </Button>
             </div>
           </div>

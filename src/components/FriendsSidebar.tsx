@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -11,7 +10,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Users, Plus, X, ArrowRight, Bell, ChevronLeft, ChevronRight, Send, Gamepad2, UserX, Info, Check } from 'lucide-react';
 import { PlayerProfile, GameInvitation } from '@/lib/game-types';
 import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/toast';
 import { useRouter } from 'next/navigation';
 
 export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
@@ -313,7 +312,7 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
           <div className="flex flex-col h-full gap-4 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="flex flex-col gap-4 border-b-4 border-black pb-4">
               <div className="flex justify-between items-center">
-                <h3 className="font-headline text-2xl text-primary">FRIENDS</h3>
+                <h3 className="font-headline text-2xl text-primary uppercase">FRIENDS</h3>
                 <div className="flex gap-2">
                   <button 
                     onClick={() => setSidebarView('notifications')}

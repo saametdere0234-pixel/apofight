@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -398,7 +397,7 @@ export default function EntryScreen() {
             onClick={handlePlay}
             disabled={!profile.name.trim()}
           >
-            ENTER THE ARENA
+            ENTER LOBBY
           </Button>
         </div>
       </div>
