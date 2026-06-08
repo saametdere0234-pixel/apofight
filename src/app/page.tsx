@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -242,9 +243,28 @@ export default function EntryScreen() {
       )}
 
       <div className="w-full max-w-4xl space-y-12 relative z-20">
-        <header className="text-center space-y-4">
-          <h1 className="text-7xl md:text-9xl font-headline italic tracking-tighter text-white drop-shadow-[6px_6px_0px_rgba(0,0,0,1)] animate-bounce-subtle">
-            APO54 <span className="text-accent">BATTLE!</span>
+        <header className="text-center">
+          <h1 className="flex flex-col items-center justify-center font-headline italic tracking-tighter animate-bounce-subtle select-none">
+            <span 
+              className="text-7xl md:text-9xl text-[#f43f5e] drop-shadow-[8px_8px_0px_#4c0519] mb-[-0.2em] z-10" 
+              style={{ 
+                WebkitTextStroke: '16px #4c0519', 
+                paintOrder: 'stroke fill',
+                letterSpacing: '-0.05em'
+              }}
+            >
+              apo54
+            </span>
+            <span 
+              className="text-7xl md:text-9xl text-[#fffbeb] drop-shadow-[8px_8px_0px_#4c0519] z-0" 
+              style={{ 
+                WebkitTextStroke: '16px #4c0519', 
+                paintOrder: 'stroke fill',
+                letterSpacing: '-0.05em'
+              }}
+            >
+              battle
+            </span>
           </h1>
         </header>
 
