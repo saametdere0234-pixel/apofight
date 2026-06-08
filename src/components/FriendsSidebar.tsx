@@ -121,7 +121,6 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
     if (mappingSnap.exists()) {
       const targetId = mappingSnap.val();
       
-      // Send real-time invitation pop-up
       const inviteRef = push(ref(db, `invitations/${targetId}`));
       const invite: GameInvitation = {
         id: inviteRef.key!,
@@ -162,7 +161,6 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
         updates[`players/${senderId}/friends`] = [...senderFriends, profile.id];
       }
       
-      // Cleanup the old array request if it exists
       updates[`players/${profile.id}/friendRequests`] = (profile.friendRequests || []).filter(id => id !== senderId);
       
       await update(ref(db), updates);
@@ -230,7 +228,7 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
     
     setInviteCooldowns(prev => ({
       ...prev,
-      [friendId]: Date.now() + 15000 // 15s cooldown
+      [friendId]: Date.now() + 15000 
     }));
 
     toast({
@@ -246,7 +244,6 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
       if (data.status === 'accepted') {
         off(listenerRef);
         if (data.type === 'join_request') {
-          // Requester joins host's room
           router.push(`/game/${data.roomId}`);
         }
         remove(listenerRef);
@@ -265,6 +262,7 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
   if (!authUser || !profile) return null;
 
   const selectedFriend = friendsData.find(f => f.id === selectedFriendId);
+  const pendingRequestsCount = profile.friendRequests?.length || 0;
 
   return (
     <div className={cn(
@@ -273,9 +271,14 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
     )}>
       <button 
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-        className="w-10 h-16 my-auto bg-black/80 backdrop-blur-md border-4 border-r-0 border-black rounded-l-[20px] flex items-center justify-center hover:bg-black transition-colors shadow-[-4px_0_10px_rgba(0,0,0,0.3)]"
+        className="w-10 h-16 my-auto bg-black/80 backdrop-blur-md border-4 border-r-0 border-black rounded-l-[20px] flex items-center justify-center hover:bg-black transition-colors shadow-[-4px_0_10px_rgba(0,0,0,0.3)] relative"
       >
         {isSidebarOpen ? <ChevronRight className="text-white" /> : <ChevronLeft className="text-white" />}
+        {!isSidebarOpen && pendingRequestsCount > 0 && (
+          <div className="absolute -top-3 -left-3 w-6 h-6 bg-destructive rounded-full border-2 border-black flex items-center justify-center animate-bounce shadow-[0_0_10px_rgba(239,68,68,0.5)]">
+            <span className="text-[10px] font-headline text-white leading-none">{pendingRequestsCount}</span>
+          </div>
+        )}
       </button>
       
       <div className="w-72 bg-black/90 backdrop-blur-xl border-4 border-black p-6 flex flex-col gap-6 shadow-[-10px_0_30px_rgba(0,0,0,0.5)] rounded-[30px]">
@@ -290,13 +293,13 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
                     onClick={() => setSidebarView('notifications')}
                     className={cn(
                       "w-10 h-10 rounded-full border-4 border-black flex items-center justify-center transition-all relative",
-                      profile.friendRequests && profile.friendRequests.length > 0 ? "bg-destructive animate-pulse shadow-[0_0_15px_rgba(255,0,0,0.5)]" : "bg-white/10"
+                      pendingRequestsCount > 0 ? "bg-destructive animate-pulse shadow-[0_0_15px_rgba(255,0,0,0.5)]" : "bg-white/10"
                     )}
                   >
-                    <Bell className={cn("w-5 h-5", profile.friendRequests && profile.friendRequests.length > 0 ? "text-white" : "text-white/60")} />
-                    {profile.friendRequests && profile.friendRequests.length > 0 && (
+                    <Bell className={cn("w-5 h-5", pendingRequestsCount > 0 ? "text-white" : "text-white/60")} />
+                    {pendingRequestsCount > 0 && (
                       <div className="absolute -top-2 -right-2 w-6 h-6 bg-white rounded-full border-2 border-black flex items-center justify-center">
-                        <span className="text-xs font-headline text-destructive leading-none">{profile.friendRequests.length}</span>
+                        <span className="text-xs font-headline text-destructive leading-none">{pendingRequestsCount}</span>
                       </div>
                     )}
                   </button>
