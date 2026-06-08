@@ -677,7 +677,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const isStunned = now < (p.stunnedUntil || 0);
       if (isStunned) return;
 
-      if ((e.code === 'KeyW' || e.code === 'ArrowUp') && !p.isJumping) {
+      if ((e.code === 'KeyW' || e.code === 'ArrowUp')) {
         const currentJumpCount = p.jumpCount || 0;
         if (currentJumpCount < 2) {
           update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), {
@@ -1553,7 +1553,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       {!isConnected && (
         <div className="w-full bg-yellow-500/80 py-2 border-b-4 border-black text-center z-[101] flex items-center justify-center gap-2">
           <WifiOff className="w-6 h-6 text-black" />
-          <span className="font-headline text-2xl text-black tracking-widest drop-shadow-[1px_1px_0px_rgba(255,255,255,0.5)]">RECONNECTING...</span>
+          <span className="font-headline text-2xl text-black tracking-widest drop-shadow-[1px_1px_0_rgba(255,255,255,0.5)]">RECONNECTING...</span>
         </div>
       )}
 

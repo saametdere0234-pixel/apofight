@@ -8,7 +8,7 @@ import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Users, Plus, X, ArrowRight, Bell, ChevronLeft, ChevronRight, Send, Gamepad2, UserX, Info } from 'lucide-react';
+import { Users, Plus, X, ArrowRight, Bell, ChevronLeft, ChevronRight, Send, Gamepad2, UserX, Info, Check } from 'lucide-react';
 import { PlayerProfile, GameInvitation } from '@/lib/game-types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -25,7 +25,7 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
   const [friendIdInput, setFriendIdInput] = useState('');
   const [searchStatus, setSearchStatus] = useState<string | null>(null);
   const [friendsData, setFriendsData] = useState<PlayerProfile[]>([]);
-  const [requestsData, setRequestsData] = useState<PlayerProfile[]>([]);
+  const [invitesData, setInvitesData] = useState<GameInvitation[]>([]);
   const [inviteCooldowns, setInviteCooldowns] = useState<Record<string, number>>({});
   const [currentRoomStatus, setCurrentRoomStatus] = useState<string>('lobby');
 
@@ -68,31 +68,18 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
   }, [profile?.friends]);
 
   useEffect(() => {
-    if (!db || !profile?.friendRequests) {
-      setRequestsData([]);
-      return;
-    }
-    const requestList = profile.friendRequests;
-    
-    const unsubscribers = requestList.map(fId => {
-      const senderRef = ref(db, `players/${fId}`);
-      return onValue(senderRef, (snap) => {
-        const sender = snap.val() as PlayerProfile;
-        if (sender) {
-          setRequestsData(prev => {
-            const index = prev.findIndex(p => p.id === sender.id);
-            if (index > -1) {
-              const next = [...prev];
-              next[index] = sender;
-              return next;
-            }
-            return [...prev, sender];
-          });
-        }
-      });
+    if (!db || !profile?.id) return;
+    const invitesRef = ref(db, `invitations/${profile.id}`);
+    const unsubscribe = onValue(invitesRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setInvitesData(Object.values(data) as GameInvitation[]);
+      } else {
+        setInvitesData([]);
+      }
     });
-    return () => unsubscribers.forEach(u => u());
-  }, [profile?.friendRequests]);
+    return () => unsubscribe();
+  }, [profile?.id]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -121,7 +108,6 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
     if (mappingSnap.exists()) {
       const targetId = mappingSnap.val();
       
-      // Create invitation for real-time toast
       const inviteRef = push(ref(db, `invitations/${targetId}`));
       const invite: GameInvitation = {
         id: inviteRef.key!,
@@ -135,7 +121,6 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
       };
       await set(inviteRef, invite);
 
-      // Route to notifications screen by updating recipient's profile
       const targetRef = ref(db, `players/${targetId}`);
       const snap = await get(targetRef);
       if (snap.exists()) {
@@ -155,60 +140,63 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
     setTimeout(() => setSearchStatus(null), 3000);
   };
 
-  const handleAcceptRequest = async (senderId: string) => {
+  const handleAcceptInvite = async (invite: GameInvitation) => {
     if (!db || !profile) return;
-    
-    const senderRef = ref(db, `players/${senderId}`);
-    const snap = await get(senderRef);
-    
-    if (snap.exists()) {
-      const senderProfile = snap.val() as PlayerProfile;
-      const myFriends = profile.friends || [];
-      const senderFriends = senderProfile.friends || [];
-      
-      const updates: any = {};
-      if (!myFriends.includes(senderId)) {
-        updates[`players/${profile.id}/friends`] = [...myFriends, senderId];
-      }
-      if (!senderFriends.includes(profile.id)) {
-        updates[`players/${senderId}/friends`] = [...senderFriends, profile.id];
-      }
-      
-      updates[`players/${profile.id}/friendRequests`] = (profile.friendRequests || []).filter(id => id !== senderId);
-      
-      await update(ref(db), updates);
+    const inviteId = invite.id;
 
-      // Cleanup any active invitations from this sender
-      const invitesRef = ref(db, `invitations/${profile.id}`);
-      const invitesSnap = await get(invitesRef);
-      if (invitesSnap.exists()) {
-        const invites = invitesSnap.val();
-        Object.keys(invites).forEach(key => {
-          if (invites[key].senderId === senderId && invites[key].type === 'friend_request') {
-            remove(ref(db, `invitations/${profile.id}/${key}`));
-          }
-        });
+    if (invite.type === 'invite') {
+      if (profile.currentRoomId) {
+        await remove(ref(db, `rooms/${profile.currentRoomId}/players/${profile.id}`));
       }
+      await remove(ref(db, `invitations/${profile.id}/${inviteId}`));
+      router.push(`/game/${invite.roomId}`);
+    } else if (invite.type === 'join_request') {
+      await update(ref(db, `invitations/${profile.id}/${inviteId}`), { 
+        status: 'accepted' 
+      });
+    } else if (invite.type === 'friend_request') {
+      const senderId = invite.senderId;
+      const myId = profile.id;
+      const myRef = ref(db, `players/${myId}`);
+      const senderRef = ref(db, `players/${senderId}`);
+      const [mySnap, senderSnap] = await Promise.all([get(myRef), get(senderRef)]);
+
+      if (mySnap.exists() && senderSnap.exists()) {
+        const myData = mySnap.val() as PlayerProfile;
+        const senderData = senderSnap.val() as PlayerProfile;
+        const myFriends = myData.friends || [];
+        const senderFriends = senderData.friends || [];
+        const myRequests = myData.friendRequests || [];
+
+        const updates: any = {};
+        if (!myFriends.includes(senderId)) updates[`players/${myId}/friends`] = [...myFriends, senderId];
+        if (!senderFriends.includes(myId)) updates[`players/${senderId}/friends`] = [...senderFriends, myId];
+        updates[`players/${myId}/friendRequests`] = myRequests.filter(id => id !== senderId);
+        
+        await update(ref(db), updates);
+      }
+      await remove(ref(db, `invitations/${profile.id}/${inviteId}`));
     }
   };
 
-  const handleRejectRequest = async (senderId: string) => {
+  const handleRejectInvite = async (invite: GameInvitation) => {
     if (!db || !profile) return;
-    await update(ref(db, `players/${profile.id}`), {
-      friendRequests: (profile.friendRequests || []).filter(id => id !== senderId)
+    const inviteId = invite.id;
+    
+    await update(ref(db, `invitations/${profile.id}/${inviteId}`), { 
+      status: 'rejected' 
     });
-
-    // Cleanup any active invitations from this sender
-    const invitesRef = ref(db, `invitations/${profile.id}`);
-    const invitesSnap = await get(invitesRef);
-    if (invitesSnap.exists()) {
-      const invites = invitesSnap.val();
-      Object.keys(invites).forEach(key => {
-        if (invites[key].senderId === senderId && invites[key].type === 'friend_request') {
-          remove(ref(db, `invitations/${profile.id}/${key}`));
-        }
+    
+    if (invite.type === 'friend_request') {
+      const myRequests = profile.friendRequests || [];
+      await update(ref(db, `players/${profile.id}`), {
+        friendRequests: myRequests.filter(id => id !== invite.senderId)
       });
     }
+    
+    setTimeout(() => {
+      if (db) remove(ref(db, `invitations/${profile.id}/${inviteId}`));
+    }, 2000);
   };
 
   const handleRemoveFriend = async (friendId: string) => {
@@ -300,7 +288,7 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
   if (!authUser || !profile) return null;
 
   const selectedFriend = friendsData.find(f => f.id === selectedFriendId);
-  const pendingRequestsCount = profile.friendRequests?.length || 0;
+  const pendingRequestsCount = invitesData.length;
 
   return (
     <div className={cn(
@@ -475,33 +463,36 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-4 pr-2 scrollbar-hide">
-              {requestsData.length === 0 ? (
+              {invitesData.length === 0 ? (
                 <div className="flex flex-col items-center justify-center mt-10 opacity-30">
                   <Bell className="w-12 h-12 text-white mb-2" />
                   <p className="text-[10px] font-bold text-white uppercase text-center">No notifications</p>
                 </div>
               ) : (
-                requestsData.map(sender => (
-                  <div key={sender.id} className="flex flex-col gap-3 bg-white/5 p-3 rounded-xl border-2 border-black">
+                invitesData.map(invite => (
+                  <div key={invite.id} className="flex flex-col gap-3 bg-white/5 p-3 rounded-xl border-2 border-black">
                     <div className="flex items-center gap-3">
                       <Avatar className="w-8 h-8 border border-white/10">
-                        <AvatarImage src={sender.avatarUrl} />
-                        <AvatarFallback className="font-headline text-[10px]">{sender.name?.charAt(0)}</AvatarFallback>
+                        <AvatarImage src={invite.senderAvatarUrl} />
+                        <AvatarFallback className="font-headline text-[10px]">{invite.senderName?.charAt(0)}</AvatarFallback>
                       </Avatar>
                       <div className="flex flex-col">
-                        <span className="font-headline text-xs text-white truncate w-32">{sender.name}</span>
-                        <span className="text-[8px] font-bold text-white/40 uppercase tracking-widest">Friend Request</span>
+                        <span className="font-headline text-xs text-white truncate w-32">{invite.senderName}</span>
+                        <span className="text-[8px] font-bold text-white/40 uppercase tracking-widest">
+                          {invite.type === 'friend_request' ? 'Friend Request' : 
+                           invite.type === 'invite' ? 'Battle Invite' : 'Join Request'}
+                        </span>
                       </div>
                     </div>
                     <div className="flex gap-2">
                       <Button 
-                        onClick={() => handleAcceptRequest(sender.id)}
+                        onClick={() => handleAcceptInvite(invite)}
                         className="flex-1 cartoon-button bg-green-600 text-white h-8 text-[10px] p-0"
                       >
                         ACCEPT
                       </Button>
                       <Button 
-                        onClick={() => handleRejectRequest(sender.id)}
+                        onClick={() => handleRejectInvite(invite)}
                         className="flex-1 cartoon-button bg-destructive text-white h-8 text-[10px] p-0"
                       >
                         REJECT
