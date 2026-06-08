@@ -481,7 +481,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           const projY = proj.startY + proj.vy * (elapsed / 1000);
 
           let hitId: string | null = null;
-          Object.entries(currentRoom.players).forEach(([eid, enemy]) => {
+          Object.entries(currentRoom.players || {}).forEach(([eid, enemy]) => {
             if (eid === profileRef.current?.id || enemy.hp <= 0) return;
             const buffer = 0.5;
             if (
@@ -860,7 +860,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       stamina: (p.stamina || 0) - weaponStats.staminaAttackCost
     });
 
-    Object.entries(currentRoom.players).forEach(([id, enemy]) => {
+    Object.entries(currentRoom.players || {}).forEach(([id, enemy]) => {
       if (id === profileRef.current?.id || enemy.hp <= 0) return;
       
       const ex = enemy.x + PLAYER_WIDTH / 2;
@@ -1000,7 +1000,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       celebrationStartTime: null
     };
 
-    Object.keys(currentData.players).forEach(pid => {
+    Object.keys(currentData.players || {}).forEach(pid => {
       const p = currentData.players[pid];
       const bestSpawn = getBestSpawnPoint(SPAWN_POINTS, assignedSpawns);
       assignedSpawns.push(bestSpawn);
@@ -1055,13 +1055,15 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     ctx.fillStyle = '#333333'; 
     ctx.fillRect(0, GROUND_Y * PIXELS_PER_METER, canvas.width, (ARENA_HEIGHT - GROUND_Y) * PIXELS_PER_METER);
 
+    const playersData = currentRoom.players || {};
+
     Object.keys(interpPlayersRef.current).forEach(id => {
-      if (!currentRoom.players[id]) {
+      if (!playersData[id]) {
         delete interpPlayersRef.current[id];
       }
     });
 
-    Object.values(currentRoom.players || {}).forEach(p => {
+    Object.values(playersData).forEach(p => {
       if (p.id === profileRef.current?.id) {
         interpPlayersRef.current[p.id] = p;
       } else {
@@ -1078,7 +1080,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const playersToDraw = Object.values(interpPlayersRef.current);
 
     if (isChargingRef.current && profileRef.current) {
-      const myP = currentRoom.players[profileRef.current.id];
+      const myP = playersData[profileRef.current.id];
       if (myP && myP.hp > 0) {
         if (myP.weaponClass === 'Bow') {
           const px = (myP.x + PLAYER_WIDTH/2) * PIXELS_PER_METER;
