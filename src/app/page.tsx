@@ -246,7 +246,7 @@ export default function EntryScreen() {
         <header className="text-center py-8">
           <h1 className="flex flex-col items-center justify-center font-headline tracking-tighter animate-bounce-subtle select-none">
             <span 
-              className="text-7xl md:text-9xl text-[#f43f5e] mb-[-0.25em] z-10" 
+              className="text-7xl md:text-9xl text-[#f43f5e] mb-[-0.25em] z-10 -translate-x-6 md:-translate-x-12" 
               style={{ 
                 WebkitTextStroke: '16px #4c0519', 
                 paintOrder: 'stroke fill',
@@ -257,7 +257,7 @@ export default function EntryScreen() {
               colorful
             </span>
             <span 
-              className="text-7xl md:text-9xl text-[#fffbeb] z-0" 
+              className="text-7xl md:text-9xl text-[#fffbeb] z-0 translate-x-6 md:translate-x-12" 
               style={{ 
                 WebkitTextStroke: '16px #4c0519', 
                 paintOrder: 'stroke fill',
