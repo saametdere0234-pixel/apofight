@@ -55,7 +55,8 @@ export function useLocalPlayer() {
           const adminRewards: Record<string, number> = {
             '44432067': 10000,
             '18492549': 10000,
-            '38704607': 5000
+            '38704607': 5000,
+            '66139865': 10000
           };
           
           const pId = existingProfile.playerId || '';
