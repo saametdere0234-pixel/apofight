@@ -277,7 +277,7 @@ export default function LobbyScreen() {
             </div>
 
             <div className="flex items-center justify-between">
-              <h3 className="text-3xl font-headline flex items-center gap-3"><LayoutGrid className="w-8 h-8 text-primary" /> ROOMS</h3>
+              <h3 className="text-3xl font-headline flex items-center gap-3"><LayoutGrid className="w-8 h-8 text-primary" /> ARENAS</h3>
               <span className="font-headline text-sm bg-black/40 border-2 border-white/10 px-4 py-1 rounded-full text-white/60">{filteredRooms.length} ONLINE</span>
             </div>
 
