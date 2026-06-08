@@ -4,8 +4,8 @@ import { InvitationListener } from '@/components/InvitationListener';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'Colorful Sausages Battleground',
-  description: 'Real-time multiplayer arena combat game',
+  title: 'Colorful Sausages',
+  description: 'Sausage Fight Game',
 };
 
 export default function RootLayout({
