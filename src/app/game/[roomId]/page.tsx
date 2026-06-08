@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -1646,8 +1645,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                       </Button>
                     ) : (
                       <div className="flex flex-col items-center animate-pulse">
-                        <span className="font-headline text-2xl text-white/40 uppercase tracking-widest text-center">{playerCount < 2 ? 'WAITING FOR CHALLENGERS...' : 'WAITING FOR WARRIORS...'}</span>
-                        <span className="text-xs font-bold text-primary uppercase mt-2">All players must be ready to start</span>
+                        <span className="font-headline text-2xl text-white/40 uppercase tracking-widest text-center">WAITING PLAYERS..</span>
                       </div>
                     )
                   ) : (
