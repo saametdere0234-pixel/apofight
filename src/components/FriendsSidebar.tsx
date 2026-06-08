@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Users, Plus, X, ArrowRight, Bell, ChevronLeft, ChevronRight, Send, Gamepad2 } from 'lucide-react';
-import { PlayerProfile, GameInvitation } from '@/lib/game-types';
+import { PlayerProfile, GameInvitation, GameRoom } from '@/lib/game-types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -26,9 +26,18 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
   const [friendsData, setFriendsData] = useState<PlayerProfile[]>([]);
   const [requestsData, setRequestsData] = useState<PlayerProfile[]>([]);
   const [inviteCooldowns, setInviteCooldowns] = useState<Record<string, number>>({});
-  
-  // Track listeners for sent requests to handle responses automatically
-  const sentRequestListeners = useRef<Record<string, boolean>>({});
+  const [currentRoomStatus, setCurrentRoomStatus] = useState<string>('lobby');
+
+  useEffect(() => {
+    if (!db || !currentRoomId) {
+      setCurrentRoomStatus('lobby');
+      return;
+    }
+    const statusRef = ref(db, `rooms/${currentRoomId}/status`);
+    return onValue(statusRef, (snap) => {
+      setCurrentRoomStatus(snap.val() || 'lobby');
+    });
+  }, [currentRoomId]);
 
   useEffect(() => {
     if (!db || !profile?.friends) {
@@ -170,6 +179,12 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
   const handleSendInvitation = async (friendId: string, type: 'invite' | 'join_request', targetRoomId: string) => {
     if (!db || !profile || inviteCooldowns[friendId]) return;
 
+    // Combat Lock check
+    if (type === 'invite' && currentRoomStatus !== 'lobby' && currentRoomStatus !== 'finished') {
+      toast({ variant: "destructive", title: "Cannot Invite", description: "You cannot invite while in combat." });
+      return;
+    }
+
     const friend = friendsData.find(f => f.id === friendId);
     if (!friend) return;
 
@@ -211,6 +226,7 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
           // Automatic join for the requester
           router.push(`/game/${data.roomId}`);
         }
+        // Cleanup accepted request definitively
         remove(listenerRef);
       } else if (data.status === 'rejected') {
         off(listenerRef);
@@ -219,6 +235,7 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
           title: data.type === 'invite' ? "Invitation Declined" : "Join Request Declined",
           description: `${friend.name} declined your ${data.type === 'invite' ? 'invitation' : 'request'}.`,
         });
+        // Cleanup rejected request
         remove(listenerRef);
       }
     });
@@ -312,8 +329,9 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
               ) : (
                 friendsData.map(friend => {
                   const isFriendInGame = friend.isOnline && friend.currentRoomId && friend.currentRoomId !== currentRoomId;
-                  const canInvite = profile.currentRoomId && friend.isOnline && !friend.currentRoomId;
-                  const canJoin = isFriendInGame;
+                  const isCombatActive = currentRoomStatus !== 'lobby' && currentRoomStatus !== 'finished';
+                  const canInvite = profile.currentRoomId && friend.isOnline && !friend.currentRoomId && !isCombatActive;
+                  const canJoin = isFriendInGame && !isCombatActive;
 
                   return (
                     <div key={friend.id} className="flex flex-col gap-2 bg-white/5 p-2 rounded-xl border-2 border-black hover:border-primary/50 transition-colors group">

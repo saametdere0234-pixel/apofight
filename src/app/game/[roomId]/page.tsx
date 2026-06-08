@@ -135,23 +135,26 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   const handleQuit = useCallback(async () => {
     if (!db || !roomId || !profileRef.current || isLocked) return;
-    const roomPath = ref(db, `rooms/${roomId}`);
-    const myPlayerRef = ref(db, `rooms/${roomId}/players/${profileRef.current.id}`);
     
+    const myPlayerRef = ref(db, `rooms/${roomId}/players/${profileRef.current.id}`);
+    const roomPath = ref(db, `rooms/${roomId}`);
+    
+    // 1. Force remove presence from database first
+    await remove(myPlayerRef);
+    
+    // 2. Check if room is now empty to cleanup
     const snapshot = await get(roomPath);
     if (snapshot.exists()) {
       const roomData = snapshot.val() as GameRoom;
-      const otherPlayers = Object.keys(roomData.players || {}).filter(id => id !== profileRef.current?.id);
-      
-      if (otherPlayers.length === 0) {
+      if (!roomData.players || Object.keys(roomData.players).length === 0) {
         await remove(roomPath);
-      } else {
-        await remove(myPlayerRef);
       }
     }
 
-    // Clear current room on quit
+    // 3. Clear current room on profile
     update(ref(db, `players/${profileRef.current.id}`), { currentRoomId: null });
+    
+    // 4. Navigate away
     router.push('/lobby');
   }, [roomId, router, isLocked]);
 
@@ -449,7 +452,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     return () => {
       unsubscribe();
-      // Explicitly cleanup player from the room when leaving the page
+      // Definitive cleanup to prevent ghosts
       if (db && profile?.id) {
         remove(ref(db, `rooms/${roomId}/players/${profile.id}`));
       }
@@ -666,7 +669,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const isStunned = now < (p.stunnedUntil || 0);
       if (isStunned) return;
 
-      if ((e.code === 'KeyW' || e.code === 'ArrowUp') && !p.isDashing) {
+      if ((e.code === 'KeyW' || e.code === 'ArrowUp') && !p.isJumping) {
         const currentJumpCount = p.jumpCount || 0;
         if (currentJumpCount < 2) {
           update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), {
