@@ -1712,7 +1712,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           <div className="space-y-1 pt-1 border-t border-white/10">
             <div className="flex justify-between items-center px-1">
               <span className="font-headline text-[10px] text-white/80 uppercase tracking-tight flex items-center gap-1">
-                 <Zap className="w-3 h-3 fill-current text-[#60a5fa]" /> DASH (RIGHT CLICK)
+                 <Zap className="w-3 h-3 fill-current text-[#60a5fa]" /> DASH
               </span>
               <span className="font-headline text-sm text-accent drop-shadow-[1px_1px_0_rgba(0,0,0,1)]">
                 {myP && myP.dashCharges === maxDash ? 'READY' : `${((myWeaponStats?.dashCooldown || 4.0) - (myP?.dashRechargeProgress || 0)).toFixed(1)}s`}
