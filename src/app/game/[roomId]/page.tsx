@@ -1545,7 +1545,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
       {playerCount === 1 && (
         <div className="w-full bg-destructive/20 py-2 border-b-4 border-black text-center z-[100]">
-          <span className="font-headline text-2xl text-white tracking-widest drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]">WAITING FOR OPPONENTS</span>
+          <span className="font-headline text-2xl text-white tracking-widest drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]">EMPTY ROOM</span>
         </div>
       )}
 
