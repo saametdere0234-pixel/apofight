@@ -407,9 +407,6 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
                         </div>
                         <div className="flex flex-col flex-1 overflow-hidden">
                           <span className="font-headline text-sm text-white truncate">{friend.name}</span>
-                          <span className="text-[8px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1">
-                            <Info className="w-2 h-2" /> VIEW INFO
-                          </span>
                         </div>
                       </div>
                       
