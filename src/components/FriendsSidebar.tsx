@@ -121,6 +121,7 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
     if (mappingSnap.exists()) {
       const targetId = mappingSnap.val();
       
+      // Create invitation for real-time toast
       const inviteRef = push(ref(db, `invitations/${targetId}`));
       const invite: GameInvitation = {
         id: inviteRef.key!,
@@ -132,8 +133,19 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
         timestamp: Date.now(),
         status: 'pending'
       };
-      
       await set(inviteRef, invite);
+
+      // Route to notifications screen by updating recipient's profile
+      const targetRef = ref(db, `players/${targetId}`);
+      const snap = await get(targetRef);
+      if (snap.exists()) {
+        const targetProfile = snap.val() as PlayerProfile;
+        const currentRequests = targetProfile.friendRequests || [];
+        if (!currentRequests.includes(profile.id)) {
+          await update(targetRef, { friendRequests: [...currentRequests, profile.id] });
+        }
+      }
+      
       setSearchStatus('Request sent');
     } else {
       setSearchStatus('Player not found');
@@ -165,6 +177,18 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
       updates[`players/${profile.id}/friendRequests`] = (profile.friendRequests || []).filter(id => id !== senderId);
       
       await update(ref(db), updates);
+
+      // Cleanup any active invitations from this sender
+      const invitesRef = ref(db, `invitations/${profile.id}`);
+      const invitesSnap = await get(invitesRef);
+      if (invitesSnap.exists()) {
+        const invites = invitesSnap.val();
+        Object.keys(invites).forEach(key => {
+          if (invites[key].senderId === senderId && invites[key].type === 'friend_request') {
+            remove(ref(db, `invitations/${profile.id}/${key}`));
+          }
+        });
+      }
     }
   };
 
@@ -173,6 +197,18 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
     await update(ref(db, `players/${profile.id}`), {
       friendRequests: (profile.friendRequests || []).filter(id => id !== senderId)
     });
+
+    // Cleanup any active invitations from this sender
+    const invitesRef = ref(db, `invitations/${profile.id}`);
+    const invitesSnap = await get(invitesRef);
+    if (invitesSnap.exists()) {
+      const invites = invitesSnap.val();
+      Object.keys(invites).forEach(key => {
+        if (invites[key].senderId === senderId && invites[key].type === 'friend_request') {
+          remove(ref(db, `invitations/${profile.id}/${key}`));
+        }
+      });
+    }
   };
 
   const handleRemoveFriend = async (friendId: string) => {

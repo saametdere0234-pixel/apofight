@@ -40,6 +40,16 @@ export function InvitationListener() {
     return () => unsubscribe();
   }, [profile?.id]);
 
+  // Auto-dismiss toasts after 3 seconds
+  useEffect(() => {
+    if (activeInvite) {
+      const timer = setTimeout(() => {
+        setActiveInvite(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [activeInvite]);
+
   const handleAccept = async () => {
     if (!activeInvite || !profile || !db) return;
     const invite = activeInvite;
@@ -75,6 +85,7 @@ export function InvitationListener() {
 
         const myFriends = myData.friends || [];
         const senderFriends = senderData.friends || [];
+        const myRequests = myData.friendRequests || [];
 
         const updates: any = {};
         if (!myFriends.includes(senderId)) {
@@ -83,6 +94,9 @@ export function InvitationListener() {
         if (!senderFriends.includes(myId)) {
           updates[`players/${senderId}/friends`] = [...senderFriends, myId];
         }
+        
+        // Also remove from the pending notifications list
+        updates[`players/${myId}/friendRequests`] = myRequests.filter(id => id !== senderId);
         
         await update(ref(db), updates);
       }
@@ -102,6 +116,14 @@ export function InvitationListener() {
     await update(ref(db, `invitations/${profile.id}/${inviteId}`), { 
       status: 'rejected' 
     });
+    
+    // If it's a friend request, also remove from the sidebar list
+    if (invite.type === 'friend_request') {
+      const myRequests = profile.friendRequests || [];
+      await update(ref(db, `players/${profile.id}`), {
+        friendRequests: myRequests.filter(id => id !== invite.senderId)
+      });
+    }
     
     // Auto-cleanup rejected invite after a short delay
     setTimeout(() => {
