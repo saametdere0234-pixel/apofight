@@ -186,10 +186,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   // Match Entry Fee Logic
   useEffect(() => {
     if (room?.status === 'starting' && profile && authUser) {
-      // Use startTime to uniquely identify this match session
-      const matchId = `${roomId}_${room.startTime}`;
-      if (feeProcessedRef.current === matchId) return;
-      feeProcessedRef.current = matchId;
+      // Charge only once per "Lobby -> Start -> Finish" match session.
+      // We use the roomId as the session key and reset the ref when back in lobby.
+      if (feeProcessedRef.current === roomId) return;
+      feeProcessedRef.current = roomId;
 
       const entryFee = 10;
       const currentGold = profile.gold || 0;
@@ -207,11 +207,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         });
       }
     }
-    // Reset fee processing state when returning to lobby
+    // Reset fee processing state when returning to lobby (end of championship)
     if (room?.status === 'lobby') {
       feeProcessedRef.current = null;
     }
-  }, [room?.status, room?.startTime, profile?.id, roomId, authUser, toast, updateProfile]);
+  }, [room?.status, profile?.id, roomId, authUser, toast, updateProfile]);
 
   // Gold Economy & Victory Notification Logic
   useEffect(() => {
@@ -221,7 +221,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
       const isWinner = room.lastWinnerName === profile.name;
       
-      let change = isWinner ? 30 : 0; // All weapons reward 30 gold now
+      // All weapons reward 30 gold now
+      let change = isWinner ? 30 : 0; 
       
       if (isWinner) {
         toast({
@@ -290,7 +291,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             startTime: null,
             projectiles: null,
             effects: null,
-            celebrationStartTime: null
+            celebrationStartTime: null,
+            currentRound: 1
           };
           updates[`players/${onlyPlayerId}/roundsWon`] = 0;
           updates[`players/${onlyPlayerId}/isReady`] = true;
@@ -314,7 +316,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             startTime: null,
             projectiles: null,
             effects: null,
-            celebrationStartTime: null
+            celebrationStartTime: null,
+            currentRound: 1
           };
           players.forEach(p => {
             updates[`players/${p.id}/roundsWon`] = 0;
@@ -393,7 +396,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const roomPath = ref(db, `rooms/${roomId}`);
     const myPlayerRef = ref(db, `rooms/${roomId}/players/${profile.id}`);
     
-    // Join logic: Only run if we haven't already joined this room with this profile
     if (!hasJoinedRef.current) {
       hasJoinedRef.current = true;
       const weaponStats = WEAPON_STATS[profile.weaponClass] || WEAPON_STATS.Sword;
@@ -456,9 +458,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     return () => {
       unsubscribe();
-      // Use profileRef here to avoid issues with stale profile in the unmount closure
       if (db && roomId && profileRef.current?.id) {
-        // If we are navigating away (unmounting), we remove the player
         remove(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`));
       }
     };
@@ -618,7 +618,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         isDashing,
         dashTimeLeft
       });
-      // Also update room heartbeat
       update(ref(db, `rooms/${roomId}`), { lastUpdate: Date.now() });
     }
   }, [roomId, keys]);
@@ -688,7 +687,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
 
       if (e.code === 'Space') {
-        e.preventDefault(); // Prevent scrolling
+        e.preventDefault(); 
         update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), {
           emojiUntil: Date.now() + 2000
         });
@@ -741,13 +740,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button === 0) { // Left click
+    if (e.button === 0) { 
       const p = room?.players?.[profileRef.current?.id || ''];
       if (p && p.hp > 0 && room?.status === 'playing') {
         setIsCharging(true);
         isChargingRef.current = true;
       }
-    } else if (e.button === 2) { // Right click
+    } else if (e.button === 2) { 
       triggerDash();
     }
   };
@@ -766,7 +765,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   };
 
   const handleContextMenu = (e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent right-click menu
+    e.preventDefault(); 
   };
 
   const fireBow = () => {
@@ -1003,6 +1002,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const nextRoundUpdates: any = {
       status: 'starting', 
       startTime: Date.now(),
+      currentRound: (currentData.currentRound || 1) + 1,
       effects: null,
       celebrationStartTime: null
     };
@@ -1045,7 +1045,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       status: 'starting', 
       startTime: Date.now(),
       effects: null,
-      celebrationStartTime: null
+      celebrationStartTime: null,
+      currentRound: 1
     });
   };
 
@@ -1312,7 +1313,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.fillStyle = p.color;
       }
 
-      // RESPECT NO BORDER SETTING
       if (p.noBorderEnabled) {
         ctx.strokeStyle = 'transparent';
       } else {
@@ -1483,7 +1483,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.fillText(p.name, px + pw/2, py - 25);
       ctx.restore();
 
-      // Draw emoji if active
       if (now < (p.emojiUntil || 0)) {
         ctx.save();
         ctx.font = '24px serif';
