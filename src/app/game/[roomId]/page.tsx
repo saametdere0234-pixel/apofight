@@ -140,10 +140,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const myPlayerRef = ref(db, `rooms/${roomId}/players/${profileRef.current.id}`);
     const roomPath = ref(db, `rooms/${roomId}`);
     
-    // 1. Force remove presence from database first
     await remove(myPlayerRef);
     
-    // 2. Check if room is now empty to cleanup
     const snapshot = await get(roomPath);
     if (snapshot.exists()) {
       const roomData = snapshot.val() as GameRoom;
@@ -152,10 +150,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     }
 
-    // 3. Clear current room on profile
     update(ref(db, `players/${profileRef.current.id}`), { currentRoomId: null });
-    
-    // 4. Navigate away
     router.push('/lobby');
   }, [roomId, router, isLocked]);
 
@@ -171,7 +166,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     profileRef.current = profile;
   }, [profile]);
 
-  // Presence for current room
   useEffect(() => {
     if (!db || !profile?.id || !roomId) return;
     const profileDbRef = ref(db, `players/${profile.id}`);
@@ -183,11 +177,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     };
   }, [profile?.id, roomId]);
 
-  // Match Entry Fee Logic
+  // Match Entry Fee Logic - Charged once per match (Lobby -> Start)
   useEffect(() => {
     if (room?.status === 'starting' && profile && authUser) {
-      // Charge only once per "Lobby -> Start -> Finish" match session.
-      // We use the roomId as the session key and reset the ref when back in lobby.
       if (feeProcessedRef.current === roomId) return;
       feeProcessedRef.current = roomId;
 
@@ -207,21 +199,18 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         });
       }
     }
-    // Reset fee processing state when returning to lobby (end of championship)
     if (room?.status === 'lobby') {
       feeProcessedRef.current = null;
     }
   }, [room?.status, profile?.id, roomId, authUser, toast, updateProfile]);
 
-  // Gold Economy & Victory Notification Logic
+  // Rewards logic
   useEffect(() => {
     if (room?.status === 'finished' && room.lastWinnerName && profile && authUser) {
       if (matchProcessedRef.current === roomId) return;
       matchProcessedRef.current = roomId;
 
       const isWinner = room.lastWinnerName === profile.name;
-      
-      // All weapons reward 30 gold now
       let change = isWinner ? 30 : 0; 
       
       if (isWinner) {
@@ -972,6 +961,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (!winner) return;
 
     const winnersRounds = (winner.roundsWon || 0) + 1;
+    const isChampionship = winnersRounds >= 3;
+    
     const updates: any = { 
       status: 'celebrating',
       lastWinnerName: winner.name,
@@ -1028,7 +1019,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         stunCooldownUntil: 0,
         isDashing: false,
         dashTimeLeft: 0,
-        deathTime: 0
+        deathTime: 0,
+        roundsWon: p.roundsWon || 0 // Explicitly keep roundsWon
       };
       
       Object.entries(pUpdates).forEach(([key, val]) => {
