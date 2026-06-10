@@ -246,7 +246,7 @@ export default function EntryScreen() {
         <header className="text-center py-8">
           <h1 className="flex flex-col items-center justify-center font-headline tracking-tighter animate-bounce-subtle select-none">
             <span 
-              className="text-7xl md:text-9xl text-[#f43f5e] mb-[-0.25em] z-10 -translate-x-6 md:-translate-x-12" 
+              className="text-7xl md:text-9xl text-[#f43f5e] mb-[-0.25em] z-10" 
               style={{ 
                 WebkitTextStroke: '16px #4c0519', 
                 paintOrder: 'stroke fill',
@@ -257,7 +257,7 @@ export default function EntryScreen() {
               colorful
             </span>
             <span 
-              className="text-7xl md:text-9xl text-[#fffbeb] z-0 translate-x-6 md:translate-x-12" 
+              className="text-7xl md:text-9xl text-[#fffbeb] z-0" 
               style={{ 
                 WebkitTextStroke: '16px #4c0519', 
                 paintOrder: 'stroke fill',
@@ -323,7 +323,7 @@ export default function EntryScreen() {
 
               {authUser && (
                 <div className="space-y-4 pt-4 border-t border-white/10">
-                  <div className="flex items-center justify-between bg-black/40 p-4 rounded-[20px] border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:-translate-y-0.5 transition-all group">
+                  <div className="flex items-center justify-between bg-black/40 p-4 rounded-[20px] border-4 border-black shadow-[4px_4px_0_rgba(0,0,0,1)] hover:-translate-y-0.5 transition-all group">
                     <div className="flex items-center gap-3">
                       <div className={cn(
                         "p-2 rounded-lg border-2 border-black transition-colors",
