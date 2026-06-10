@@ -67,6 +67,7 @@ export interface GamePlayer extends PlayerProfile {
   dashTimeLeft?: number;
   dashDirX?: number;
   dashDirY?: number;
+  emojiUntil?: number; // Timestamp until which the emoji is shown
 }
 
 export interface GameEffect {

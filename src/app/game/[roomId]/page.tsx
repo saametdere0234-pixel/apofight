@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -686,6 +687,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           });
         }
       }
+
+      if (e.code === 'Space') {
+        e.preventDefault(); // Prevent scrolling
+        update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), {
+          emojiUntil: Date.now() + 2000
+        });
+      }
     };
     
     const handleKeyUp = (e: KeyboardEvent) => keys.delete(e.code);
@@ -1058,28 +1066,30 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const playersData = currentRoom.players || {};
 
     Object.keys(interpPlayersRef.current).forEach(id => {
-      if (!playersData[id]) {
+      if (!playersData || !playersData[id]) {
         delete interpPlayersRef.current[id];
       }
     });
 
-    Object.values(playersData).forEach(p => {
-      if (p.id === profileRef.current?.id) {
-        interpPlayersRef.current[p.id] = p;
-      } else {
-        const currentInterp = interpPlayersRef.current[p.id] || p;
-        const lerpFactor = Math.min(1, 15 * dt); 
-        interpPlayersRef.current[p.id] = {
-          ...p,
-          x: currentInterp.x + (p.x - currentInterp.x) * lerpFactor,
-          y: currentInterp.y + (p.y - currentInterp.y) * lerpFactor,
-        };
-      }
-    });
+    if (playersData) {
+      Object.values(playersData).forEach(p => {
+        if (p.id === profileRef.current?.id) {
+          interpPlayersRef.current[p.id] = p;
+        } else {
+          const currentInterp = interpPlayersRef.current[p.id] || p;
+          const lerpFactor = Math.min(1, 15 * dt); 
+          interpPlayersRef.current[p.id] = {
+            ...p,
+            x: currentInterp.x + (p.x - currentInterp.x) * lerpFactor,
+            y: currentInterp.y + (p.y - currentInterp.y) * lerpFactor,
+          };
+        }
+      });
+    }
 
     const playersToDraw = Object.values(interpPlayersRef.current);
 
-    if (isChargingRef.current && profileRef.current) {
+    if (isChargingRef.current && profileRef.current && playersData) {
       const myP = playersData[profileRef.current.id];
       if (myP && myP.hp > 0) {
         if (myP.weaponClass === 'Bow') {
@@ -1169,6 +1179,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         const glowColor = isMyArrow ? '#3b82f6' : '#ef4444';
         ctx.shadowBlur = 10;
         ctx.shadowColor = glowColor;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
         ctx.fillStyle = glowColor;
         ctx.beginPath();
         ctx.moveTo(10, 0);
@@ -1424,6 +1436,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           currentY = -100 + (finalEyeY + 100) * progress;
         }
         ctx.shadowBlur = 15; ctx.shadowColor = 'rgba(255, 255, 0, 0.8)';
+        ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
         ctx.fillStyle = 'black';
         ctx.fillRect(sx - 16, currentY - 6, 14, 10); 
         ctx.fillRect(sx + 2, currentY - 6, 14, 10);  
@@ -1470,26 +1483,37 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.strokeText(p.name, px + pw/2, py - 25);
       ctx.fillText(p.name, px + pw/2, py - 25);
       ctx.restore();
+
+      // Draw emoji if active
+      if (now < (p.emojiUntil || 0)) {
+        ctx.save();
+        ctx.font = '24px serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('😊', px + pw/2, py - 55);
+        ctx.restore();
+      }
     });
 
     ctx.save();
     ctx.font = 'bold 36px Luckiest Guy'; 
     ctx.textAlign = 'center'; ctx.lineWidth = 6;
-    effectsRef.current.forEach(fx => {
-      const elapsed = Math.max(0, now - fx.timestamp);
-      if (elapsed > 1000) return;
-      const opacity = Math.max(0, 1 - elapsed / 1000);
-      const drift = (elapsed / 1000) * 80;
-      const fxX = fx.x * PIXELS_PER_METER;
-      const fxY = (fx.y * PIXELS_PER_METER) - 60 - drift;
+    if (effectsRef.current) {
+      effectsRef.current.forEach(fx => {
+        const elapsed = Math.max(0, now - fx.timestamp);
+        if (elapsed > 1000) return;
+        const opacity = Math.max(0, 1 - elapsed / 1000);
+        const drift = (elapsed / 1000) * 80;
+        const fxX = fx.x * PIXELS_PER_METER;
+        const fxY = (fx.y * PIXELS_PER_METER) - 60 - drift;
 
-      ctx.globalAlpha = opacity;
-      ctx.strokeStyle = 'black';
-      ctx.fillStyle = fx.type === 'damage' ? '#ff4444' : '#4ade80';
-      const text = fx.type === 'damage' ? fx.amount.toString() : `+${fx.amount}`;
-      ctx.strokeText(text, fxX, fxY);
-      ctx.fillText(text, fxX, fxY);
-    });
+        ctx.globalAlpha = opacity;
+        ctx.strokeStyle = 'black';
+        ctx.fillStyle = fx.type === 'damage' ? '#ff4444' : '#4ade80';
+        const text = fx.type === 'damage' ? fx.amount.toString() : `+${fx.amount}`;
+        ctx.strokeText(text, fxX, fxY);
+        ctx.fillText(text, fxX, fxY);
+      });
+    }
     ctx.restore();
   };
 
@@ -1574,7 +1598,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           </Button>
         </div>
         <div className="flex items-center gap-4 overflow-x-auto max-w-[70vw] scrollbar-hide px-4">
-          {Object.values(room?.players || {}).map(p => (
+          {room?.players && Object.values(room.players).map(p => (
             <div key={p.id} className="flex items-center gap-3 bg-black/40 border-4 border-black rounded-[20px] p-2 px-4 shadow-[4px_4px_0_rgba(0,0,0,1)] min-w-[180px]">
               <div className="flex flex-col items-start gap-0.5 flex-1">
                 <div className="flex items-center gap-2">
