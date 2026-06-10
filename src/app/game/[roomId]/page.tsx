@@ -177,7 +177,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     };
   }, [profile?.id, roomId]);
 
-  // Match Entry Fee Logic - Charged once per match (Lobby -> Start)
+  // Match Entry Fee Logic - Charged once per championship cycle (Lobby -> Start)
   useEffect(() => {
     if (room?.status === 'starting' && profile && authUser) {
       if (feeProcessedRef.current === roomId) return;
@@ -199,6 +199,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         });
       }
     }
+    // Only reset the fee processed state when we go back to the lobby (fresh start)
     if (room?.status === 'lobby') {
       feeProcessedRef.current = null;
     }
@@ -1033,13 +1034,20 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   const startMatch = () => {
     if (!db || !roomId || !room || !isHost) return;
-    update(ref(db, `rooms/${roomId}`), { 
+    const updates: any = { 
       status: 'starting', 
       startTime: Date.now(),
       effects: null,
       celebrationStartTime: null,
       currentRound: 1
+    };
+
+    // Reset all round wins for a fresh championship cycle
+    Object.keys(room.players || {}).forEach(pid => {
+      updates[`players/${pid}/roundsWon`] = 0;
     });
+
+    update(ref(db, `rooms/${roomId}`), updates);
   };
 
   const render = (dt: number) => {
