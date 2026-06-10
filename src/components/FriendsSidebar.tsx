@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -108,6 +109,7 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
       const targetId = mappingSnap.val();
       
       const inviteRef = push(ref(db, `invitations/${targetId}`));
+      const invitePath = `invitations/${targetId}/${inviteRef.key}`;
       const invite: GameInvitation = {
         id: inviteRef.key!,
         senderId: profile.id,
@@ -122,8 +124,10 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
 
       const targetRef = ref(db, `players/${targetId}`);
       const snap = await get(targetRef);
+      let targetName = "Player";
       if (snap.exists()) {
         const targetProfile = snap.val() as PlayerProfile;
+        targetName = targetProfile.name;
         const currentRequests = targetProfile.friendRequests || [];
         if (!currentRequests.includes(profile.id)) {
           await update(targetRef, { friendRequests: [...currentRequests, profile.id] });
@@ -131,6 +135,31 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
       }
       
       setSearchStatus('Request sent');
+
+      // Listen for the response to show a toast
+      const listenerRef = ref(db, invitePath);
+      onValue(listenerRef, (snapshot) => {
+        const data = snapshot.val() as GameInvitation;
+        if (!data) return;
+
+        if (data.status === 'accepted') {
+          off(listenerRef);
+          toast({
+            title: "Ally Request Accepted!",
+            description: `${targetName} is now your friend.`,
+          });
+          remove(listenerRef);
+        } else if (data.status === 'rejected') {
+          off(listenerRef);
+          toast({
+            variant: "destructive",
+            title: "Ally Request Declined",
+            description: `${targetName} declined your request.`,
+          });
+          remove(listenerRef);
+        }
+      });
+
     } else {
       setSearchStatus('Player not found');
     }
@@ -174,7 +203,8 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
         
         await update(ref(db), updates);
       }
-      await remove(ref(db, `invitations/${profile.id}/${inviteId}`));
+      // Update the invite status so the sender knows it was accepted
+      await update(ref(db, `invitations/${profile.id}/${inviteId}`), { status: 'accepted' });
     }
   };
 

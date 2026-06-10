@@ -186,19 +186,28 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   // Match Entry Fee Logic
   useEffect(() => {
     if (room?.status === 'starting' && profile && authUser) {
+      // Use startTime to uniquely identify this match session
       const matchId = `${roomId}_${room.startTime}`;
       if (feeProcessedRef.current === matchId) return;
       feeProcessedRef.current = matchId;
 
+      const entryFee = 10;
       const currentGold = profile.gold || 0;
-      if (currentGold >= 5) {
-        updateProfile({ gold: currentGold - 5 });
+      if (currentGold >= entryFee) {
+        updateProfile({ gold: currentGold - entryFee });
         toast({
           title: "Match started!",
-          description: "Entry fee: -5 Gold",
+          description: `Entry fee: -${entryFee} Gold`,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Insufficient Gold",
+          description: `You need ${entryFee} gold to join this battle.`,
         });
       }
     }
+    // Reset fee processing state when returning to lobby
     if (room?.status === 'lobby') {
       feeProcessedRef.current = null;
     }
@@ -211,28 +220,18 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       matchProcessedRef.current = roomId;
 
       const isWinner = room.lastWinnerName === profile.name;
-      const weapon = profile.weaponClass;
       
-      let change = isWinner ? 0 : -5;
+      let change = isWinner ? 30 : 0; // All weapons reward 30 gold now
+      
       if (isWinner) {
-        if (weapon === 'Dagger') change = 15;
-        else if (weapon === 'Sword') change = 5;
-        else if (weapon === 'Bow') change = 10;
-
         toast({
           title: "Champion!",
           description: `Received +${change} Gold!`,
         });
-      } else {
-        toast({
-          title: "Defeat!",
-          description: "Lost -5 Gold!",
-        });
+        const currentGold = profile.gold || 0;
+        const nextGold = currentGold + change;
+        updateProfile({ gold: nextGold });
       }
-
-      const currentGold = profile.gold || 0;
-      const nextGold = Math.max(0, currentGold + change);
-      updateProfile({ gold: nextGold });
     }
 
     if (room?.status === 'lobby') {
