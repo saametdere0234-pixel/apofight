@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -205,9 +204,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     });
   }, [roomId, sessionJoinTime]);
 
-  // Update tick for 7s preview
+  // Update tick for 7s preview (now 100ms for smoother fades)
   useEffect(() => {
-    const timer = setInterval(() => setNowTick(Date.now()), 1000);
+    const timer = setInterval(() => setNowTick(Date.now()), 100);
     return () => clearInterval(timer);
   }, []);
 
@@ -1636,7 +1635,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const showResults = room?.status === 'finished' && !isLocalReady;
   const showLobby = room?.status === 'lobby' || (room?.status === 'finished' && isLocalReady);
 
-  const recentMessages = messages.filter(m => nowTick - m.timestamp < 7000).slice(-6);
+  // Filter messages for preview with 7s active + 1s fade logic
+  const recentMessages = messages
+    .filter(m => nowTick - m.timestamp < 8000)
+    .slice(-15);
 
   return (
     <div className="min-h-screen bg-[#000035] overflow-hidden flex flex-col items-center select-none" onMouseMove={handleMouseMove}>
@@ -1785,51 +1787,60 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           )}
         </div>
 
-        {/* Global Chat UI - Fixed outside gameplay area */}
-        <div className="fixed bottom-6 right-6 flex flex-col items-end gap-3 z-[1000] w-[350px]">
-          {/* Chat Preview */}
+        {/* Global Chat UI - Compact Fixed outside gameplay area */}
+        <div className="fixed bottom-6 right-6 flex flex-col items-end gap-3 z-[1000] w-[300px]">
+          {/* Chat Preview with Smooth Fade Out */}
           {!isChatOpen && recentMessages.length > 0 && (
             <div className="w-full flex flex-col gap-1 items-end animate-in slide-in-from-bottom-2 duration-300">
-              {recentMessages.map(msg => (
-                <div key={msg.id} className="py-1 px-3 max-w-full">
-                  <div className="text-sm break-words leading-tight">
-                    <span 
-                      className={cn("font-headline mr-1.5", msg.senderColor.startsWith('aura-') ? msg.senderColor : "")}
-                      style={{ 
-                        color: msg.senderColor.startsWith('aura-') ? 'transparent' : msg.senderColor, 
-                        WebkitTextStroke: '1px black',
-                        backgroundClip: msg.senderColor.startsWith('aura-') ? 'text' : 'none',
-                        WebkitBackgroundClip: msg.senderColor.startsWith('aura-') ? 'text' : 'none',
-                      }}
-                    >
-                      {msg.senderName}:
-                    </span>
-                    <span className="text-white font-headline uppercase tracking-tight" style={{ WebkitTextStroke: '0.5px black' }}>
-                      {msg.text}
-                    </span>
+              {recentMessages.map(msg => {
+                const age = nowTick - msg.timestamp;
+                const opacity = age < 7000 ? 1 : Math.max(0, 1 - (age - 7000) / 1000);
+                if (opacity <= 0) return null;
+                return (
+                  <div 
+                    key={msg.id} 
+                    className="py-1 px-3 max-w-full transition-opacity duration-300"
+                    style={{ opacity }}
+                  >
+                    <div className="text-sm break-words whitespace-pre-wrap leading-tight">
+                      <span 
+                        className={cn("font-headline mr-1.5", msg.senderColor.startsWith('aura-') ? msg.senderColor : "")}
+                        style={{ 
+                          color: msg.senderColor.startsWith('aura-') ? 'transparent' : msg.senderColor, 
+                          WebkitTextStroke: '1px black',
+                          backgroundClip: msg.senderColor.startsWith('aura-') ? 'text' : 'none',
+                          WebkitBackgroundClip: msg.senderColor.startsWith('aura-') ? 'text' : 'none',
+                        }}
+                      >
+                        {msg.senderName}:
+                      </span>
+                      <span className="text-white font-headline uppercase tracking-tight" style={{ WebkitTextStroke: '0.5px black' }}>
+                        {msg.text}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
-          {/* Full Chat History */}
+          {/* Full Chat History - Compact and Scrollable */}
           {isChatOpen && (
-            <div className="w-full bg-black/90 backdrop-blur-xl border-4 border-black rounded-[30px] shadow-[10px_10px_0_rgba(0,0,0,1)] flex flex-col h-[400px] animate-in zoom-in-95 duration-200">
-              <div className="p-4 border-b-2 border-white/10 flex items-center gap-2">
-                <MessageCircle className="w-5 h-5 text-primary" />
-                <h3 className="font-headline text-lg text-white">ARENA CHAT</h3>
+            <div className="w-full bg-black/90 backdrop-blur-xl border-4 border-black rounded-[25px] shadow-[10px_10px_0_rgba(0,0,0,1)] flex flex-col h-[320px] animate-in zoom-in-95 duration-200">
+              <div className="p-3 border-b-2 border-white/10 flex items-center gap-2">
+                <MessageCircle className="w-4 h-4 text-primary" />
+                <h3 className="font-headline text-base text-white">ARENA CHAT</h3>
               </div>
-              <ScrollArea className="flex-1 p-4">
+              <ScrollArea className="flex-1 p-3">
                 <div className="flex flex-col gap-2">
                   {messages.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center opacity-20 py-20">
-                      <MessageCircle className="w-12 h-12 mb-2" />
-                      <p className="font-headline text-xs">NO MESSAGES YET</p>
+                    <div className="h-full flex flex-col items-center justify-center opacity-20 py-10 text-center">
+                      <MessageCircle className="w-10 h-10 mb-2" />
+                      <p className="font-headline text-[10px]">NO MESSAGES YET</p>
                     </div>
                   ) : (
-                    messages.map(msg => (
-                      <div key={msg.id} className="text-sm break-words leading-tight">
+                    messages.slice(-15).map(msg => (
+                      <div key={msg.id} className="text-sm break-words whitespace-pre-wrap leading-tight">
                         <span 
                           className={cn("font-headline mr-1.5", msg.senderColor.startsWith('aura-') ? msg.senderColor : "")}
                           style={{ 
@@ -1850,13 +1861,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                   <div ref={chatEndRef} />
                 </div>
               </ScrollArea>
-              <div className="p-4 border-t-2 border-white/10">
+              <div className="p-3 border-t-2 border-white/10">
                 <Input
                   ref={chatInputRef}
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
-                  placeholder="TYPE MESSAGE..."
-                  className="bg-black/60 border-4 border-black rounded-[15px] h-12 font-bold text-white placeholder:text-white/20 focus-visible:ring-primary"
+                  placeholder="TYPE..."
+                  className="bg-black/60 border-4 border-black rounded-[12px] h-10 font-bold text-white placeholder:text-white/20 focus-visible:ring-primary text-xs"
                 />
               </div>
             </div>
@@ -1868,8 +1879,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
               setIsChatOpen(true);
               setTimeout(() => chatInputRef.current?.focus(), 10);
             }}>
-              <span className="text-lg">ENTER TO CHAT</span>
-              <CornerDownLeft className="w-6 h-6 group-hover:translate-x-0.5 transition-transform" />
+              <span className="text-sm">ENTER TO CHAT</span>
+              <CornerDownLeft className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
             </div>
           )}
         </div>
