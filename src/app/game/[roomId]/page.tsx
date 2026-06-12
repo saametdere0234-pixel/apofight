@@ -110,6 +110,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const matchProcessedRef = useRef<string | null>(null);
   const feeProcessedRef = useRef<string | null>(null);
   const hasJoinedRef = useRef(false);
+  const statusChangingRef = useRef(false);
   
   // Chat State
   const [sessionJoinTime] = useState(Date.now());
@@ -342,7 +343,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       if (room.status === 'finished') {
         const players = Object.values(room.players);
         const allReady = players.every(p => p.isReady);
-        if (allReady && isHost) {
+        if (allReady && isHost && !statusChangingRef.current) {
+          statusChangingRef.current = true;
           const updates: any = {
             status: 'lobby',
             lastWinnerName: null,
@@ -354,12 +356,15 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           };
           players.forEach(p => {
             updates[`players/${p.id}/roundsWon`] = 0;
+            updates[`players/${p.id}/isReady`] = false;
           });
-          update(ref(db, `rooms/${roomId}`), updates);
+          update(ref(db, `rooms/${roomId}`), updates).then(() => {
+            statusChangingRef.current = false;
+          });
         }
       }
 
-      if (room.status === 'playing' && isHost) {
+      if (room.status === 'playing' && isHost && !statusChangingRef.current) {
         const players = Object.values(room.players);
         const alivePlayers = players.filter(p => p.hp > 0);
         
@@ -1037,10 +1042,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   const handleKill = (winnerId: string) => {
     const currentRoom = roomRef.current;
-    if (!currentRoom || !db || !isHost || currentRoom.status !== 'playing') return;
+    if (!currentRoom || !db || !isHost || currentRoom.status !== 'playing' || statusChangingRef.current) return;
     
+    statusChangingRef.current = true;
     const winner = currentRoom.players[winnerId];
-    if (!winner) return;
+    if (!winner) {
+      statusChangingRef.current = false;
+      return;
+    }
 
     const winnersRounds = (winner.roundsWon || 0) + 1;
     const isChampionship = winnersRounds >= 3;
@@ -1054,18 +1063,23 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     };
     updates[`players/${winnerId}/roundsWon`] = winnersRounds;
     
-    update(ref(db, `rooms/${roomId}`), updates);
+    update(ref(db, `rooms/${roomId}`), updates).finally(() => {
+      statusChangingRef.current = false;
+    });
   };
 
   const handleDraw = () => {
     const currentRoom = roomRef.current;
-    if (!currentRoom || !db || !isHost || currentRoom.status !== 'playing') return;
+    if (!currentRoom || !db || !isHost || currentRoom.status !== 'playing' || statusChangingRef.current) return;
     
+    statusChangingRef.current = true;
     update(ref(db, `rooms/${roomId}`), { 
       status: 'round_over', 
       lastWinnerName: 'DRAW',
       projectiles: null,
       effects: null
+    }).finally(() => {
+      statusChangingRef.current = false;
     });
   };
 
@@ -1287,6 +1301,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       if (p.isDashing && p.dashTimeLeft && p.dashTimeLeft > 0) {
         const progress = 1 - (p.dashTimeLeft / DASH_DURATION);
         const ghostCount = 5;
+        const pw = PLAYER_WIDTH * PIXELS_PER_METER;
+        const ph = PLAYER_HEIGHT * PIXELS_PER_METER;
+
         for (let i = 1; i <= ghostCount; i++) {
           const offset = i * 0.04;
           const ghostProgress = Math.max(0, progress - offset);
@@ -1294,16 +1311,31 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           const dashSpeed = DASH_DISTANCE / DASH_DURATION;
           const gx = (p.x - (p.dashDirX || 0) * dashSpeed * (progress - ghostProgress)) * PIXELS_PER_METER;
           const gy = (p.y - (p.dashDirY || 0) * dashSpeed * (progress - ghostProgress)) * PIXELS_PER_METER;
+          
           ctx.save();
           ctx.globalAlpha = 0.3 * (1 - (i / ghostCount));
           
           if (p.color.startsWith('aura-')) {
-             ctx.fillStyle = p.color === 'aura-black' ? '#000000' : '#ffffff';
+             const grad = ctx.createLinearGradient(gx, gy, gx + pw, gy + ph);
+             const t = (now % 3000) / 3000; 
+             
+             if (p.color === 'aura-g1') { grad.addColorStop(t, '#8A2387'); grad.addColorStop((t+0.5)%1, '#E94057'); }
+             else if (p.color === 'aura-g2') { grad.addColorStop(t, '#00F2FE'); grad.addColorStop((t+0.5)%1, '#4FACFE'); }
+             else if (p.color === 'aura-g3') { grad.addColorStop(t, '#FF416C'); grad.addColorStop((t+0.5)%1, '#FF4B2B'); }
+             else if (p.color === 'aura-g4') { grad.addColorStop(t, '#11998E'); grad.addColorStop((t+0.5)%1, '#38EF7D'); }
+             else if (p.color === 'aura-g5') { grad.addColorStop(t, '#1F1C2C'); grad.addColorStop((t+0.5)%1, '#928DAB'); }
+             else if (p.color === 'aura-g6') { grad.addColorStop(t, '#00C6FF'); grad.addColorStop((t+0.5)%1, '#0072FF'); }
+             else if (p.color === 'aura-g7') { grad.addColorStop(t, '#7F00FF'); grad.addColorStop((t+0.5)%1, '#E100FF'); }
+             else if (p.color === 'aura-g8') { grad.addColorStop(t, '#F857A6'); grad.addColorStop((t+0.5)%1, '#FF5858'); }
+             else if (p.color === 'aura-g9') { grad.addColorStop(t, '#0B132B'); grad.addColorStop((t+0.5)%1, '#1C2541'); }
+             else if (p.color === 'aura-g10') { grad.addColorStop(t, '#F21B3F'); grad.addColorStop((t+0.5)%1, '#330033'); }
+             
+             ctx.fillStyle = grad;
           } else {
              ctx.fillStyle = p.color;
           }
           
-          ctx.fillRect(gx, gy, PLAYER_WIDTH * PIXELS_PER_METER, PLAYER_HEIGHT * PIXELS_PER_METER);
+          ctx.fillRect(gx, gy, pw, ph);
           ctx.restore();
         }
       }
@@ -1694,7 +1726,20 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
               <div className="flex flex-col items-start gap-0.5 flex-1">
                 <div className="flex items-center gap-2">
                   <WeaponIcon weapon={p.weaponClass as WeaponClass} className="w-7 h-7 text-xl" />
-                  <span className="font-headline text-lg truncate max-w-[100px]" style={{ color: p.color.startsWith('aura-') ? '#ffffff' : p.color, WebkitTextStroke: '1px black' }}>{p.name}</span>
+                  <span 
+                    className={cn(
+                      "font-headline text-lg truncate max-w-[100px]",
+                      p.color.startsWith('aura-') ? p.color : ""
+                    )} 
+                    style={{ 
+                      color: p.color.startsWith('aura-') ? 'transparent' : p.color, 
+                      WebkitTextStroke: '1px black',
+                      backgroundClip: p.color.startsWith('aura-') ? 'text' : 'none',
+                      WebkitBackgroundClip: p.color.startsWith('aura-') ? 'text' : 'none',
+                    }}
+                  >
+                    {p.name}
+                  </span>
                   {p.id === room?.createdBy && <Crown className="w-5 h-5 text-yellow-500 fill-yellow-500" />}
                 </div>
                 <div className="flex gap-1.5 mt-1">
