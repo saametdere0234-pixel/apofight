@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -171,12 +172,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     update(myPlayerRef, { isReady: true });
   }, [roomId]);
 
-  const handleReadyUp = useCallback(async () => {
-    if (!db || !roomId || !profileRef.current) return;
-    const myPlayerRef = ref(db, `rooms/${roomId}/players/${profileRef.current.id}`);
-    update(myPlayerRef, { isReady: true });
-  }, [roomId]);
-
   const isHost = room && profileRef.current && room.players && profileRef.current.id === room.createdBy;
 
   useEffect(() => {
@@ -247,7 +242,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     }
     
-    // Reset fee processed status only when returning to lobby (after champion or alone)
+    // Reset fee processed status only when returning to lobby (after champion or solitude)
     if (room?.status === 'lobby') {
       feeProcessedRef.current = null;
     }
@@ -318,7 +313,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
 
-      // Solitude Reset Mode: Reset rounds and go to lobby if alone
+      // RESET MODE 2: Solitude Reset Mode - Reset rounds and go to lobby if alone
       if (playerCount === 1 && room.status !== 'lobby') {
         const onlyPlayerId = pIds[0];
         if (onlyPlayerId === profileRef.current?.id) {
@@ -345,7 +340,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
 
-      // Championship Reset: Start fresh when host starts after championship
+      // RESET MODE 1: Championship Reset - Start fresh when host starts after championship
       if (room.status === 'finished') {
         const players = Object.values(room.players);
         const allReady = players.every(p => p.isReady);
@@ -481,7 +476,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             dashDirY: 0,
             stunnedUntil: 0,
             stunCooldownUntil: 0,
-            isReady: true
+            isReady: true // JOINING AUTOMATICALLY SETS READY
           };
           
           set(myPlayerRef, initialPlayer);
@@ -939,7 +934,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const my = mouseRef.current.y;
     const attackAngle = Math.atan2(my - py, mx - px);
 
-    let stunAppliedThisSwing = false;
+    let stunAppliedThisSwingFlag = false;
     const canStun = weapon === 'Sword' && now > (p.stunCooldownUntil || 0);
 
     update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), {
@@ -975,11 +970,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
       if (hit) {
         thisHit(id, enemy, canStun);
-        if (canStun) stunAppliedThisSwing = true;
+        if (canStun) stunAppliedThisSwingFlag = true;
       }
     });
 
-    if (stunAppliedThisSwing) {
+    if (stunAppliedThisSwingFlag) {
       update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), {
         stunCooldownUntil: now + STUN_COOLDOWN
       });
@@ -1158,7 +1153,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       updates[`players/${pid}/y`] = bestSpawn.y;
       updates[`players/${pid}/vy`] = 0;
       updates[`players/${pid}/jumpCount`] = 0;
-      updates[`players/${pid}/roundsWon`] = 0;
+      updates[`players/${pid}/roundsWon`] = 0; // RESET ROUNDS FOR NEW MATCH
       updates[`players/${pid}/isDashing`] = false;
       updates[`players/${pid}/dashTimeLeft`] = 0;
       updates[`players/${pid}/stunnedUntil`] = 0;
@@ -1812,16 +1807,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                         {p.id === room?.createdBy && <Crown className="absolute -top-6 -right-6 w-10 h-10 text-yellow-500 fill-yellow-500 rotate-12 drop-shadow-[2px_2px_0_rgba(0,0,0,1)]" />}
                         {!p.isReady && (
                           <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center rounded-2xl">
-                             {p.id === profile.id ? (
-                               <Button onClick={handleReadyUp} size="sm" className="cartoon-button bg-accent text-black font-headline text-[10px] h-8 px-2">
-                                 READY UP!
-                               </Button>
-                             ) : (
-                               <>
-                                 <div className="w-6 h-6 border-2 border-white border-t-transparent animate-spin rounded-full mb-1" />
-                                 <span className="text-[10px] font-headline text-white tracking-widest">WAITING...</span>
-                               </>
-                             )}
+                             <div className="w-6 h-6 border-2 border-white border-t-transparent animate-spin rounded-full mb-1" />
+                             <span className="text-[10px] font-headline text-white tracking-widest">WAITING...</span>
                           </div>
                         )}
                       </div>
