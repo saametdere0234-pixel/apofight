@@ -218,7 +218,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     }
   }, [messages, isChatOpen]);
 
-  // Match Entry Fee Logic
+  // Match Entry Fee Logic - Charged once per session (Lobby -> Start)
   useEffect(() => {
     if (room?.status === 'starting' && profile && authUser) {
       if (feeProcessedRef.current === roomId) return;
@@ -241,7 +241,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     }
     
-    if (room?.status === 'finished') {
+    // Reset fee processed status only when returning to lobby (after champion or alone)
+    if (room?.status === 'lobby') {
       feeProcessedRef.current = null;
     }
   }, [room?.status, profile?.id, roomId, authUser, toast, updateProfile]);
@@ -311,6 +312,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
 
+      // Solitude Reset Mode: Reset rounds and go to lobby if alone
       if (playerCount === 1 && room.status !== 'lobby') {
         const onlyPlayerId = pIds[0];
         if (onlyPlayerId === profileRef.current?.id) {
@@ -337,6 +339,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
 
+      // Championship Reset: Start fresh when host starts after championship
       if (room.status === 'finished') {
         const players = Object.values(room.players);
         const allReady = players.every(p => p.isReady);
@@ -694,7 +697,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     }
   }, [roomId]);
 
-  const handleSendMessage = () => {
+  const handleSendMessage = useCallback(() => {
     if (!chatInput.trim() || !profile || !db || !roomId) {
       setIsChatOpen(false);
       setChatInput('');
@@ -714,12 +717,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     set(chatRef, newMessage);
     setChatInput('');
     setIsChatOpen(false);
-  };
+  }, [chatInput, profile, roomId]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Chat Toggle with Enter
+      // Chat Logic Fix: Enter to open, Enter to send (if text), Enter to close (if empty)
       if (e.code === 'Enter') {
+        e.preventDefault();
         if (!isChatOpen) {
           setIsChatOpen(true);
           setTimeout(() => chatInputRef.current?.focus(), 10);
@@ -785,7 +789,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       window.removeEventListener('keyup', handleKeyUp);
       cancelAnimationFrame(frameId);
     };
-  }, [updateGameLogic, keys, roomId, isChatOpen]);
+  }, [updateGameLogic, keys, roomId, isChatOpen, handleSendMessage]);
 
   const handleMouseMove = (e: React.MouseEvent) => {
     setMousePos({ x: e.clientX, y: e.clientY });
@@ -1781,9 +1785,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           )}
         </div>
 
-        {/* Global Chat UI - Outside Gameplay Area */}
+        {/* Global Chat UI - Fixed outside gameplay area */}
         <div className="fixed bottom-6 right-6 flex flex-col items-end gap-3 z-[1000] w-[350px]">
-          {/* Chat Preview (Visible when closed) */}
+          {/* Chat Preview */}
           {!isChatOpen && recentMessages.length > 0 && (
             <div className="w-full flex flex-col gap-1 items-end animate-in slide-in-from-bottom-2 duration-300">
               {recentMessages.map(msg => (
@@ -1802,7 +1806,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             </div>
           )}
 
-          {/* Full Chat History (Visible when open) */}
+          {/* Full Chat History */}
           {isChatOpen && (
             <div className="w-full bg-black/90 backdrop-blur-xl border-4 border-black rounded-[30px] shadow-[10px_10px_0_rgba(0,0,0,1)] flex flex-col h-[400px] animate-in zoom-in-95 duration-200">
               <div className="p-4 border-b-2 border-white/10 flex items-center gap-2">
