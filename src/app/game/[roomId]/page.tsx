@@ -171,6 +171,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     update(myPlayerRef, { isReady: true });
   }, [roomId]);
 
+  const handleReadyUp = useCallback(async () => {
+    if (!db || !roomId || !profileRef.current) return;
+    const myPlayerRef = ref(db, `rooms/${roomId}/players/${profileRef.current.id}`);
+    update(myPlayerRef, { isReady: true });
+  }, [roomId]);
+
   const isHost = room && profileRef.current && room.players && profileRef.current.id === room.createdBy;
 
   useEffect(() => {
@@ -1134,11 +1140,31 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       startTime: Date.now(),
       effects: null,
       celebrationStartTime: null,
-      currentRound: 1
+      currentRound: 1,
+      projectiles: null
     };
 
+    const assignedSpawns: {x: number, y: number}[] = [];
     Object.keys(room.players || {}).forEach(pid => {
+      const p = room.players[pid];
+      const bestSpawn = getBestSpawnPoint(SPAWN_POINTS, assignedSpawns);
+      assignedSpawns.push(bestSpawn);
+      
+      const weaponStats = (WEAPON_STATS[p.weaponClass as WeaponClass] || WEAPON_STATS.Sword);
+      
+      updates[`players/${pid}/hp`] = weaponStats.maxHp;
+      updates[`players/${pid}/stamina`] = weaponStats.maxStamina;
+      updates[`players/${pid}/x`] = bestSpawn.x;
+      updates[`players/${pid}/y`] = bestSpawn.y;
+      updates[`players/${pid}/vy`] = 0;
+      updates[`players/${pid}/jumpCount`] = 0;
       updates[`players/${pid}/roundsWon`] = 0;
+      updates[`players/${pid}/isDashing`] = false;
+      updates[`players/${pid}/dashTimeLeft`] = 0;
+      updates[`players/${pid}/stunnedUntil`] = 0;
+      updates[`players/${pid}/slowUntil`] = 0;
+      updates[`players/${pid}/deathTime`] = 0;
+      updates[`players/${pid}/isReady`] = true;
     });
 
     update(ref(db, `rooms/${roomId}`), updates);
@@ -1786,8 +1812,16 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                         {p.id === room?.createdBy && <Crown className="absolute -top-6 -right-6 w-10 h-10 text-yellow-500 fill-yellow-500 rotate-12 drop-shadow-[2px_2px_0_rgba(0,0,0,1)]" />}
                         {!p.isReady && (
                           <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center rounded-2xl">
-                             <div className="w-6 h-6 border-2 border-white border-t-transparent animate-spin rounded-full mb-1" />
-                             <span className="text-[10px] font-headline text-white tracking-widest">WAITING...</span>
+                             {p.id === profile.id ? (
+                               <Button onClick={handleReadyUp} size="sm" className="cartoon-button bg-accent text-black font-headline text-[10px] h-8 px-2">
+                                 READY UP!
+                               </Button>
+                             ) : (
+                               <>
+                                 <div className="w-6 h-6 border-2 border-white border-t-transparent animate-spin rounded-full mb-1" />
+                                 <span className="text-[10px] font-headline text-white tracking-widest">WAITING...</span>
+                               </>
+                             )}
                           </div>
                         )}
                       </div>
