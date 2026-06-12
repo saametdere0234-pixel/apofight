@@ -19,6 +19,15 @@ export interface PlayerProfile {
   adminRewardClaimed?: boolean; // Tracking for special grants
 }
 
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderColor: string;
+  text: string;
+  timestamp: number;
+}
+
 export interface GameInvitation {
   id: string;
   senderId: string;
@@ -87,6 +96,7 @@ export interface GameRoom {
   players: Record<string, GamePlayer>;
   effects?: Record<string, GameEffect>; // Synced combat effects
   projectiles?: Record<string, Projectile>;
+  chat?: Record<string, ChatMessage>; // Real-time chat messages
   status: 'lobby' | 'starting' | 'playing' | 'celebrating' | 'round_over' | 'finished';
   currentRound: number;
   lastUpdate: number;
