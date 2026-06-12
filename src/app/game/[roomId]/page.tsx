@@ -928,7 +928,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const my = mouseRef.current.y;
     const attackAngle = Math.atan2(my - py, mx - px);
 
-    let stunAppliedThis swing = false;
+    let stunAppliedThisSwing = false;
     const canStun = weapon === 'Sword' && now > (p.stunCooldownUntil || 0);
 
     update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), {
