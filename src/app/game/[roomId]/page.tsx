@@ -33,13 +33,14 @@ import {
   SPAWN_POINTS
 } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
-import { Trophy, ArrowLeft, Play, Zap, Heart, Users, Crown, RotateCcw, WifiOff, ShieldAlert, LogOut, Wallet, Fingerprint, Swords, CornerDownLeft } from 'lucide-react';
+import { Trophy, ArrowLeft, Play, Zap, Heart, Users, Crown, RotateCcw, WifiOff, ShieldAlert, LogOut, Wallet, Fingerprint, Swords, CornerDownLeft, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import { FriendsSidebar } from '@/components/FriendsSidebar';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const WeaponIcon = ({ weapon, className = "w-6 h-6" }: { weapon: WeaponClass; className?: string }) => {
   const baseClasses = "font-headline flex items-center justify-center select-none leading-none";
@@ -112,11 +113,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const hasJoinedRef = useRef(false);
   
   // Chat State
+  const [sessionJoinTime] = useState(Date.now());
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const [nowTick, setNowTick] = useState(Date.now());
 
   const isChargingRef = useRef(false);
   const [isCharging, setIsCharging] = useState(false);
@@ -192,17 +195,27 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     return onValue(chatRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        const msgs = Object.values(data) as ChatMessage[];
-        setMessages(msgs.sort((a, b) => a.timestamp - b.timestamp).slice(-20));
+        const msgs = (Object.values(data) as ChatMessage[])
+          .filter(m => m.timestamp >= sessionJoinTime)
+          .sort((a, b) => a.timestamp - b.timestamp);
+        setMessages(msgs);
       } else {
         setMessages([]);
       }
     });
-  }, [roomId]);
+  }, [roomId, sessionJoinTime]);
+
+  // Update tick for 7s preview
+  useEffect(() => {
+    const timer = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Auto scroll chat
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (isChatOpen) {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages, isChatOpen]);
 
   // Match Entry Fee Logic
@@ -1619,6 +1632,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const showResults = room?.status === 'finished' && !isLocalReady;
   const showLobby = room?.status === 'lobby' || (room?.status === 'finished' && isLocalReady);
 
+  const recentMessages = messages.filter(m => nowTick - m.timestamp < 7000).slice(-6);
+
   return (
     <div className="min-h-screen bg-[#000035] overflow-hidden flex flex-col items-center select-none" onMouseMove={handleMouseMove}>
       <div className="fixed pointer-events-none z-[9999] flex flex-col items-center gap-1 select-none" style={{ left: mousePos.x, top: mousePos.y + 35, transform: 'translateX(-50%)' }}>
@@ -1764,54 +1779,84 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                 </div>
              </div>
           )}
+        </div>
 
-          {/* Chat UI in Arena Area */}
-          <div className="absolute bottom-6 right-6 flex flex-col items-end gap-2 z-[60] w-[300px] pointer-events-none">
-            {/* Messages Area */}
-            <div className={cn(
-              "w-full flex flex-col gap-1 transition-all duration-300",
-              isChatOpen ? "opacity-100 pointer-events-auto" : "opacity-0"
-            )}>
-              <div className="bg-black/60 backdrop-blur-md border-4 border-black rounded-[20px] p-3 max-h-[160px] overflow-y-auto scrollbar-hide flex flex-col gap-1">
-                {messages.length === 0 ? (
-                  <p className="text-white/20 font-headline text-[10px] text-center uppercase">NO MESSAGES</p>
-                ) : (
-                  messages.map(msg => (
-                    <div key={msg.id} className="text-xs break-words">
-                      <span 
-                        className={cn("font-headline mr-1", msg.senderColor.startsWith('aura-') ? msg.senderColor : "")}
-                        style={{ color: msg.senderColor.startsWith('aura-') ? undefined : msg.senderColor, WebkitTextStroke: '0.5px black' }}
-                      >
-                        {msg.senderName}:
-                      </span>
-                      <span className="text-white font-bold uppercase tracking-tight">{msg.text}</span>
-                    </div>
-                  ))
-                )}
-                <div ref={chatEndRef} />
-              </div>
+        {/* Global Chat UI - Outside Gameplay Area */}
+        <div className="fixed bottom-6 right-6 flex flex-col items-end gap-3 z-[1000] w-[350px]">
+          {/* Chat Preview (Visible when closed) */}
+          {!isChatOpen && recentMessages.length > 0 && (
+            <div className="w-full flex flex-col gap-1 items-end animate-in slide-in-from-bottom-2 duration-300">
+              {recentMessages.map(msg => (
+                <div key={msg.id} className="bg-black/80 backdrop-blur-md border-2 border-black/40 rounded-xl py-1.5 px-3 max-w-full shadow-lg">
+                  <div className="text-xs break-words">
+                    <span 
+                      className={cn("font-headline mr-1", msg.senderColor.startsWith('aura-') ? msg.senderColor : "")}
+                      style={{ color: msg.senderColor.startsWith('aura-') ? undefined : msg.senderColor, WebkitTextStroke: '0.5px black' }}
+                    >
+                      {msg.senderName}:
+                    </span>
+                    <span className="text-white font-bold uppercase tracking-tight">{msg.text}</span>
+                  </div>
+                </div>
+              ))}
             </div>
+          )}
 
-            {/* Input / Hint */}
-            <div className="w-full pointer-events-auto">
-              {isChatOpen ? (
+          {/* Full Chat History (Visible when open) */}
+          {isChatOpen && (
+            <div className="w-full bg-black/90 backdrop-blur-xl border-4 border-black rounded-[30px] shadow-[10px_10px_0_rgba(0,0,0,1)] flex flex-col h-[400px] animate-in zoom-in-95 duration-200">
+              <div className="p-4 border-b-2 border-white/10 flex items-center gap-2">
+                <MessageCircle className="w-5 h-5 text-primary" />
+                <h3 className="font-headline text-lg text-white">ARENA CHAT</h3>
+              </div>
+              <ScrollArea className="flex-1 p-4">
+                <div className="flex flex-col gap-2">
+                  {messages.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center opacity-20 py-20">
+                      <MessageCircle className="w-12 h-12 mb-2" />
+                      <p className="font-headline text-xs">NO MESSAGES YET</p>
+                    </div>
+                  ) : (
+                    messages.map(msg => (
+                      <div key={msg.id} className="text-sm break-words leading-tight">
+                        <span 
+                          className={cn("font-headline mr-1.5", msg.senderColor.startsWith('aura-') ? msg.senderColor : "")}
+                          style={{ color: msg.senderColor.startsWith('aura-') ? undefined : msg.senderColor, WebkitTextStroke: '0.5px black' }}
+                        >
+                          {msg.senderName}:
+                        </span>
+                        <span className="text-white font-bold uppercase tracking-tight">{msg.text}</span>
+                      </div>
+                    ))
+                  )}
+                  <div ref={chatEndRef} />
+                </div>
+              </ScrollArea>
+              <div className="p-4 border-t-2 border-white/10">
                 <Input
                   ref={chatInputRef}
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   placeholder="TYPE MESSAGE..."
-                  className="bg-black/80 border-4 border-black rounded-[15px] h-10 font-bold text-white placeholder:text-white/20 focus-visible:ring-primary shadow-[4px_4px_0_rgba(0,0,0,1)]"
+                  className="bg-black/60 border-4 border-black rounded-[15px] h-12 font-bold text-white placeholder:text-white/20 focus-visible:ring-primary"
                 />
-              ) : (
-                <div className="flex items-center justify-end gap-2 text-white opacity-40 font-headline select-none">
-                  <span className="text-lg">ENTER</span>
-                  <CornerDownLeft className="w-6 h-6" />
-                </div>
-              )}
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Chat Toggle Hint */}
+          {!isChatOpen && (
+            <div className="flex items-center gap-2 text-white/40 font-headline select-none hover:text-white/60 transition-colors cursor-pointer group" onClick={() => {
+              setIsChatOpen(true);
+              setTimeout(() => chatInputRef.current?.focus(), 10);
+            }}>
+              <span className="text-lg">ENTER TO CHAT</span>
+              <CornerDownLeft className="w-6 h-6 group-hover:translate-x-0.5 transition-transform" />
+            </div>
+          )}
         </div>
 
+        {/* Player Stats HUD */}
         <div className={`absolute bottom-6 left-6 p-4 cartoon-card bg-black/60 backdrop-blur-md min-w-[240px] space-y-3 z-50 transition-all duration-300 ${isStunned ? 'blur-sm scale-95 opacity-80' : ''}`}>
           <div className="space-y-1">
             <div className="flex justify-between items-center px-1">
