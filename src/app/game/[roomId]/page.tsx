@@ -131,7 +131,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const interpPlayersRef = useRef<Record<string, GamePlayer>>({});
   const lastSyncTimeRef = useRef(0);
 
-  // Quitting is restricted during active match phases
   const isLocked = room?.status === 'starting' || room?.status === 'playing' || room?.status === 'celebrating' || room?.status === 'round_over';
 
   const handleQuit = useCallback(async () => {
@@ -199,8 +198,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         });
       }
     }
-    // Only reset the fee processed state when we go back to the lobby (fresh start)
-    if (room?.status === 'lobby') {
+    
+    // Reset the fee processed state ONLY when a championship is actually concluded
+    // This allows existing players to stay through round resets without paying again
+    if (room?.status === 'finished') {
       feeProcessedRef.current = null;
     }
   }, [room?.status, profile?.id, roomId, authUser, toast, updateProfile]);
@@ -270,6 +271,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
 
+      // Solitude Reset Mode: If someone leaves and only 1 person remains, reset rounds and return to lobby
       if (playerCount === 1 && room.status !== 'lobby') {
         const onlyPlayerId = pIds[0];
         if (onlyPlayerId === profileRef.current?.id) {
@@ -296,6 +298,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
 
+      // Championship Reset Mode: When someone is champion, everything resets for a new championship cycle
       if (room.status === 'finished') {
         const players = Object.values(room.players);
         const allReady = players.every(p => p.isReady);
@@ -1021,7 +1024,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         isDashing: false,
         dashTimeLeft: 0,
         deathTime: 0,
-        roundsWon: p.roundsWon || 0 // Explicitly keep roundsWon
+        roundsWon: p.roundsWon || 0 
       };
       
       Object.entries(pUpdates).forEach(([key, val]) => {
@@ -1042,7 +1045,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       currentRound: 1
     };
 
-    // Reset all round wins for a fresh championship cycle
     Object.keys(room.players || {}).forEach(pid => {
       updates[`players/${pid}/roundsWon`] = 0;
     });
@@ -1065,13 +1067,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     const playersData = currentRoom.players || {};
 
-    Object.keys(interpPlayersRef.current).forEach(id => {
-      if (!playersData || !playersData[id]) {
-        delete interpPlayersRef.current[id];
-      }
-    });
-
     if (playersData) {
+      Object.keys(interpPlayersRef.current).forEach(id => {
+        if (!playersData[id]) {
+          delete interpPlayersRef.current[id];
+        }
+      });
+
       Object.values(playersData).forEach(p => {
         if (p.id === profileRef.current?.id) {
           interpPlayersRef.current[p.id] = p;
