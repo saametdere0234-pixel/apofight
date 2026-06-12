@@ -242,8 +242,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     }
     
-    // Reset fee processed status only when returning to lobby (after champion or solitude)
-    if (room?.status === 'lobby') {
+    // Reset fee processed status ONLY when a champion is crowned (finished state)
+    if (room?.status === 'finished') {
       feeProcessedRef.current = null;
     }
   }, [room?.status, profile?.id, roomId, authUser, toast, updateProfile]);
@@ -340,7 +340,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
 
-      // RESET MODE 1: Championship Reset - Start fresh when host starts after championship
+      // RESET MODE 1: Championship Reset - Reset back to lobby when everyone signals Play Again
       if (room.status === 'finished') {
         const players = Object.values(room.players);
         const allReady = players.every(p => p.isReady);
@@ -357,7 +357,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           };
           players.forEach(p => {
             updates[`players/${p.id}/roundsWon`] = 0;
-            updates[`players/${p.id}/isReady`] = false;
+            updates[`players/${p.id}/isReady`] = true; // KEEP READY FOR NEXT LOBBY
           });
           update(ref(db, `rooms/${roomId}`), updates).then(() => {
             statusChangingRef.current = false;
@@ -408,7 +408,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         
         if (isGameFinished) {
           Object.keys(currentData.players).forEach(pid => {
-            updates[`players/${pid}/isReady`] = false;
+            updates[`players/${pid}/isReady`] = false; // ASKING FOR PLAY AGAIN
           });
         }
         
