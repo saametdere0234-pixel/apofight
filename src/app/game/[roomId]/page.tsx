@@ -204,7 +204,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     });
   }, [roomId, sessionJoinTime]);
 
-  // Update tick for 7s preview (now 100ms for smoother fades)
+  // Update tick for 7s preview fade out logic
   useEffect(() => {
     const timer = setInterval(() => setNowTick(Date.now()), 100);
     return () => clearInterval(timer);
@@ -720,7 +720,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Chat Logic Fix: Enter to open, Enter to send (if text), Enter to close (if empty)
+      // Chat Logic: Enter to open, Enter to send (if text), Enter to close (if empty)
       if (e.code === 'Enter') {
         e.preventDefault();
         if (!isChatOpen) {
@@ -928,7 +928,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const my = mouseRef.current.y;
     const attackAngle = Math.atan2(my - py, mx - px);
 
-    let stunAppliedThisSwing = false;
+    let stunAppliedThis swing = false;
     const canStun = weapon === 'Sword' && now > (p.stunCooldownUntil || 0);
 
     update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), {
@@ -1635,10 +1635,18 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const showResults = room?.status === 'finished' && !isLocalReady;
   const showLobby = room?.status === 'lobby' || (room?.status === 'finished' && isLocalReady);
 
-  // Filter messages for preview with 7s active + 1s fade logic
+  // Filter messages for preview with 7s active + 1s fade logic (Strict 10 message limit)
   const recentMessages = messages
     .filter(m => nowTick - m.timestamp < 8000)
-    .slice(-15);
+    .slice(-10);
+
+  // Helper to force line break after 10 characters for words without spaces in preview
+  const formatPreviewText = (text: string) => {
+    return text.split(' ').map(word => {
+      const chunks = word.match(/.{1,10}/g);
+      return chunks ? chunks.join('\n') : word;
+    }).join(' ');
+  };
 
   return (
     <div className="min-h-screen bg-[#000035] overflow-hidden flex flex-col items-center select-none" onMouseMove={handleMouseMove}>
@@ -1789,7 +1797,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
         {/* Global Chat UI - Compact Fixed outside gameplay area */}
         <div className="fixed bottom-6 right-6 flex flex-col items-end gap-3 z-[1000] w-[300px]">
-          {/* Chat Preview with Smooth Fade Out */}
+          {/* Chat Preview with Smooth Fade Out - Strict 10 line limit */}
           {!isChatOpen && recentMessages.length > 0 && (
             <div className="w-full flex flex-col gap-1 items-end animate-in slide-in-from-bottom-2 duration-300">
               {recentMessages.map(msg => {
@@ -1814,8 +1822,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                       >
                         {msg.senderName}:
                       </span>
-                      <span className="text-white font-headline uppercase tracking-tight" style={{ WebkitTextStroke: '0.5px black' }}>
-                        {msg.text}
+                      <span className="text-white font-headline uppercase tracking-tight whitespace-pre-wrap" style={{ WebkitTextStroke: '0.5px black' }}>
+                        {formatPreviewText(msg.text)}
                       </span>
                     </div>
                   </div>
@@ -1824,7 +1832,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             </div>
           )}
 
-          {/* Full Chat History - Compact and Scrollable */}
+          {/* Full Chat History - Compact and Scrollable (Strict 15 message limit) */}
           {isChatOpen && (
             <div className="w-full bg-black/90 backdrop-blur-xl border-4 border-black rounded-[25px] shadow-[10px_10px_0_rgba(0,0,0,1)] flex flex-col h-[320px] animate-in zoom-in-95 duration-200">
               <div className="p-3 border-b-2 border-white/10 flex items-center gap-2">
@@ -1840,7 +1848,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                     </div>
                   ) : (
                     messages.slice(-15).map(msg => (
-                      <div key={msg.id} className="text-sm break-words whitespace-pre-wrap leading-tight">
+                      <div key={msg.id} className="text-sm break-all whitespace-pre-wrap leading-tight">
                         <span 
                           className={cn("font-headline mr-1.5", msg.senderColor.startsWith('aura-') ? msg.senderColor : "")}
                           style={{ 
