@@ -1539,7 +1539,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
       
       ctx.save();
-      ctx.font = 'bold 12px Fredoka'; ctx.textAlign = 'center';
+      ctx.font = 'bold 12px Luckiest Guy'; ctx.textAlign = 'center';
       
       if (p.color.startsWith('aura-')) {
         const t = (now % 3000) / 3000;
@@ -1791,15 +1791,22 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           {!isChatOpen && recentMessages.length > 0 && (
             <div className="w-full flex flex-col gap-1 items-end animate-in slide-in-from-bottom-2 duration-300">
               {recentMessages.map(msg => (
-                <div key={msg.id} className="bg-black/80 backdrop-blur-md border-2 border-black/40 rounded-xl py-1.5 px-3 max-w-full shadow-lg">
-                  <div className="text-xs break-words">
+                <div key={msg.id} className="py-1 px-3 max-w-full">
+                  <div className="text-sm break-words leading-tight">
                     <span 
-                      className={cn("font-headline mr-1", msg.senderColor.startsWith('aura-') ? msg.senderColor : "")}
-                      style={{ color: msg.senderColor.startsWith('aura-') ? undefined : msg.senderColor, WebkitTextStroke: '0.5px black' }}
+                      className={cn("font-headline mr-1.5", msg.senderColor.startsWith('aura-') ? msg.senderColor : "")}
+                      style={{ 
+                        color: msg.senderColor.startsWith('aura-') ? 'transparent' : msg.senderColor, 
+                        WebkitTextStroke: '1px black',
+                        backgroundClip: msg.senderColor.startsWith('aura-') ? 'text' : 'none',
+                        WebkitBackgroundClip: msg.senderColor.startsWith('aura-') ? 'text' : 'none',
+                      }}
                     >
                       {msg.senderName}:
                     </span>
-                    <span className="text-white font-bold uppercase tracking-tight">{msg.text}</span>
+                    <span className="text-white font-headline uppercase tracking-tight" style={{ WebkitTextStroke: '0.5px black' }}>
+                      {msg.text}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -1825,11 +1832,18 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                       <div key={msg.id} className="text-sm break-words leading-tight">
                         <span 
                           className={cn("font-headline mr-1.5", msg.senderColor.startsWith('aura-') ? msg.senderColor : "")}
-                          style={{ color: msg.senderColor.startsWith('aura-') ? undefined : msg.senderColor, WebkitTextStroke: '0.5px black' }}
+                          style={{ 
+                            color: msg.senderColor.startsWith('aura-') ? 'transparent' : msg.senderColor, 
+                            WebkitTextStroke: '1px black',
+                            backgroundClip: msg.senderColor.startsWith('aura-') ? 'text' : 'none',
+                            WebkitBackgroundClip: msg.senderColor.startsWith('aura-') ? 'text' : 'none',
+                          }}
                         >
                           {msg.senderName}:
                         </span>
-                        <span className="text-white font-bold uppercase tracking-tight">{msg.text}</span>
+                        <span className="text-white font-headline uppercase tracking-tight" style={{ WebkitTextStroke: '0.5px black' }}>
+                          {msg.text}
+                        </span>
                       </div>
                     ))
                   )}
