@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -37,13 +38,12 @@
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-headline tracking-normal;
-    text-shadow: 3px 3px 0px rgba(0,0,0,1);
   }
 }
 
 @layer components {
   .cartoon-card {
-    @apply bg-card rounded-[30px] border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all duration-200;
+    @apply bg-card rounded-[30px] border-4 border-black transition-all duration-200;
   }
   
   .cartoon-button {
@@ -70,6 +70,7 @@
 .game-canvas-container {
   @apply border-8 border-black rounded-[40px] shadow-[12px_12px_0px_0px_rgba(0,0,0,1)];
   overflow: hidden;
+  background: #222;
 }
 
 .scanline {

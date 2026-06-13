@@ -46,21 +46,21 @@ const WeaponIcon = ({ weapon, className = "w-6 h-6" }: { weapon: WeaponClass; cl
   const baseClasses = "font-headline flex items-center justify-center select-none leading-none";
   if (weapon === 'Sword') {
     return (
-      <div className={cn(baseClasses, className, "text-yellow-400")} style={{ textShadow: '2px 2px 0px black' }}>
+      <div className={cn(baseClasses, className, "text-yellow-400")}>
         S
       </div>
     );
   }
   if (weapon === 'Dagger') {
     return (
-      <div className={cn(baseClasses, className, "text-purple-500")} style={{ textShadow: '2px 2px 0px black' }}>
+      <div className={cn(baseClasses, className, "text-purple-500")}>
         D
       </div>
     );
   }
   if (weapon === 'Bow') {
     return (
-      <div className={cn(baseClasses, className, "text-white")} style={{ textShadow: '2px 2px 0px black' }}>
+      <div className={cn(baseClasses, className, "text-white")}>
         B
       </div>
     );
@@ -778,7 +778,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     let frameId: number;
 
     const loop = (time: number) => {
-      const dt = Math.min((time - lastTime) / 1000, 0.1);
+      const dt = Math.min((time - lastTime) / 1000, 0.033); // Cap dt to fix stutters
       lastTime = time;
       const currentRoom = roomRef.current;
       if (profileRef.current && currentRoom?.players?.[profileRef.current.id] && currentRoom.status === 'playing') {
@@ -1197,7 +1197,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           interpPlayersRef.current[p.id] = p;
         } else if (playersData[p.id]) {
           const currentInterp = interpPlayersRef.current[p.id] || p;
-          const lerpFactor = Math.min(1, 15 * dt); 
+          const lerpFactor = Math.min(1, 25 * dt); // Faster, smoother lerp
           interpPlayersRef.current[p.id] = {
             ...p,
             x: currentInterp.x + (p.x - currentInterp.x) * lerpFactor,
@@ -1709,8 +1709,16 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   return (
     <div className={cn(
       "min-h-screen bg-transparent overflow-hidden flex flex-col items-center select-none transition-all duration-500",
-      showLobby ? "backdrop-blur-md" : "backdrop-blur-0"
+      showLobby ? "backdrop-blur-md" : ""
     )} onMouseMove={handleMouseMove}>
+      {/* Background Focus Overlay during Gameplay */}
+      {!showLobby && (
+        <div className="fixed inset-0 z-0 bg-black/40 backdrop-blur-[8px] pointer-events-none" style={{
+          maskImage: `radial-gradient(circle at center, transparent 40%, black 70%)`,
+          WebkitMaskImage: `radial-gradient(circle at center, transparent 40%, black 70%)`
+        }} />
+      )}
+
       <div className="fixed pointer-events-none z-[9999] flex flex-col items-center gap-1 select-none" style={{ left: mousePos.x, top: mousePos.y + 35, transform: 'translateX(-50%)' }}>
         {alerts.map((alert, i) => (
           <span key={i} className="font-headline text-2xl drop-shadow-[4px_4px_0px_rgba(0,0,0,1)]" style={{ color: alert.color, opacity: alert.alpha, WebkitTextStroke: '2px black' }}>
@@ -1730,7 +1738,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       {!isConnected && (
         <div className="w-full bg-yellow-500/80 py-2 border-b-4 border-black text-center z-[101] flex items-center justify-center gap-2">
           <WifiOff className="w-6 h-6 text-black" />
-          <span className="font-headline text-2xl text-black tracking-widest drop-shadow-[1px_1px_0_rgba(255,255,255,0.5)]">RECONNECTING...</span>
+          <span className="font-headline text-2xl text-black tracking-widest">RECONNECTING...</span>
         </div>
       )}
 
@@ -1740,7 +1748,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
       {/* Hide header in lobby */}
       {!showLobby && (
-        <header className="w-full p-4 flex justify-center items-center bg-black/60 backdrop-blur-xl border-b-8 border-black z-50 animate-in slide-in-from-top duration-500">
+        <header className="w-full p-4 flex justify-center items-center bg-black/80 border-b-4 border-black z-50 animate-in slide-in-from-top duration-500">
           <div className="absolute left-4">
             <Button 
               variant="ghost" 
@@ -1753,7 +1761,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           </div>
           <div className="flex items-center gap-4 overflow-x-auto max-w-[70vw] scrollbar-hide px-4">
             {room?.players && Object.values(room.players).map(p => (
-              <div key={p.id} className="flex items-center gap-3 bg-black/60 border-4 border-black rounded-[20px] p-2 px-4 shadow-[4px_4px_0_rgba(0,0,0,1)] min-w-[180px] border-t-white/10">
+              <div key={p.id} className="flex items-center gap-3 bg-white/5 border-2 border-white/20 rounded-[15px] p-2 px-4 min-w-[180px]">
                 <div className="flex flex-col items-start gap-0.5 flex-1">
                   <div className="flex items-center gap-2">
                     <WeaponIcon weapon={p.weaponClass as WeaponClass} className="w-7 h-7 text-xl" />
@@ -1764,7 +1772,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                       )} 
                       style={{ 
                         color: p.color.startsWith('aura-') ? 'transparent' : p.color, 
-                        WebkitTextStroke: '1px black',
                         backgroundClip: p.color.startsWith('aura-') ? 'text' : 'none',
                         WebkitBackgroundClip: p.color.startsWith('aura-') ? 'text' : 'none',
                       }}
@@ -1775,7 +1782,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                   </div>
                   <div className="flex gap-1.5 mt-1">
                     {[1, 2, 3].map(i => (
-                      <div key={i} className={`w-3.5 h-3.5 rounded-full border-2 border-black transition-all duration-300 ${i <= (p.roundsWon || 0) ? 'bg-yellow-500 shadow-[0_0_8px_rgba(255,215,0,0.6)]' : 'bg-white/10'}`} />
+                      <div key={i} className={`w-3.5 h-3.5 rounded-full border-2 border-black transition-all duration-300 ${i <= (p.roundsWon || 0) ? 'bg-yellow-500' : 'bg-white/10'}`} />
                     ))}
                   </div>
                 </div>
@@ -1785,7 +1792,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         </header>
       )}
 
-      <main className="flex-1 w-full relative flex items-center justify-center p-8">
+      <main className="flex-1 w-full relative flex items-center justify-center p-8 z-10">
         <div className={`relative game-canvas-container ${isShaking ? 'animate-shake' : ''}`}>
           <canvas 
             ref={canvasRef} 
@@ -1817,17 +1824,17 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                     <ArrowLeft className="w-5 h-5 mr-2" /> QUIT
                   </Button>
                 </div>
-                <h2 className="text-7xl font-headline text-white animate-bounce-subtle drop-shadow-[8px_8px_0_rgba(0,0,0,1)]">{room.name.toUpperCase()}</h2>
+                <h2 className="text-7xl font-headline text-white animate-bounce-subtle">{room.name.toUpperCase()}</h2>
                 <div className="flex gap-8">
                   {(room.players ? Object.values(room.players) : []).map(p => (
                     <div key={p.id} className="flex flex-col items-center gap-3">
                       <div className="relative">
                         <div className={cn(
-                           "w-16 h-16 rounded-2xl shadow-[6px_6px_0_rgba(0,0,0,1)]",
+                           "w-16 h-16 rounded-2xl",
                            p.color.startsWith('aura-') ? p.color : "",
                            p.noBorderEnabled ? "border-0" : "border-4 border-black"
                         )} style={{ backgroundColor: p.color.startsWith('aura-') ? "" : p.color }} />
-                        {p.id === room?.createdBy && <Crown className="absolute -top-6 -right-6 w-10 h-10 text-yellow-500 fill-yellow-500 rotate-12 drop-shadow-[2px_2px_0_rgba(0,0,0,1)]" />}
+                        {p.id === room?.createdBy && <Crown className="absolute -top-6 -right-6 w-10 h-10 text-yellow-500 fill-yellow-500 rotate-12" />}
                         {!p.isReady && (
                           <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center rounded-2xl">
                              <div className="w-6 h-6 border-2 border-white border-t-transparent animate-spin rounded-full mb-1" />
@@ -1835,12 +1842,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                           </div>
                         )}
                       </div>
-                      <span className="font-headline text-lg text-white drop-shadow-[2px_2px_0_rgba(0,0,0,1)]">{p.name}</span>
+                      <span className="font-headline text-lg text-white">{p.name}</span>
                     </div>
                   ))}
                 </div>
                 <div className="flex flex-col items-center gap-4">
-                  <div className="flex items-center gap-2 bg-black/60 px-6 py-2 rounded-full border-4 border-black shadow-[4px_4px_0_rgba(0,0,0,1)]">
+                  <div className="flex items-center gap-2 bg-black/60 px-6 py-2 rounded-full border-4 border-black">
                     <Users className="w-6 h-6 text-primary" />
                     <span className="font-headline text-2xl text-white">{playerCount} / {room.maxPlayers || 4}</span>
                   </div>
@@ -1865,16 +1872,16 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
           {room?.status === 'round_over' && (
             <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center z-50">
-              <h2 className="text-9xl font-headline text-accent animate-bounce drop-shadow-[8px_8px_0_rgba(0,0,0,1)]">{room.lastWinnerName === 'DRAW' ? 'DRAW!' : 'ROUND!'}</h2>
+              <h2 className="text-9xl font-headline text-accent animate-bounce">{room.lastWinnerName === 'DRAW' ? 'DRAW!' : 'ROUND!'}</h2>
               {room.lastWinnerName && room.lastWinnerName !== 'DRAW' && (
-                <span className="text-4xl font-headline text-white drop-shadow-[4px_4px_0_rgba(0,0,0,1)] mt-4">{room.lastWinnerName.toUpperCase()} WINS</span>
+                <span className="text-4xl font-headline text-white mt-4">{room.lastWinnerName.toUpperCase()} WINS</span>
               )}
             </div>
           )}
 
           {showResults && room && (
              <div className="absolute inset-0 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center z-50 p-10 text-center space-y-10">
-                <Trophy className="w-32 h-32 text-yellow-500 animate-pulse drop-shadow-[8px_8px_0_rgba(0,0,0,1)]" />
+                <Trophy className="w-32 h-32 text-yellow-500 animate-pulse" />
                 <h2 className="text-8xl font-headline text-white italic">{room.lastWinnerName ? `${room.lastWinnerName.toUpperCase()} IS CHAMPION!` : 'CHAMPION!'}</h2>
                 <div className="flex gap-4">
                   <Button onClick={handlePlayAgain} size="lg" className="cartoon-button bg-accent text-black text-2xl h-16 px-16 flex items-center gap-3"><RotateCcw className="w-6 h-6" /> PLAY AGAIN</Button>
@@ -1923,7 +1930,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
           {/* Full Chat History - Compact and Scrollable (Strict 15 message limit) */}
           {isChatOpen && (
-            <div className="w-full bg-black/90 backdrop-blur-xl border-4 border-black rounded-[25px] shadow-[10px_10px_0_rgba(0,0,0,1)] flex flex-col h-[320px] animate-in zoom-in-95 duration-200">
+            <div className="w-full bg-black/90 backdrop-blur-xl border-4 border-black rounded-[25px] flex flex-col h-[320px] animate-in zoom-in-95 duration-200">
               <div className="p-3 border-b-2 border-white/10 flex items-center gap-2">
                 <MessageCircle className="w-4 h-4 text-primary" />
                 <h3 className="font-headline text-base text-white">ARENA CHAT</h3>
@@ -2006,12 +2013,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
               <span className="font-headline text-[10px] text-white/80 uppercase tracking-tight flex items-center gap-1">
                  <Zap className="w-3 h-3 fill-current text-[#60a5fa]" /> STAMINA
               </span>
-              <span className="font-headline text-sm text-[#60a5fa] drop-shadow-[1px_1px_0_rgba(0,0,0,1)]">{Math.floor(myP?.stamina || 0)}</span>
+              <span className="font-headline text-sm text-[#60a5fa]">{Math.floor(myP?.stamina || 0)}</span>
             </div>
 
             {isStunned && (
               <div className="absolute inset-0 flex items-center justify-center z-[60] pointer-events-none">
-                 <span className="font-headline text-6xl text-white drop-shadow-[4px_4px_0_rgba(0,0,0,1)]">{(stunRemaining / 1000).toFixed(1)}</span>
+                 <span className="font-headline text-6xl text-white">{(stunRemaining / 1000).toFixed(1)}</span>
               </div>
             )}
             
@@ -2020,14 +2027,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                 <span className="font-headline text-[10px] text-white/80 uppercase tracking-tight flex items-center gap-1">
                    <Zap className="w-3 h-3 fill-current text-[#60a5fa]" /> DASH
                 </span>
-                <span className="font-headline text-sm text-accent drop-shadow-[1px_1px_0_rgba(0,0,0,1)]">
+                <span className="font-headline text-sm text-accent">
                   {myP && myP.dashCharges === maxDash ? 'READY' : `${((myWeaponStats?.dashCooldown || 4.0) - (myP?.dashRechargeProgress || 0)).toFixed(1)}s`}
                 </span>
               </div>
               <div className="flex justify-between items-center px-1">
                  <div className="flex gap-1.5">
                   {Array.from({ length: maxDash }).map((_, i) => (
-                    <div key={i} className={`w-4 h-4 rounded-full border-2 border-black transition-all duration-300 ${i < (myP?.dashCharges || 0) ? 'bg-accent shadow-[0_0_8px_rgba(255,255,0,0.5)] scale-110' : 'bg-black/60 scale-90'}`} />
+                    <div key={i} className={`w-4 h-4 rounded-full border-2 border-black transition-all duration-300 ${i < (myP?.dashCharges || 0) ? 'bg-accent scale-110' : 'bg-black/60 scale-90'}`} />
                   ))}
                 </div>
               </div>
@@ -2039,7 +2046,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                   <span className="font-headline text-[10px] text-white/80 uppercase tracking-tight flex items-center gap-1">
                      <ShieldAlert className="w-3 h-3 fill-current text-yellow-500" /> STUN CD
                   </span>
-                  <span className="font-headline text-sm text-yellow-500 drop-shadow-[1px_1px_0_rgba(0,0,0,1)]">
+                  <span className="font-headline text-sm text-yellow-500">
                     {myP && now > (myP.stunCooldownUntil || 0) ? 'READY' : `${(((myP?.stunCooldownUntil || 0) - now) / 1000).toFixed(1)}s`}
                   </span>
                 </div>
