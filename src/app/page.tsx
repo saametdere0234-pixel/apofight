@@ -1,11 +1,9 @@
-
 "use client";
 
 import { useState } from 'react';
 import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/label';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { User, Zap, LogOut, Wallet, Fingerprint, Swords, Sparkles, Lock, ShieldCheck } from 'lucide-react';
@@ -250,7 +248,7 @@ export default function EntryScreen() {
               style={{ 
                 WebkitTextStroke: '16px #4c0519', 
                 paintOrder: 'stroke fill',
-                textShadow: '10px 10px 0px #4c0519',
+                textShadow: '0 10px 0px #4c0519',
                 letterSpacing: '-0.06em'
               }}
             >
@@ -261,7 +259,7 @@ export default function EntryScreen() {
               style={{ 
                 WebkitTextStroke: '16px #4c0519', 
                 paintOrder: 'stroke fill',
-                textShadow: '10px 10px 0px #4c0519',
+                textShadow: '0 10px 0px #4c0519',
                 letterSpacing: '-0.06em'
               }}
             >
@@ -323,7 +321,7 @@ export default function EntryScreen() {
 
               {authUser && (
                 <div className="space-y-4 pt-4 border-t border-white/10">
-                  <div className="flex items-center justify-between bg-black/40 p-4 rounded-[20px] border-4 border-black shadow-[4px_4px_0_rgba(0,0,0,1)] hover:-translate-y-0.5 transition-all group">
+                  <div className="flex items-center justify-between bg-black/40 p-4 rounded-[20px] border-4 border-black shadow-[4px_4px_0_rgba(0,0,0,1)] group">
                     <div className="flex items-center gap-3">
                       <div className={cn(
                         "p-2 rounded-lg border-2 border-black transition-colors",
@@ -342,7 +340,7 @@ export default function EntryScreen() {
                          <span className="font-headline text-xs text-accent">200G</span>
                       )}
                       <Switch 
-                        checked={profile.noBorderEnabled} 
+                        checked={profile.noBorderOwned ? !!profile.noBorderEnabled : false} 
                         onCheckedChange={handleNoBorderToggle}
                         className="data-[state=checked]:bg-accent"
                       />
