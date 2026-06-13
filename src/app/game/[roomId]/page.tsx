@@ -1174,7 +1174,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     const now = Date.now();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#333333'; 
+    
+    // Arena background (Inside Arena)
+    ctx.fillStyle = 'gray';
+    ctx.fillRect(0, 0, canvas.width, GROUND_Y * PIXELS_PER_METER);
+
+    // Ground texture
+    ctx.fillStyle = '#bfc3c9'; 
     ctx.fillRect(0, GROUND_Y * PIXELS_PER_METER, canvas.width, (ARENA_HEIGHT - GROUND_Y) * PIXELS_PER_METER);
 
     // Subtle dark overlay in lobby
@@ -1341,7 +1347,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           ctx.save();
           ctx.globalAlpha = 0.3 * (1 - (i / ghostCount));
           
-          if (p.color.startsWith('aura-')) {
+          if (p.color?.startsWith('aura-')) {
              const grad = ctx.createLinearGradient(gx, gy, gx + pw, gy + ph);
              const t = (now % 3000) / 3000; 
              
@@ -1358,7 +1364,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
              
              ctx.fillStyle = grad;
           } else {
-             ctx.fillStyle = p.color;
+             ctx.fillStyle = p.color || '#3b82f6';
           }
           
           ctx.fillRect(gx, gy, pw, ph);
@@ -1431,7 +1437,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
       ctx.save();
       
-      if (p.color.startsWith('aura-')) {
+      if (p.color?.startsWith('aura-')) {
         const grad = ctx.createLinearGradient(px, py, px + pw, py + ph);
         const t = (now % 3000) / 3000; 
         
@@ -1448,7 +1454,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         
         ctx.fillStyle = grad;
       } else {
-        ctx.fillStyle = p.color;
+        ctx.fillStyle = p.color || '#3b82f6';
       }
 
       if (p.noBorderEnabled) {
@@ -1598,7 +1604,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.save();
       ctx.font = 'bold 12px Luckiest Guy'; ctx.textAlign = 'center';
       
-      if (p.color.startsWith('aura-')) {
+      if (p.color?.startsWith('aura-')) {
         const t = (now % 3000) / 3000;
         const grad = ctx.createLinearGradient(px, py - 35, px + pw, py - 20);
         if (p.color === 'aura-g1') { grad.addColorStop(t, '#8A2387'); grad.addColorStop((t+0.5)%1, '#E94057'); }
@@ -1613,7 +1619,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         else if (p.color === 'aura-g10') { grad.addColorStop(t, '#F21B3F'); grad.addColorStop((t+0.5)%1, '#330033'); }
         ctx.fillStyle = grad;
       } else {
-        ctx.fillStyle = p.color;
+        ctx.fillStyle = p.color || '#3b82f6';
       }
 
       ctx.strokeStyle = 'black'; ctx.lineWidth = 3;
@@ -1711,12 +1717,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       "min-h-screen bg-transparent overflow-hidden flex flex-col items-center select-none transition-all duration-500",
       showLobby ? "backdrop-blur-md" : ""
     )} onMouseMove={handleMouseMove}>
-      {/* Background Focus Overlay during Gameplay */}
+      {/* Dynamic Background Visibility during Gameplay */}
       {!showLobby && (
-        <div className="fixed inset-0 z-0 bg-black/40 backdrop-blur-[8px] pointer-events-none" style={{
-          maskImage: `radial-gradient(circle at center, transparent 40%, black 70%)`,
-          WebkitMaskImage: `radial-gradient(circle at center, transparent 40%, black 70%)`
-        }} />
+        <div className="fixed inset-0 z-0 pointer-events-none" />
       )}
 
       <div className="fixed pointer-events-none z-[9999] flex flex-col items-center gap-1 select-none" style={{ left: mousePos.x, top: mousePos.y + 35, transform: 'translateX(-50%)' }}>
@@ -1730,7 +1733,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       {authUser && <FriendsSidebar currentRoomId={roomId} />}
 
       {playerCount === 1 && (
-        <div className="w-full bg-destructive/20 py-2 border-b-4 border-black text-center z-[100]">
+        <div className="w-full bg-red-600 py-2 border-b-4 border-black text-center z-[100]">
           <span className="font-headline text-2xl text-white tracking-widest drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]">EMPTY ROOM</span>
         </div>
       )}
@@ -1768,12 +1771,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                     <span 
                       className={cn(
                         "font-headline text-lg truncate max-w-[100px]",
-                        p.color.startsWith('aura-') ? p.color : ""
+                        p.color?.startsWith('aura-') ? p.color : ""
                       )} 
                       style={{ 
-                        color: p.color.startsWith('aura-') ? 'transparent' : p.color, 
-                        backgroundClip: p.color.startsWith('aura-') ? 'text' : 'none',
-                        WebkitBackgroundClip: p.color.startsWith('aura-') ? 'text' : 'none',
+                        color: p.color?.startsWith('aura-') ? 'transparent' : p.color || '#3b82f6', 
+                        backgroundClip: p.color?.startsWith('aura-') ? 'text' : 'none',
+                        WebkitBackgroundClip: p.color?.startsWith('aura-') ? 'text' : 'none',
                       }}
                     >
                       {p.name}
@@ -1799,7 +1802,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             width={ARENA_WIDTH * PIXELS_PER_METER} 
             height={ARENA_HEIGHT * PIXELS_PER_METER} 
             className={cn(
-              "w-full h-auto cursor-crosshair bg-black/20 transition-all duration-500",
+              "w-full h-auto cursor-crosshair transition-all duration-500",
               showLobby ? "brightness-50" : "brightness-100"
             )} 
             onMouseDown={handleMouseDown}
@@ -1831,9 +1834,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                       <div className="relative">
                         <div className={cn(
                            "w-16 h-16 rounded-2xl",
-                           p.color.startsWith('aura-') ? p.color : "",
+                           p.color?.startsWith('aura-') ? p.color : "",
                            p.noBorderEnabled ? "border-0" : "border-4 border-black"
-                        )} style={{ backgroundColor: p.color.startsWith('aura-') ? "" : p.color }} />
+                        )} style={{ backgroundColor: p.color?.startsWith('aura-') ? "" : p.color || '#3b82f6' }} />
                         {p.id === room?.createdBy && <Crown className="absolute -top-6 -right-6 w-10 h-10 text-yellow-500 fill-yellow-500 rotate-12" />}
                         {!p.isReady && (
                           <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center rounded-2xl">
@@ -1908,12 +1911,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                   >
                     <div className="text-sm break-words whitespace-pre-wrap leading-tight">
                       <span 
-                        className={cn("font-headline mr-1.5", msg.senderColor.startsWith('aura-') ? msg.senderColor : "")}
+                        className={cn("font-headline mr-1.5", msg.senderColor?.startsWith('aura-') ? msg.senderColor : "")}
                         style={{ 
-                          color: msg.senderColor.startsWith('aura-') ? 'transparent' : msg.senderColor, 
+                          color: msg.senderColor?.startsWith('aura-') ? 'transparent' : msg.senderColor || '#3b82f6', 
                           WebkitTextStroke: '1px black',
-                          backgroundClip: msg.senderColor.startsWith('aura-') ? 'text' : 'none',
-                          WebkitBackgroundClip: msg.senderColor.startsWith('aura-') ? 'text' : 'none',
+                          backgroundClip: msg.senderColor?.startsWith('aura-') ? 'text' : 'none',
+                          WebkitBackgroundClip: msg.senderColor?.startsWith('aura-') ? 'text' : 'none',
                         }}
                       >
                         {msg.senderName}:
@@ -1946,12 +1949,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                     messages.slice(-15).map(msg => (
                       <div key={msg.id} className="text-sm break-all whitespace-pre-wrap leading-tight">
                         <span 
-                          className={cn("font-headline mr-1.5", msg.senderColor.startsWith('aura-') ? msg.senderColor : "")}
+                          className={cn("font-headline mr-1.5", msg.senderColor?.startsWith('aura-') ? msg.senderColor : "")}
                           style={{ 
-                            color: msg.senderColor.startsWith('aura-') ? 'transparent' : msg.senderColor, 
+                            color: msg.senderColor?.startsWith('aura-') ? 'transparent' : msg.senderColor || '#3b82f6', 
                             WebkitTextStroke: '1px black',
-                            backgroundClip: msg.senderColor.startsWith('aura-') ? 'text' : 'none',
-                            WebkitBackgroundClip: msg.senderColor.startsWith('aura-') ? 'text' : 'none',
+                            backgroundClip: msg.senderColor?.startsWith('aura-') ? 'text' : 'none',
+                            WebkitBackgroundClip: msg.senderColor?.startsWith('aura-') ? 'text' : 'none',
                           }}
                         >
                           {msg.senderName}:
