@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -1717,10 +1716,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       "min-h-screen bg-transparent overflow-hidden flex flex-col items-center select-none transition-all duration-500",
       showLobby ? "backdrop-blur-md" : ""
     )} onMouseMove={handleMouseMove}>
-      {/* Dynamic Background Visibility during Gameplay */}
-      {!showLobby && (
-        <div className="fixed inset-0 z-0 pointer-events-none" />
-      )}
+      <div className="scanline" />
 
       <div className="fixed pointer-events-none z-[9999] flex flex-col items-center gap-1 select-none" style={{ left: mousePos.x, top: mousePos.y + 35, transform: 'translateX(-50%)' }}>
         {alerts.map((alert, i) => (

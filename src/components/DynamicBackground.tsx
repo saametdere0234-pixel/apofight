@@ -1,7 +1,6 @@
-
 'use client';
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { cn } from '@/lib/utils';
 
 interface DynamicBackgroundProps {
@@ -9,11 +8,10 @@ interface DynamicBackgroundProps {
 }
 
 export function DynamicBackground({ mode }: DynamicBackgroundProps) {
-  // Static version to remove animation stutters
   return (
     <div 
       className={cn(
-        "fixed inset-0 -z-50 transition-all duration-1000 ease-in-out overflow-hidden pointer-events-none bg-[#fffbeb]",
+        "fixed inset-0 -z-50 transition-all duration-1000 ease-in-out overflow-hidden pointer-events-none bg-[#1a1a2e]",
         mode === 'blurred' ? "blur-2xl brightness-50" : "blur-0 brightness-100"
       )}
     >
