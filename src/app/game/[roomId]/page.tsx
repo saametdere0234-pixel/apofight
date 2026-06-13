@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -1173,8 +1172,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (!ctx) return;
 
     const now = Date.now();
-    ctx.fillStyle = '#000035';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#333333'; 
     ctx.fillRect(0, GROUND_Y * PIXELS_PER_METER, canvas.width, (ARENA_HEIGHT - GROUND_Y) * PIXELS_PER_METER);
 
@@ -1702,7 +1700,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   };
 
   return (
-    <div className="min-h-screen bg-[#000035] overflow-hidden flex flex-col items-center select-none" onMouseMove={handleMouseMove}>
+    <div className="min-h-screen bg-transparent overflow-hidden flex flex-col items-center select-none" onMouseMove={handleMouseMove}>
       <div className="fixed pointer-events-none z-[9999] flex flex-col items-center gap-1 select-none" style={{ left: mousePos.x, top: mousePos.y + 35, transform: 'translateX(-50%)' }}>
         {alerts.map((alert, i) => (
           <span key={i} className="font-headline text-2xl drop-shadow-[4px_4px_0px_rgba(0,0,0,1)]" style={{ color: alert.color, opacity: alert.alpha, WebkitTextStroke: '2px black' }}>
@@ -1780,7 +1778,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             ref={canvasRef} 
             width={ARENA_WIDTH * PIXELS_PER_METER} 
             height={ARENA_HEIGHT * PIXELS_PER_METER} 
-            className="w-full h-auto cursor-crosshair" 
+            className="w-full h-auto cursor-crosshair bg-black/20" 
             onMouseDown={handleMouseDown}
             onMouseUp={handleMouseUp}
             onContextMenu={handleContextMenu}
