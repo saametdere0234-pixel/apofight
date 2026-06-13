@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -1176,6 +1177,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     ctx.fillStyle = '#333333'; 
     ctx.fillRect(0, GROUND_Y * PIXELS_PER_METER, canvas.width, (ARENA_HEIGHT - GROUND_Y) * PIXELS_PER_METER);
 
+    // Subtle dark overlay in lobby
+    if (currentRoom.status === 'lobby') {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
     const playersData = currentRoom.players || {};
 
     if (playersData) {
@@ -1700,7 +1707,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   };
 
   return (
-    <div className="min-h-screen bg-transparent overflow-hidden flex flex-col items-center select-none" onMouseMove={handleMouseMove}>
+    <div className={cn(
+      "min-h-screen bg-transparent overflow-hidden flex flex-col items-center select-none transition-all duration-500",
+      showLobby ? "backdrop-blur-md" : "backdrop-blur-0"
+    )} onMouseMove={handleMouseMove}>
       <div className="fixed pointer-events-none z-[9999] flex flex-col items-center gap-1 select-none" style={{ left: mousePos.x, top: mousePos.y + 35, transform: 'translateX(-50%)' }}>
         {alerts.map((alert, i) => (
           <span key={i} className="font-headline text-2xl drop-shadow-[4px_4px_0px_rgba(0,0,0,1)]" style={{ color: alert.color, opacity: alert.alpha, WebkitTextStroke: '2px black' }}>
@@ -1728,49 +1738,52 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         <div className={`fixed inset-0 pointer-events-none z-[100] border-[40px] ${flash.type === 'taken' ? 'border-red-500/30' : 'border-blue-500/30'} animate-in fade-in duration-200`} />
       )}
 
-      <header className="w-full p-4 flex justify-center items-center bg-black/60 backdrop-blur-xl border-b-8 border-black z-50">
-        <div className="absolute left-4">
-          <Button 
-            variant="ghost" 
-            onClick={handleQuit} 
-            disabled={isLocked}
-            className="cartoon-button bg-destructive text-white h-12 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ArrowLeft className="w-5 h-5 mr-2" /> {isLocked ? 'IN COMBAT' : 'QUIT'}
-          </Button>
-        </div>
-        <div className="flex items-center gap-4 overflow-x-auto max-w-[70vw] scrollbar-hide px-4">
-          {room?.players && Object.values(room.players).map(p => (
-            <div key={p.id} className="flex items-center gap-3 bg-black/40 border-4 border-black rounded-[20px] p-2 px-4 shadow-[4px_4px_0_rgba(0,0,0,1)] min-w-[180px]">
-              <div className="flex flex-col items-start gap-0.5 flex-1">
-                <div className="flex items-center gap-2">
-                  <WeaponIcon weapon={p.weaponClass as WeaponClass} className="w-7 h-7 text-xl" />
-                  <span 
-                    className={cn(
-                      "font-headline text-lg truncate max-w-[100px]",
-                      p.color.startsWith('aura-') ? p.color : ""
-                    )} 
-                    style={{ 
-                      color: p.color.startsWith('aura-') ? 'transparent' : p.color, 
-                      WebkitTextStroke: '1px black',
-                      backgroundClip: p.color.startsWith('aura-') ? 'text' : 'none',
-                      WebkitBackgroundClip: p.color.startsWith('aura-') ? 'text' : 'none',
-                    }}
-                  >
-                    {p.name}
-                  </span>
-                  {p.id === room?.createdBy && <Crown className="w-5 h-5 text-yellow-500 fill-yellow-500" />}
-                </div>
-                <div className="flex gap-1.5 mt-1">
-                  {[1, 2, 3].map(i => (
-                    <div key={i} className={`w-3.5 h-3.5 rounded-full border-2 border-black transition-all duration-300 ${i <= (p.roundsWon || 0) ? 'bg-yellow-500 shadow-[0_0_8px_rgba(255,215,0,0.6)]' : 'bg-white/10'}`} />
-                  ))}
+      {/* Hide header in lobby */}
+      {!showLobby && (
+        <header className="w-full p-4 flex justify-center items-center bg-black/60 backdrop-blur-xl border-b-8 border-black z-50 animate-in slide-in-from-top duration-500">
+          <div className="absolute left-4">
+            <Button 
+              variant="ghost" 
+              onClick={handleQuit} 
+              disabled={isLocked}
+              className="cartoon-button bg-destructive text-white h-12 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ArrowLeft className="w-5 h-5 mr-2" /> {isLocked ? 'IN COMBAT' : 'QUIT'}
+            </Button>
+          </div>
+          <div className="flex items-center gap-4 overflow-x-auto max-w-[70vw] scrollbar-hide px-4">
+            {room?.players && Object.values(room.players).map(p => (
+              <div key={p.id} className="flex items-center gap-3 bg-black/60 border-4 border-black rounded-[20px] p-2 px-4 shadow-[4px_4px_0_rgba(0,0,0,1)] min-w-[180px] border-t-white/10">
+                <div className="flex flex-col items-start gap-0.5 flex-1">
+                  <div className="flex items-center gap-2">
+                    <WeaponIcon weapon={p.weaponClass as WeaponClass} className="w-7 h-7 text-xl" />
+                    <span 
+                      className={cn(
+                        "font-headline text-lg truncate max-w-[100px]",
+                        p.color.startsWith('aura-') ? p.color : ""
+                      )} 
+                      style={{ 
+                        color: p.color.startsWith('aura-') ? 'transparent' : p.color, 
+                        WebkitTextStroke: '1px black',
+                        backgroundClip: p.color.startsWith('aura-') ? 'text' : 'none',
+                        WebkitBackgroundClip: p.color.startsWith('aura-') ? 'text' : 'none',
+                      }}
+                    >
+                      {p.name}
+                    </span>
+                    {p.id === room?.createdBy && <Crown className="w-5 h-5 text-yellow-500 fill-yellow-500" />}
+                  </div>
+                  <div className="flex gap-1.5 mt-1">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className={`w-3.5 h-3.5 rounded-full border-2 border-black transition-all duration-300 ${i <= (p.roundsWon || 0) ? 'bg-yellow-500 shadow-[0_0_8px_rgba(255,215,0,0.6)]' : 'bg-white/10'}`} />
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </header>
+            ))}
+          </div>
+        </header>
+      )}
 
       <main className="flex-1 w-full relative flex items-center justify-center p-8">
         <div className={`relative game-canvas-container ${isShaking ? 'animate-shake' : ''}`}>
@@ -1778,7 +1791,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             ref={canvasRef} 
             width={ARENA_WIDTH * PIXELS_PER_METER} 
             height={ARENA_HEIGHT * PIXELS_PER_METER} 
-            className="w-full h-auto cursor-crosshair bg-black/20" 
+            className={cn(
+              "w-full h-auto cursor-crosshair bg-black/20 transition-all duration-500",
+              showLobby ? "brightness-50" : "brightness-100"
+            )} 
             onMouseDown={handleMouseDown}
             onMouseUp={handleMouseUp}
             onContextMenu={handleContextMenu}
@@ -1791,14 +1807,23 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           )}
 
           {showLobby && room && (
-             <div className="absolute inset-0 bg-black/80 backdrop-blur-lg flex flex-col items-center justify-center z-50 space-y-10">
-                <h2 className="text-7xl font-headline text-white animate-bounce-subtle">{room.name.toUpperCase()}</h2>
+             <div className="absolute inset-0 bg-black/40 backdrop-blur-lg flex flex-col items-center justify-center z-50 space-y-10 animate-in fade-in duration-500">
+                <div className="absolute top-8 left-4">
+                  <Button 
+                    variant="ghost" 
+                    onClick={handleQuit} 
+                    className="cartoon-button bg-destructive text-white h-12 px-6"
+                  >
+                    <ArrowLeft className="w-5 h-5 mr-2" /> QUIT
+                  </Button>
+                </div>
+                <h2 className="text-7xl font-headline text-white animate-bounce-subtle drop-shadow-[8px_8px_0_rgba(0,0,0,1)]">{room.name.toUpperCase()}</h2>
                 <div className="flex gap-8">
                   {(room.players ? Object.values(room.players) : []).map(p => (
                     <div key={p.id} className="flex flex-col items-center gap-3">
                       <div className="relative">
                         <div className={cn(
-                           "w-16 h-16 rounded-2xl shadow-[4px_4px_0_rgba(0,0,0,1)]",
+                           "w-16 h-16 rounded-2xl shadow-[6px_6px_0_rgba(0,0,0,1)]",
                            p.color.startsWith('aura-') ? p.color : "",
                            p.noBorderEnabled ? "border-0" : "border-4 border-black"
                         )} style={{ backgroundColor: p.color.startsWith('aura-') ? "" : p.color }} />
@@ -1810,12 +1835,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                           </div>
                         )}
                       </div>
-                      <span className="font-headline text-lg text-white">{p.name}</span>
+                      <span className="font-headline text-lg text-white drop-shadow-[2px_2px_0_rgba(0,0,0,1)]">{p.name}</span>
                     </div>
                   ))}
                 </div>
                 <div className="flex flex-col items-center gap-4">
-                  <div className="flex items-center gap-2 bg-black/40 px-6 py-2 rounded-full border-2 border-white/10">
+                  <div className="flex items-center gap-2 bg-black/60 px-6 py-2 rounded-full border-4 border-black shadow-[4px_4px_0_rgba(0,0,0,1)]">
                     <Users className="w-6 h-6 text-primary" />
                     <span className="font-headline text-2xl text-white">{playerCount} / {room.maxPlayers || 4}</span>
                   </div>
@@ -1957,69 +1982,71 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           )}
         </div>
 
-        {/* Player Stats HUD */}
-        <div className={`absolute bottom-6 left-6 p-4 cartoon-card bg-black/60 backdrop-blur-md min-w-[240px] space-y-3 z-50 transition-all duration-300 ${isStunned ? 'blur-sm scale-95 opacity-80' : ''}`}>
-          <div className="space-y-1">
-            <div className="flex justify-between items-center px-1">
-              <span className="font-headline text-[10px] text-white/80 flex items-center gap-1 uppercase tracking-tight">
-                <Heart className="w-3 h-3 fill-current text-destructive" /> HEALTH
-              </span>
-              <div className="flex items-center gap-2">
-                <span className="font-headline text-sm text-white">{Math.floor(myP?.hp || 0)}</span>
+        {/* Player Stats HUD - Hide in lobby */}
+        {!showLobby && (
+          <div className={`absolute bottom-6 left-6 p-4 cartoon-card bg-black/60 backdrop-blur-md min-w-[240px] space-y-3 z-50 transition-all duration-300 animate-in slide-in-from-left ${isStunned ? 'blur-sm scale-95 opacity-80' : ''}`}>
+            <div className="space-y-1">
+              <div className="flex justify-between items-center px-1">
+                <span className="font-headline text-[10px] text-white/80 flex items-center gap-1 uppercase tracking-tight">
+                  <Heart className="w-3 h-3 fill-current text-destructive" /> HEALTH
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-headline text-sm text-white">{Math.floor(myP?.hp || 0)}</span>
+                </div>
+              </div>
+              <div className="juicy-bar h-6 bg-black/40">
+                <div 
+                  className="juicy-bar-fill bg-destructive transition-all duration-300"
+                  style={{ width: `${(myP?.hp || 0) / ((myWeaponStats?.maxHp || 1000) / 100)}%` }}
+                />
               </div>
             </div>
-            <div className="juicy-bar h-6 bg-black/40">
-              <div 
-                className="juicy-bar-fill bg-destructive transition-all duration-300"
-                style={{ width: `${(myP?.hp || 0) / ((myWeaponStats?.maxHp || 1000) / 100)}%` }}
-              />
-            </div>
-          </div>
 
-          <div className="flex justify-between items-center px-1">
-            <span className="font-headline text-[10px] text-white/80 uppercase tracking-tight flex items-center gap-1">
-               <Zap className="w-3 h-3 fill-current text-[#60a5fa]" /> STAMINA
-            </span>
-            <span className="font-headline text-sm text-[#60a5fa] drop-shadow-[1px_1px_0_rgba(0,0,0,1)]">{Math.floor(myP?.stamina || 0)}</span>
-          </div>
-
-          {isStunned && (
-            <div className="absolute inset-0 flex items-center justify-center z-[60] pointer-events-none">
-               <span className="font-headline text-6xl text-white drop-shadow-[4px_4px_0_rgba(0,0,0,1)]">{(stunRemaining / 1000).toFixed(1)}</span>
-            </div>
-          )}
-          
-          <div className="space-y-1 pt-1 border-t border-white/10">
             <div className="flex justify-between items-center px-1">
               <span className="font-headline text-[10px] text-white/80 uppercase tracking-tight flex items-center gap-1">
-                 <Zap className="w-3 h-3 fill-current text-[#60a5fa]" /> DASH
+                 <Zap className="w-3 h-3 fill-current text-[#60a5fa]" /> STAMINA
               </span>
-              <span className="font-headline text-sm text-accent drop-shadow-[1px_1px_0_rgba(0,0,0,1)]">
-                {myP && myP.dashCharges === maxDash ? 'READY' : `${((myWeaponStats?.dashCooldown || 4.0) - (myP?.dashRechargeProgress || 0)).toFixed(1)}s`}
-              </span>
+              <span className="font-headline text-sm text-[#60a5fa] drop-shadow-[1px_1px_0_rgba(0,0,0,1)]">{Math.floor(myP?.stamina || 0)}</span>
             </div>
-            <div className="flex justify-between items-center px-1">
-               <div className="flex gap-1.5">
-                {Array.from({ length: maxDash }).map((_, i) => (
-                  <div key={i} className={`w-4 h-4 rounded-full border-2 border-black transition-all duration-300 ${i < (myP?.dashCharges || 0) ? 'bg-accent shadow-[0_0_8px_rgba(255,255,0,0.5)] scale-110' : 'bg-black/60 scale-90'}`} />
-                ))}
-              </div>
-            </div>
-          </div>
 
-          {myP?.weaponClass === 'Sword' && (
+            {isStunned && (
+              <div className="absolute inset-0 flex items-center justify-center z-[60] pointer-events-none">
+                 <span className="font-headline text-6xl text-white drop-shadow-[4px_4px_0_rgba(0,0,0,1)]">{(stunRemaining / 1000).toFixed(1)}</span>
+              </div>
+            )}
+            
             <div className="space-y-1 pt-1 border-t border-white/10">
               <div className="flex justify-between items-center px-1">
                 <span className="font-headline text-[10px] text-white/80 uppercase tracking-tight flex items-center gap-1">
-                   <ShieldAlert className="w-3 h-3 fill-current text-yellow-500" /> STUN CD
+                   <Zap className="w-3 h-3 fill-current text-[#60a5fa]" /> DASH
                 </span>
-                <span className="font-headline text-sm text-yellow-500 drop-shadow-[1px_1px_0_rgba(0,0,0,1)]">
-                  {myP && now > (myP.stunCooldownUntil || 0) ? 'READY' : `${(((myP?.stunCooldownUntil || 0) - now) / 1000).toFixed(1)}s`}
+                <span className="font-headline text-sm text-accent drop-shadow-[1px_1px_0_rgba(0,0,0,1)]">
+                  {myP && myP.dashCharges === maxDash ? 'READY' : `${((myWeaponStats?.dashCooldown || 4.0) - (myP?.dashRechargeProgress || 0)).toFixed(1)}s`}
                 </span>
               </div>
+              <div className="flex justify-between items-center px-1">
+                 <div className="flex gap-1.5">
+                  {Array.from({ length: maxDash }).map((_, i) => (
+                    <div key={i} className={`w-4 h-4 rounded-full border-2 border-black transition-all duration-300 ${i < (myP?.dashCharges || 0) ? 'bg-accent shadow-[0_0_8px_rgba(255,255,0,0.5)] scale-110' : 'bg-black/60 scale-90'}`} />
+                  ))}
+                </div>
+              </div>
             </div>
-          )}
-        </div>
+
+            {myP?.weaponClass === 'Sword' && (
+              <div className="space-y-1 pt-1 border-t border-white/10">
+                <div className="flex justify-between items-center px-1">
+                  <span className="font-headline text-[10px] text-white/80 uppercase tracking-tight flex items-center gap-1">
+                     <ShieldAlert className="w-3 h-3 fill-current text-yellow-500" /> STUN CD
+                  </span>
+                  <span className="font-headline text-sm text-yellow-500 drop-shadow-[1px_1px_0_rgba(0,0,0,1)]">
+                    {myP && now > (myP.stunCooldownUntil || 0) ? 'READY' : `${(((myP?.stunCooldownUntil || 0) - now) / 1000).toFixed(1)}s`}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </main>
     </div>
   );
