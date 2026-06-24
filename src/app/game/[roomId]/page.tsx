@@ -1366,6 +1366,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         const pw = PLAYER_WIDTH * PIXELS_PER_METER;
         const ph = PLAYER_HEIGHT * PIXELS_PER_METER;
 
+        const color = p.color || '#3b82f6';
+        const isAura = color?.startsWith?.('aura-');
+
         for (let i = 1; i <= ghostCount; i++) {
           const offset = i * 0.04;
           const ghostProgress = Math.max(0, progress - offset);
@@ -1377,24 +1380,24 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           ctx.save();
           ctx.globalAlpha = 0.3 * (1 - (i / ghostCount));
           
-          if (p.color?.startsWith?.('aura-')) {
+          if (isAura) {
              const grad = ctx.createLinearGradient(gx, gy, gx + pw, gy + ph);
              const t = (now % 3000) / 3000; 
              
-             if (p.color === 'aura-g1') { grad.addColorStop(t, '#8A2387'); grad.addColorStop((t+0.5)%1, '#E94057'); }
-             else if (p.color === 'aura-g2') { grad.addColorStop(t, '#00F2FE'); grad.addColorStop((t+0.5)%1, '#4FACFE'); }
-             else if (p.color === 'aura-g3') { grad.addColorStop(t, '#FF416C'); grad.addColorStop((t+0.5)%1, '#FF4B2B'); }
-             else if (p.color === 'aura-g4') { grad.addColorStop(t, '#11998E'); grad.addColorStop((t+0.5)%1, '#38EF7D'); }
-             else if (p.color === 'aura-g5') { grad.addColorStop(t, '#1F1C2C'); grad.addColorStop((t+0.5)%1, '#928DAB'); }
-             else if (p.color === 'aura-g6') { grad.addColorStop(t, '#00C6FF'); grad.addColorStop((t+0.5)%1, '#0072FF'); }
-             else if (p.color === 'aura-g7') { grad.addColorStop(t, '#7F00FF'); grad.addColorStop((t+0.5)%1, '#E100FF'); }
-             else if (p.color === 'aura-g8') { grad.addColorStop(t, '#F857A6'); grad.addColorStop((t+0.5)%1, '#FF5858'); }
-             else if (p.color === 'aura-g9') { grad.addColorStop(t, '#0B132B'); grad.addColorStop((t+0.5)%1, '#1C2541'); }
-             else if (p.color === 'aura-g10') { grad.addColorStop(t, '#F21B3F'); grad.addColorStop((t+0.5)%1, '#330033'); }
+             if (color === 'aura-g1') { grad.addColorStop(t, '#8A2387'); grad.addColorStop((t+0.5)%1, '#E94057'); }
+             else if (color === 'aura-g2') { grad.addColorStop(t, '#00F2FE'); grad.addColorStop((t+0.5)%1, '#4FACFE'); }
+             else if (color === 'aura-g3') { grad.addColorStop(t, '#FF416C'); grad.addColorStop((t+0.5)%1, '#FF4B2B'); }
+             else if (color === 'aura-g4') { grad.addColorStop(t, '#11998E'); grad.addColorStop((t+0.5)%1, '#38EF7D'); }
+             else if (color === 'aura-g5') { grad.addColorStop(t, '#1F1C2C'); grad.addColorStop((t+0.5)%1, '#928DAB'); }
+             else if (color === 'aura-g6') { grad.addColorStop(t, '#00C6FF'); grad.addColorStop((t+0.5)%1, '#0072FF'); }
+             else if (color === 'aura-g7') { grad.addColorStop(t, '#7F00FF'); grad.addColorStop((t+0.5)%1, '#E100FF'); }
+             else if (color === 'aura-g8') { grad.addColorStop(t, '#F857A6'); grad.addColorStop((t+0.5)%1, '#FF5858'); }
+             else if (color === 'aura-g9') { grad.addColorStop(t, '#0B132B'); grad.addColorStop((t+0.5)%1, '#1C2541'); }
+             else if (color === 'aura-g10') { grad.addColorStop(t, '#F21B3F'); grad.addColorStop((t+0.5)%1, '#330033'); }
              
              ctx.fillStyle = grad;
           } else {
-             ctx.fillStyle = p.color || '#3b82f6';
+             ctx.fillStyle = color;
           }
           
           ctx.fillRect(gx, gy, pw, ph);
@@ -1464,27 +1467,29 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
       const isStunned = now < (p.stunnedUntil || 0);
       const isWinner = p.name === currentRoom.lastWinnerName && (currentRoom.status === 'celebrating' || currentRoom.status === 'round_over' || currentRoom.status === 'finished');
+      const color = p.color || '#3b82f6';
+      const isAura = color?.startsWith?.('aura-');
 
       ctx.save();
       
-      if (p.color?.startsWith?.('aura-')) {
+      if (isAura) {
         const grad = ctx.createLinearGradient(px, py, px + pw, py + ph);
         const t = (now % 3000) / 3000; 
         
-        if (p.color === 'aura-g1') { grad.addColorStop(t, '#8A2387'); grad.addColorStop((t+0.5)%1, '#E94057'); }
-        else if (p.color === 'aura-g2') { grad.addColorStop(t, '#00F2FE'); grad.addColorStop((t+0.5)%1, '#4FACFE'); }
-        else if (p.color === 'aura-g3') { grad.addColorStop(t, '#FF416C'); grad.addColorStop((t+0.5)%1, '#FF4B2B'); }
-        else if (p.color === 'aura-g4') { grad.addColorStop(t, '#11998E'); grad.addColorStop((t+0.5)%1, '#38EF7D'); }
-        else if (p.color === 'aura-g5') { grad.addColorStop(t, '#1F1C2C'); grad.addColorStop((t+0.5)%1, '#928DAB'); }
-        else if (p.color === 'aura-g6') { grad.addColorStop(t, '#00C6FF'); grad.addColorStop((t+0.5)%1, '#0072FF'); }
-        else if (p.color === 'aura-g7') { grad.addColorStop(t, '#7F00FF'); grad.addColorStop((t+0.5)%1, '#E100FF'); }
-        else if (p.color === 'aura-g8') { grad.addColorStop(t, '#F857A6'); grad.addColorStop((t+0.5)%1, '#FF5858'); }
-        else if (p.color === 'aura-g9') { grad.addColorStop(t, '#0B132B'); grad.addColorStop((t+0.5)%1, '#1C2541'); }
-        else if (p.color === 'aura-g10') { grad.addColorStop(t, '#F21B3F'); grad.addColorStop((t+0.5)%1, '#330033'); }
+        if (color === 'aura-g1') { grad.addColorStop(t, '#8A2387'); grad.addColorStop((t+0.5)%1, '#E94057'); }
+        else if (color === 'aura-g2') { grad.addColorStop(t, '#00F2FE'); grad.addColorStop((t+0.5)%1, '#4FACFE'); }
+        else if (color === 'aura-g3') { grad.addColorStop(t, '#FF416C'); grad.addColorStop((t+0.5)%1, '#FF4B2B'); }
+        else if (color === 'aura-g4') { grad.addColorStop(t, '#11998E'); grad.addColorStop((t+0.5)%1, '#38EF7D'); }
+        else if (color === 'aura-g5') { grad.addColorStop(t, '#1F1C2C'); grad.addColorStop((t+0.5)%1, '#928DAB'); }
+        else if (color === 'aura-g6') { grad.addColorStop(t, '#00C6FF'); grad.addColorStop((t+0.5)%1, '#0072FF'); }
+        else if (color === 'aura-g7') { grad.addColorStop(t, '#7F00FF'); grad.addColorStop((t+0.5)%1, '#E100FF'); }
+        else if (color === 'aura-g8') { grad.addColorStop(t, '#F857A6'); grad.addColorStop((t+0.5)%1, '#FF5858'); }
+        else if (color === 'aura-g9') { grad.addColorStop(t, '#0B132B'); grad.addColorStop((t+0.5)%1, '#1C2541'); }
+        else if (color === 'aura-g10') { grad.addColorStop(t, '#F21B3F'); grad.addColorStop((t+0.5)%1, '#330033'); }
         
         ctx.fillStyle = grad;
       } else {
-        ctx.fillStyle = p.color || '#3b82f6';
+        ctx.fillStyle = color;
       }
 
       if (p.noBorderEnabled) {
@@ -1634,22 +1639,22 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.save();
       ctx.font = 'bold 12px Luckiest Guy'; ctx.textAlign = 'center';
       
-      if (p.color?.startsWith?.('aura-')) {
+      if (isAura) {
         const t = (now % 3000) / 3000;
         const grad = ctx.createLinearGradient(px, py - 35, px + pw, py - 20);
-        if (p.color === 'aura-g1') { grad.addColorStop(t, '#8A2387'); grad.addColorStop((t+0.5)%1, '#E94057'); }
-        else if (p.color === 'aura-g2') { grad.addColorStop(t, '#00F2FE'); grad.addColorStop((t+0.5)%1, '#4FACFE'); }
-        else if (p.color === 'aura-g3') { grad.addColorStop(t, '#FF416C'); grad.addColorStop((t+0.5)%1, '#FF4B2B'); }
-        else if (p.color === 'aura-g4') { grad.addColorStop(t, '#11998E'); grad.addColorStop((t+0.5)%1, '#38EF7D'); }
-        else if (p.color === 'aura-g5') { grad.addColorStop(t, '#1F1C2C'); grad.addColorStop((t+0.5)%1, '#928DAB'); }
-        else if (p.color === 'aura-g6') { grad.addColorStop(t, '#00C6FF'); grad.addColorStop((t+0.5)%1, '#0072FF'); }
-        else if (p.color === 'aura-g7') { grad.addColorStop(t, '#7F00FF'); grad.addColorStop((t+0.5)%1, '#E100FF'); }
-        else if (p.color === 'aura-g8') { grad.addColorStop(t, '#F857A6'); grad.addColorStop((t+0.5)%1, '#FF5858'); }
-        else if (p.color === 'aura-g9') { grad.addColorStop(t, '#0B132B'); grad.addColorStop((t+0.5)%1, '#1C2541'); }
-        else if (p.color === 'aura-g10') { grad.addColorStop(t, '#F21B3F'); grad.addColorStop((t+0.5)%1, '#330033'); }
+        if (color === 'aura-g1') { grad.addColorStop(t, '#8A2387'); grad.addColorStop((t+0.5)%1, '#E94057'); }
+        else if (color === 'aura-g2') { grad.addColorStop(t, '#00F2FE'); grad.addColorStop((t+0.5)%1, '#4FACFE'); }
+        else if (color === 'aura-g3') { grad.addColorStop(t, '#FF416C'); grad.addColorStop((t+0.5)%1, '#FF4B2B'); }
+        else if (color === 'aura-g4') { grad.addColorStop(t, '#11998E'); grad.addColorStop((t+0.5)%1, '#38EF7D'); }
+        else if (color === 'aura-g5') { grad.addColorStop(t, '#1F1C2C'); grad.addColorStop((t+0.5)%1, '#928DAB'); }
+        else if (color === 'aura-g6') { grad.addColorStop(t, '#00C6FF'); grad.addColorStop((t+0.5)%1, '#0072FF'); }
+        else if (color === 'aura-g7') { grad.addColorStop(t, '#7F00FF'); grad.addColorStop((t+0.5)%1, '#E100FF'); }
+        else if (color === 'aura-g8') { grad.addColorStop(t, '#F857A6'); grad.addColorStop((t+0.5)%1, '#FF5858'); }
+        else if (color === 'aura-g9') { grad.addColorStop(t, '#0B132B'); grad.addColorStop((t+0.5)%1, '#1C2541'); }
+        else if (color === 'aura-g10') { grad.addColorStop(t, '#F21B3F'); grad.addColorStop((t+0.5)%1, '#330033'); }
         ctx.fillStyle = grad;
       } else {
-        ctx.fillStyle = p.color || '#3b82f6';
+        ctx.fillStyle = color;
       }
 
       ctx.strokeStyle = 'black'; ctx.lineWidth = 3;
@@ -1657,7 +1662,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.fillText(p.name || 'ANON', px + pw/2, py - 25);
       ctx.restore();
 
-      // Emoji Animation
+      // Emoji Animation - Optimized with translate/scale to avoid string font parsing
       if (p.emojiStartTime && now < (p.emojiUntil || 0)) {
         const emojiElapsed = now - p.emojiStartTime;
         const progress = Math.min(1, emojiElapsed / EMOJI_DURATION);
@@ -1668,10 +1673,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         const sway = Math.sin(emojiElapsed / 200) * 15; 
         
         ctx.save();
+        ctx.translate(px + pw / 2 + sway, py - 60);
+        ctx.scale(scale, scale);
         ctx.globalAlpha = fadeAlpha;
-        ctx.font = `${Math.round(24 * scale)}px serif`;
+        ctx.font = '24px serif';
         ctx.textAlign = 'center';
-        ctx.fillText('😂', px + pw/2 + sway, py - 60);
+        ctx.fillText('😂', 0, 0);
         ctx.restore();
       }
     });
@@ -1801,34 +1808,38 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             </Button>
           </div>
           <div className="flex items-center gap-4 overflow-x-auto max-w-[70vw] scrollbar-hide px-4">
-            {room?.players && Object.values(room.players).map(p => (
-              <div key={p.id} className="flex items-center gap-3 bg-white/5 border-2 border-white/20 rounded-[15px] p-2 px-4 min-w-[180px]">
-                <div className="flex flex-col items-start gap-0.5 flex-1">
-                  <div className="flex items-center gap-2">
-                    <WeaponIcon weapon={p.weaponClass as WeaponClass} className="w-7 h-7 text-xl" />
-                    <span 
-                      className={cn(
-                        "font-headline text-lg truncate max-w-[100px]",
-                        p.color?.startsWith?.('aura-') ? p.color : ""
-                      )} 
-                      style={{ 
-                        color: p.color?.startsWith?.('aura-') ? 'transparent' : p.color || '#3b82f6', 
-                        backgroundClip: p.color?.startsWith?.('aura-') ? 'text' : 'none',
-                        WebkitBackgroundClip: p.color?.startsWith?.('aura-') ? 'text' : 'none',
-                      }}
-                    >
-                      {p.name}
-                    </span>
-                    {p.id === room?.createdBy && <Crown className="w-5 h-5 text-yellow-500 fill-yellow-500" />}
-                  </div>
-                  <div className="flex gap-1.5 mt-1">
-                    {[1, 2, 3].map(i => (
-                      <div key={i} className={`w-3.5 h-3.5 rounded-full border-2 border-black transition-all duration-300 ${i <= (p.roundsWon || 0) ? 'bg-yellow-500' : 'bg-white/10'}`} />
-                    ))}
+            {room?.players && Object.values(room.players).map(p => {
+              const pColor = p.color || '#3b82f6';
+              const isAura = pColor?.startsWith?.('aura-');
+              return (
+                <div key={p.id} className="flex items-center gap-3 bg-white/5 border-2 border-white/20 rounded-[15px] p-2 px-4 min-w-[180px]">
+                  <div className="flex flex-col items-start gap-0.5 flex-1">
+                    <div className="flex items-center gap-2">
+                      <WeaponIcon weapon={p.weaponClass as WeaponClass} className="w-7 h-7 text-xl" />
+                      <span 
+                        className={cn(
+                          "font-headline text-lg truncate max-w-[100px]",
+                          isAura ? pColor : ""
+                        )} 
+                        style={{ 
+                          color: isAura ? 'transparent' : pColor, 
+                          backgroundClip: isAura ? 'text' : 'none',
+                          WebkitBackgroundClip: isAura ? 'text' : 'none',
+                        }}
+                      >
+                        {p.name}
+                      </span>
+                      {p.id === room?.createdBy && <Crown className="w-5 h-5 text-yellow-500 fill-yellow-500" />}
+                    </div>
+                    <div className="flex gap-1.5 mt-1">
+                      {[1, 2, 3].map(i => (
+                        <div key={i} className={`w-3.5 h-3.5 rounded-full border-2 border-black transition-all duration-300 ${i <= (p.roundsWon || 0) ? 'bg-yellow-500' : 'bg-white/10'}`} />
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </header>
       )}
@@ -1867,25 +1878,29 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                 </div>
                 <h2 className="text-7xl font-headline text-white animate-bounce-subtle">{room.name.toUpperCase()}</h2>
                 <div className="flex gap-8">
-                  {(room.players ? Object.values(room.players) : []).map(p => (
-                    <div key={p.id} className="flex flex-col items-center gap-3">
-                      <div className="relative">
-                        <div className={cn(
-                           "w-16 h-16 rounded-2xl",
-                           p.color?.startsWith?.('aura-') ? p.color : "",
-                           p.noBorderEnabled ? "border-0" : "border-4 border-black"
-                        )} style={{ backgroundColor: p.color?.startsWith?.('aura-') ? "" : p.color || '#3b82f6' }} />
-                        {p.id === room?.createdBy && <Crown className="absolute -top-6 -right-6 w-10 h-10 text-yellow-500 fill-yellow-500 rotate-12" />}
-                        {!p.isReady && (
-                          <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center rounded-2xl">
-                             <div className="w-6 h-6 border-2 border-white border-t-transparent animate-spin rounded-full mb-1" />
-                             <span className="text-[10px] font-headline text-white tracking-widest">WAITING...</span>
-                          </div>
-                        )}
+                  {(room.players ? Object.values(room.players) : []).map(p => {
+                    const pColor = p.color || '#3b82f6';
+                    const isAura = pColor?.startsWith?.('aura-');
+                    return (
+                      <div key={p.id} className="flex flex-col items-center gap-3">
+                        <div className="relative">
+                          <div className={cn(
+                             "w-16 h-16 rounded-2xl",
+                             isAura ? pColor : "",
+                             p.noBorderEnabled ? "border-0" : "border-4 border-black"
+                          )} style={{ backgroundColor: isAura ? "" : pColor }} />
+                          {p.id === room?.createdBy && <Crown className="absolute -top-6 -right-6 w-10 h-10 text-yellow-500 fill-yellow-500 rotate-12" />}
+                          {!p.isReady && (
+                            <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center rounded-2xl">
+                               <div className="w-6 h-6 border-2 border-white border-t-transparent animate-spin rounded-full mb-1" />
+                               <span className="text-[10px] font-headline text-white tracking-widest">WAITING...</span>
+                            </div>
+                          )}
+                        </div>
+                        <span className="font-headline text-lg text-white">{p.name || 'ANON'}</span>
                       </div>
-                      <span className="font-headline text-lg text-white">{p.name || 'ANON'}</span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div className="flex flex-col items-center gap-4">
                   <div className="flex items-center gap-2 bg-black/60 px-6 py-2 rounded-full border-4 border-black">
@@ -1962,6 +1977,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                 const age = nowTick - msg.timestamp;
                 const opacity = age < 7000 ? 1 : Math.max(0, 1 - (age - 7000) / 1000);
                 if (opacity <= 0) return null;
+                const msgColor = msg.senderColor || '#3b82f6';
+                const isAura = msgColor?.startsWith?.('aura-');
                 return (
                   <div 
                     key={msg.id} 
@@ -1970,12 +1987,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                   >
                     <div className="text-sm break-words whitespace-pre-wrap leading-tight">
                       <span 
-                        className={cn("font-headline mr-1.5", msg.senderColor?.startsWith?.('aura-') ? msg.senderColor : "")}
+                        className={cn("font-headline mr-1.5", isAura ? msgColor : "")}
                         style={{ 
-                          color: msg.senderColor?.startsWith?.('aura-') ? 'transparent' : msg.senderColor || '#3b82f6', 
+                          color: isAura ? 'transparent' : msgColor, 
                           WebkitTextStroke: '1px black',
-                          backgroundClip: msg.senderColor?.startsWith?.('aura-') ? 'text' : 'none',
-                          WebkitBackgroundClip: msg.senderColor?.startsWith?.('aura-') ? 'text' : 'none',
+                          backgroundClip: isAura ? 'text' : 'none',
+                          WebkitBackgroundClip: isAura ? 'text' : 'none',
                         }}
                       >
                         {msg.senderName}:
@@ -2004,24 +2021,28 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                       <p className="font-headline text-[10px]">NO MESSAGES YET</p>
                     </div>
                   ) : (
-                    messages.slice(-15).map(msg => (
-                      <div key={msg.id} className="text-sm break-all whitespace-pre-wrap leading-tight">
-                        <span 
-                          className={cn("font-headline mr-1.5", msg.senderColor?.startsWith?.('aura-') ? msg.senderColor : "")}
-                          style={{ 
-                            color: msg.senderColor?.startsWith?.('aura-') ? 'transparent' : msg.senderColor || '#3b82f6', 
-                            WebkitTextStroke: '1px black',
-                            backgroundClip: msg.senderColor?.startsWith?.('aura-') ? 'text' : 'none',
-                            WebkitBackgroundClip: msg.senderColor?.startsWith?.('aura-') ? 'text' : 'none',
-                          }}
-                        >
-                          {msg.senderName}:
-                        </span>
-                        <span className="text-white font-headline uppercase tracking-tight" style={{ WebkitTextStroke: '0.5px black' }}>
-                          {msg.text}
-                        </span>
-                      </div>
-                    ))
+                    messages.slice(-15).map(msg => {
+                      const msgColor = msg.senderColor || '#3b82f6';
+                      const isAura = msgColor?.startsWith?.('aura-');
+                      return (
+                        <div key={msg.id} className="text-sm break-all whitespace-pre-wrap leading-tight">
+                          <span 
+                            className={cn("font-headline mr-1.5", isAura ? msgColor : "")}
+                            style={{ 
+                              color: isAura ? 'transparent' : msgColor, 
+                              WebkitTextStroke: '1px black',
+                              backgroundClip: isAura ? 'text' : 'none',
+                              WebkitBackgroundClip: isAura ? 'text' : 'none',
+                            }}
+                          >
+                            {msg.senderName}:
+                          </span>
+                          <span className="text-white font-headline uppercase tracking-tight" style={{ WebkitTextStroke: '0.5px black' }}>
+                            {msg.text}
+                          </span>
+                        </div>
+                      );
+                    })
                   )}
                   <div ref={chatEndRef} />
                 </div>
@@ -2117,3 +2138,4 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     </div>
   );
 }
+
