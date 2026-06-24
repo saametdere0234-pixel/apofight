@@ -761,27 +761,17 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
       keys.add(e.code);
       const currentRoom = roomRef.current;
-      if (!profileRef.current || !currentRoom || !currentRoom.players?.[profileRef.current.id] || !db || (currentRoom.status !== 'playing' && currentRoom.status !== 'starting')) return;
-      const p = currentRoom.players[profileRef.current.id];
-      if (p.hp <= 0) return;
+      if (!profileRef.current || !currentRoom || !currentRoom.players?.[profileRef.current.id] || !db) return;
       
+      const allowedEmojiStatuses = ['playing', 'starting', 'celebrating', 'round_over', 'finished'];
+      const p = currentRoom.players[profileRef.current.id];
       const now = Date.now();
-      const isStunned = now < (p.stunnedUntil || 0);
-      if (isStunned) return;
-
-      if ((e.code === 'KeyW' || e.code === 'ArrowUp')) {
-        const currentJumpCount = p.jumpCount || 0;
-        if (currentJumpCount < 2) {
-          update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), {
-            vy: JUMP_FORCE,
-            isJumping: true,
-            jumpCount: currentJumpCount + 1
-          });
-        }
-      }
 
       if (e.code === 'Space') {
         e.preventDefault(); 
+        if (!allowedEmojiStatuses.includes(currentRoom.status)) return;
+        if (currentRoom.status === 'playing' && p.hp <= 0) return;
+
         if (now < (p.emojiCooldownUntil || 0)) {
           setFeedback(prev => ({
             ...prev,
@@ -793,6 +783,24 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             emojiStartTime: now,
             emojiUntil: now + EMOJI_DURATION,
             emojiCooldownUntil: now + EMOJI_COOLDOWN
+          });
+        }
+        return;
+      }
+
+      if (currentRoom.status !== 'playing' && currentRoom.status !== 'starting') return;
+      if (p.hp <= 0) return;
+      
+      const isStunned = now < (p.stunnedUntil || 0);
+      if (isStunned) return;
+
+      if ((e.code === 'KeyW' || e.code === 'ArrowUp')) {
+        const currentJumpCount = p.jumpCount || 0;
+        if (currentJumpCount < 2) {
+          update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), {
+            vy: JUMP_FORCE,
+            isJumping: true,
+            jumpCount: currentJumpCount + 1
           });
         }
       }
@@ -1211,12 +1219,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     ctx.fillStyle = '#bfc3c9'; 
     ctx.fillRect(0, GROUND_Y * PIXELS_PER_METER, canvas.width, (ARENA_HEIGHT - GROUND_Y) * PIXELS_PER_METER);
 
-    // Subtle dark overlay in lobby
-    if (currentRoom.status === 'lobby') {
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-
     const playersData = currentRoom.players || {};
 
     if (playersData) {
@@ -1375,7 +1377,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           ctx.save();
           ctx.globalAlpha = 0.3 * (1 - (i / ghostCount));
           
-          if (p.color?.startsWith('aura-')) {
+          if (p.color?.startsWith?.('aura-')) {
              const grad = ctx.createLinearGradient(gx, gy, gx + pw, gy + ph);
              const t = (now % 3000) / 3000; 
              
@@ -1465,7 +1467,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
       ctx.save();
       
-      if (p.color?.startsWith('aura-')) {
+      if (p.color?.startsWith?.('aura-')) {
         const grad = ctx.createLinearGradient(px, py, px + pw, py + ph);
         const t = (now % 3000) / 3000; 
         
@@ -1632,7 +1634,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.save();
       ctx.font = 'bold 12px Luckiest Guy'; ctx.textAlign = 'center';
       
-      if (p.color?.startsWith('aura-')) {
+      if (p.color?.startsWith?.('aura-')) {
         const t = (now % 3000) / 3000;
         const grad = ctx.createLinearGradient(px, py - 35, px + pw, py - 20);
         if (p.color === 'aura-g1') { grad.addColorStop(t, '#8A2387'); grad.addColorStop((t+0.5)%1, '#E94057'); }
@@ -1651,8 +1653,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
 
       ctx.strokeStyle = 'black'; ctx.lineWidth = 3;
-      ctx.strokeText(p.name, px + pw/2, py - 25);
-      ctx.fillText(p.name, px + pw/2, py - 25);
+      ctx.strokeText(p.name || 'ANON', px + pw/2, py - 25);
+      ctx.fillText(p.name || 'ANON', px + pw/2, py - 25);
       ctx.restore();
 
       // Emoji Animation
@@ -1660,13 +1662,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         const emojiElapsed = now - p.emojiStartTime;
         const progress = Math.min(1, emojiElapsed / EMOJI_DURATION);
         
-        // Animations
-        const fadeInOutAlpha = progress < 0.2 ? progress / 0.2 : progress > 0.8 ? (1 - progress) / 0.2 : 1;
-        const scale = 0.5 + progress * 1.5; // Scale from 0.5 to 2.0
-        const sway = Math.sin(emojiElapsed / 200) * 15; // Gently sway left and right
+        // Animations: fade in (20%), scale up (50% to 200%), sway, fade out (20%)
+        const fadeAlpha = progress < 0.2 ? progress / 0.2 : progress > 0.8 ? (1 - progress) / 0.2 : 1;
+        const scale = 0.5 + progress * 1.5; 
+        const sway = Math.sin(emojiElapsed / 200) * 15; 
         
         ctx.save();
-        ctx.globalAlpha = fadeInOutAlpha;
+        ctx.globalAlpha = fadeAlpha;
         ctx.font = `${Math.round(24 * scale)}px serif`;
         ctx.textAlign = 'center';
         ctx.fillText('😊', px + pw/2 + sway, py - 60);
@@ -1807,12 +1809,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                     <span 
                       className={cn(
                         "font-headline text-lg truncate max-w-[100px]",
-                        p.color?.startsWith('aura-') ? p.color : ""
+                        p.color?.startsWith?.('aura-') ? p.color : ""
                       )} 
                       style={{ 
-                        color: p.color?.startsWith('aura-') ? 'transparent' : p.color || '#3b82f6', 
-                        backgroundClip: p.color?.startsWith('aura-') ? 'text' : 'none',
-                        WebkitBackgroundClip: p.color?.startsWith('aura-') ? 'text' : 'none',
+                        color: p.color?.startsWith?.('aura-') ? 'transparent' : p.color || '#3b82f6', 
+                        backgroundClip: p.color?.startsWith?.('aura-') ? 'text' : 'none',
+                        WebkitBackgroundClip: p.color?.startsWith?.('aura-') ? 'text' : 'none',
                       }}
                     >
                       {p.name}
@@ -1870,9 +1872,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                       <div className="relative">
                         <div className={cn(
                            "w-16 h-16 rounded-2xl",
-                           p.color?.startsWith('aura-') ? p.color : "",
+                           p.color?.startsWith?.('aura-') ? p.color : "",
                            p.noBorderEnabled ? "border-0" : "border-4 border-black"
-                        )} style={{ backgroundColor: p.color?.startsWith('aura-') ? "" : p.color || '#3b82f6' }} />
+                        )} style={{ backgroundColor: p.color?.startsWith?.('aura-') ? "" : p.color || '#3b82f6' }} />
                         {p.id === room?.createdBy && <Crown className="absolute -top-6 -right-6 w-10 h-10 text-yellow-500 fill-yellow-500 rotate-12" />}
                         {!p.isReady && (
                           <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center rounded-2xl">
@@ -1881,7 +1883,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                           </div>
                         )}
                       </div>
-                      <span className="font-headline text-lg text-white">{p.name}</span>
+                      <span className="font-headline text-lg text-white">{p.name || 'ANON'}</span>
                     </div>
                   ))}
                 </div>
@@ -1930,24 +1932,25 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           )}
         </div>
 
-        {/* HUD Button for Emoji Feedback */}
+        {/* HUD Taunt Button */}
         {!showLobby && (
           <div className="absolute bottom-6 flex flex-col items-center gap-2 z-50">
             <div className={cn(
-              "relative w-32 h-16 rounded-2xl border-4 border-black overflow-hidden flex flex-col items-center justify-center gap-0.5 bg-black/60 transition-all duration-75",
+              "relative w-44 h-14 rounded-2xl border-4 border-black overflow-hidden flex flex-row items-center justify-center gap-4 bg-transparent backdrop-blur-md transition-all duration-75",
               feedback.emojiShakeUntil > nowTick && "animate-shake",
-              feedback.emojiFlashRed && "border-destructive bg-destructive/20"
+              feedback.emojiFlashRed && "border-destructive bg-destructive/40"
             )}>
-              {/* Cooldown Progress Fill */}
-              <div 
-                className={cn(
-                  "absolute bottom-0 left-0 w-full bg-accent/30 transition-all duration-300 ease-linear",
-                  emojiCooldownProgress >= 100 && "bg-green-500/20"
-                )}
-                style={{ height: `${emojiCooldownProgress}%` }}
-              />
-              <Ghost className={cn("w-6 h-6 text-white transition-opacity", isEmojiOnCooldown ? "opacity-30" : "opacity-100")} />
-              <span className={cn("font-headline text-xs text-white", isEmojiOnCooldown ? "opacity-30" : "opacity-100")}>SPACE</span>
+              {/* Cooldown Progress Fill - Deplete horizontally right to left */}
+              {isEmojiOnCooldown && (
+                <div 
+                  className="absolute inset-0 bg-[#e5e7eb]/40" 
+                  style={{ width: `${100 - emojiCooldownProgress}%` }}
+                />
+              )}
+              <div className="flex items-center gap-3 z-10">
+                <Ghost className={cn("w-6 h-6 text-white transition-opacity", isEmojiOnCooldown ? "opacity-30" : "opacity-100")} />
+                <span className={cn("font-headline text-lg text-white tracking-widest", isEmojiOnCooldown ? "opacity-30" : "opacity-100")}>SPACE</span>
+              </div>
             </div>
           </div>
         )}
@@ -1967,12 +1970,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                   >
                     <div className="text-sm break-words whitespace-pre-wrap leading-tight">
                       <span 
-                        className={cn("font-headline mr-1.5", msg.senderColor?.startsWith('aura-') ? msg.senderColor : "")}
+                        className={cn("font-headline mr-1.5", msg.senderColor?.startsWith?.('aura-') ? msg.senderColor : "")}
                         style={{ 
-                          color: msg.senderColor?.startsWith('aura-') ? 'transparent' : msg.senderColor || '#3b82f6', 
+                          color: msg.senderColor?.startsWith?.('aura-') ? 'transparent' : msg.senderColor || '#3b82f6', 
                           WebkitTextStroke: '1px black',
-                          backgroundClip: msg.senderColor?.startsWith('aura-') ? 'text' : 'none',
-                          WebkitBackgroundClip: msg.senderColor?.startsWith('aura-') ? 'text' : 'none',
+                          backgroundClip: msg.senderColor?.startsWith?.('aura-') ? 'text' : 'none',
+                          WebkitBackgroundClip: msg.senderColor?.startsWith?.('aura-') ? 'text' : 'none',
                         }}
                       >
                         {msg.senderName}:
@@ -2004,12 +2007,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                     messages.slice(-15).map(msg => (
                       <div key={msg.id} className="text-sm break-all whitespace-pre-wrap leading-tight">
                         <span 
-                          className={cn("font-headline mr-1.5", msg.senderColor?.startsWith('aura-') ? msg.senderColor : "")}
+                          className={cn("font-headline mr-1.5", msg.senderColor?.startsWith?.('aura-') ? msg.senderColor : "")}
                           style={{ 
-                            color: msg.senderColor?.startsWith('aura-') ? 'transparent' : msg.senderColor || '#3b82f6', 
+                            color: msg.senderColor?.startsWith?.('aura-') ? 'transparent' : msg.senderColor || '#3b82f6', 
                             WebkitTextStroke: '1px black',
-                            backgroundClip: msg.senderColor?.startsWith('aura-') ? 'text' : 'none',
-                            WebkitBackgroundClip: msg.senderColor?.startsWith('aura-') ? 'text' : 'none',
+                            backgroundClip: msg.senderColor?.startsWith?.('aura-') ? 'text' : 'none',
+                            WebkitBackgroundClip: msg.senderColor?.startsWith?.('aura-') ? 'text' : 'none',
                           }}
                         >
                           {msg.senderName}:
