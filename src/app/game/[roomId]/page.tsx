@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -29,10 +30,12 @@ import {
   STAMINA_DASH_COST_DAGGER,
   STUN_DURATION,
   STUN_COOLDOWN,
-  SPAWN_POINTS
+  SPAWN_POINTS,
+  EMOJI_COOLDOWN,
+  EMOJI_DURATION
 } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
-import { Trophy, ArrowLeft, Play, Zap, Heart, Users, Crown, RotateCcw, WifiOff, ShieldAlert, LogOut, Wallet, Fingerprint, Swords, CornerDownLeft, MessageCircle } from 'lucide-react';
+import { Trophy, ArrowLeft, Play, Zap, Heart, Users, Crown, RotateCcw, WifiOff, ShieldAlert, LogOut, Wallet, Fingerprint, Swords, CornerDownLeft, MessageCircle, Ghost, Smile } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -131,11 +134,17 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     lastStaminaFail: number;
     lastDashFail: number;
     staminaMsg: string;
+    lastEmojiFail: number;
+    emojiShakeUntil: number;
+    emojiFlashRed: boolean;
   }>({
     lastReloadFail: 0,
     lastStaminaFail: 0,
     lastDashFail: 0,
-    staminaMsg: ''
+    staminaMsg: '',
+    lastEmojiFail: 0,
+    emojiShakeUntil: 0,
+    emojiFlashRed: false
   });
 
   const [localEffects, setLocalEffects] = useState<GameEffect[]>([]);
@@ -205,9 +214,19 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     });
   }, [roomId, sessionJoinTime]);
 
-  // Update tick for 7s preview fade out logic
+  // Update tick for animations
   useEffect(() => {
-    const timer = setInterval(() => setNowTick(Date.now()), 100);
+    const timer = setInterval(() => {
+      const now = Date.now();
+      setNowTick(now);
+      
+      setFeedback(prev => {
+        if (now > prev.emojiShakeUntil && prev.emojiFlashRed) {
+          return { ...prev, emojiFlashRed: false };
+        }
+        return prev;
+      });
+    }, 16);
     return () => clearInterval(timer);
   }, []);
 
@@ -763,9 +782,19 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
       if (e.code === 'Space') {
         e.preventDefault(); 
-        update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), {
-          emojiUntil: Date.now() + 2000
-        });
+        if (now < (p.emojiCooldownUntil || 0)) {
+          setFeedback(prev => ({
+            ...prev,
+            emojiShakeUntil: now + 500,
+            emojiFlashRed: true
+          }));
+        } else {
+          update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), {
+            emojiStartTime: now,
+            emojiUntil: now + EMOJI_DURATION,
+            emojiCooldownUntil: now + EMOJI_COOLDOWN
+          });
+        }
       }
     };
     
@@ -1626,11 +1655,21 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.fillText(p.name, px + pw/2, py - 25);
       ctx.restore();
 
-      if (now < (p.emojiUntil || 0)) {
+      // Emoji Animation
+      if (p.emojiStartTime && now < (p.emojiUntil || 0)) {
+        const emojiElapsed = now - p.emojiStartTime;
+        const progress = Math.min(1, emojiElapsed / EMOJI_DURATION);
+        
+        // Animations
+        const fadeInOutAlpha = progress < 0.2 ? progress / 0.2 : progress > 0.8 ? (1 - progress) / 0.2 : 1;
+        const scale = 0.5 + progress * 1.5; // Scale from 0.5 to 2.0
+        const sway = Math.sin(emojiElapsed / 200) * 15; // Gently sway left and right
+        
         ctx.save();
-        ctx.font = '24px serif';
+        ctx.globalAlpha = fadeInOutAlpha;
+        ctx.font = `${Math.round(24 * scale)}px serif`;
         ctx.textAlign = 'center';
-        ctx.fillText('😊', px + pw/2, py - 55);
+        ctx.fillText('😊', px + pw/2 + sway, py - 60);
         ctx.restore();
       }
     });
@@ -1698,18 +1737,20 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const showResults = room?.status === 'finished' && !isLocalReady;
   const showLobby = room?.status === 'lobby' || (room?.status === 'finished' && isLocalReady);
 
-  // Filter messages for preview with 7s active + 1s fade logic (Strict 10 message limit)
   const recentMessages = messages
     .filter(m => nowTick - m.timestamp < 8000)
     .slice(-10);
 
-  // Helper to force line break after 10 characters for words without spaces in preview
   const formatPreviewText = (text: string) => {
     return text.split(' ').map(word => {
       const chunks = word.match(/.{1,10}/g);
       return chunks ? chunks.join('\n') : word;
     }).join(' ');
   };
+
+  // Emoji Cooldown Logic
+  const emojiCooldownProgress = myP ? Math.max(0, Math.min(100, (1 - Math.max(0, (myP.emojiCooldownUntil || 0) - now) / EMOJI_COOLDOWN) * 100)) : 100;
+  const isEmojiOnCooldown = myP && now < (myP.emojiCooldownUntil || 0);
 
   return (
     <div className={cn(
@@ -1745,7 +1786,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         <div className={`fixed inset-0 pointer-events-none z-[100] border-[40px] ${flash.type === 'taken' ? 'border-red-500/30' : 'border-blue-500/30'} animate-in fade-in duration-200`} />
       )}
 
-      {/* Hide header in lobby */}
       {!showLobby && (
         <header className="w-full p-4 flex justify-center items-center bg-black/80 border-b-4 border-black z-50 animate-in slide-in-from-top duration-500">
           <div className="absolute left-4">
@@ -1890,9 +1930,29 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           )}
         </div>
 
-        {/* Global Chat UI - Compact Fixed outside gameplay area */}
+        {/* HUD Button for Emoji Feedback */}
+        {!showLobby && (
+          <div className="absolute bottom-6 flex flex-col items-center gap-2 z-50">
+            <div className={cn(
+              "relative w-32 h-16 rounded-2xl border-4 border-black overflow-hidden flex flex-col items-center justify-center gap-0.5 bg-black/60 transition-all duration-75",
+              feedback.emojiShakeUntil > nowTick && "animate-shake",
+              feedback.emojiFlashRed && "border-destructive bg-destructive/20"
+            )}>
+              {/* Cooldown Progress Fill */}
+              <div 
+                className={cn(
+                  "absolute bottom-0 left-0 w-full bg-accent/30 transition-all duration-300 ease-linear",
+                  emojiCooldownProgress >= 100 && "bg-green-500/20"
+                )}
+                style={{ height: `${emojiCooldownProgress}%` }}
+              />
+              <Ghost className={cn("w-6 h-6 text-white transition-opacity", isEmojiOnCooldown ? "opacity-30" : "opacity-100")} />
+              <span className={cn("font-headline text-xs text-white", isEmojiOnCooldown ? "opacity-30" : "opacity-100")}>SPACE</span>
+            </div>
+          </div>
+        )}
+
         <div className="fixed bottom-6 right-6 flex flex-col items-end gap-3 z-[1000] w-[300px]">
-          {/* Chat Preview with Smooth Fade Out - Strict 10 line limit */}
           {!isChatOpen && recentMessages.length > 0 && (
             <div className="w-full flex flex-col gap-1 items-end animate-in slide-in-from-bottom-2 duration-300">
               {recentMessages.map(msg => {
@@ -1927,7 +1987,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             </div>
           )}
 
-          {/* Full Chat History - Compact and Scrollable (Strict 15 message limit) */}
           {isChatOpen && (
             <div className="w-full bg-black/90 backdrop-blur-xl border-4 border-black rounded-[25px] flex flex-col h-[320px] animate-in zoom-in-95 duration-200">
               <div className="p-3 border-b-2 border-white/10 flex items-center gap-2">
@@ -1976,7 +2035,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             </div>
           )}
 
-          {/* Chat Toggle Hint */}
           {!isChatOpen && (
             <div className="flex items-center gap-2 text-white/40 font-headline select-none hover:text-white/60 transition-colors cursor-pointer group" onClick={() => {
               setIsChatOpen(true);
@@ -1988,7 +2046,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           )}
         </div>
 
-        {/* Player Stats HUD - Hide in lobby */}
         {!showLobby && (
           <div className={`absolute bottom-6 left-6 p-4 cartoon-card bg-black/60 backdrop-blur-md min-w-[240px] space-y-3 z-50 transition-all duration-300 animate-in slide-in-from-left ${isStunned ? 'blur-sm scale-95 opacity-80' : ''}`}>
             <div className="space-y-1">
@@ -2046,7 +2103,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                      <ShieldAlert className="w-3 h-3 fill-current text-yellow-500" /> STUN CD
                   </span>
                   <span className="font-headline text-sm text-yellow-500">
-                    {myP && now > (myP.stunCooldownUntil || 0) ? 'READY' : `${(((myP?.stunCooldownUntil || 0) - now) / 1000).toFixed(1)}s`}
+                    {myP && nowTick > (myP.stunCooldownUntil || 0) ? 'READY' : `${(((myP?.stunCooldownUntil || 0) - nowTick) / 1000).toFixed(1)}s`}
                   </span>
                 </div>
               </div>

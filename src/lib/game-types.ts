@@ -76,7 +76,9 @@ export interface GamePlayer extends PlayerProfile {
   dashTimeLeft?: number;
   dashDirX?: number;
   dashDirY?: number;
+  emojiStartTime?: number; // Timestamp when emoji was triggered
   emojiUntil?: number; // Timestamp until which the emoji is shown
+  emojiCooldownUntil?: number; // Cooldown for emojis
 }
 
 export interface GameEffect {
@@ -165,6 +167,9 @@ export const STAMINA_ATTACK_COST = 25;
 
 export const STUN_DURATION = 2000; // ms
 export const STUN_COOLDOWN = 10000; // ms
+
+export const EMOJI_COOLDOWN = 4000; // 4 seconds
+export const EMOJI_DURATION = 2000; // 2 seconds animation
 
 export const SPAWN_POINTS = [
   { x: 2, y: GROUND_Y - PLAYER_HEIGHT }, // Far Left
