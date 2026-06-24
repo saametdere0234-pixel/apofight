@@ -779,7 +779,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             emojiFlashRed: true
           }));
         } else {
-          update(ref(db, `rooms/${roomId}/players/${profileRef.current.id}`), {
+          update(ref(db, `rooms/${roomId}/players/${profileRef.current?.id}`), {
             emojiStartTime: now,
             emojiUntil: now + EMOJI_DURATION,
             emojiCooldownUntil: now + EMOJI_COOLDOWN
@@ -1671,7 +1671,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.globalAlpha = fadeAlpha;
         ctx.font = `${Math.round(24 * scale)}px serif`;
         ctx.textAlign = 'center';
-        ctx.fillText('😊', px + pw/2 + sway, py - 60);
+        ctx.fillText('😂', px + pw/2 + sway, py - 60);
         ctx.restore();
       }
     });
@@ -1773,7 +1773,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
       {playerCount === 1 && (
         <div className="w-full bg-red-600 py-2 border-b-4 border-black text-center z-[100]">
-          <span className="font-headline text-2xl text-white tracking-widest drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]">EMPTY ROOM</span>
+          <span className="font-headline text-2xl text-white tracking-widest drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]">YOU&apos;RE ALONE</span>
         </div>
       )}
 
