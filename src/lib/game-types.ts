@@ -71,6 +71,7 @@ export interface GamePlayer extends PlayerProfile {
   stunCooldownUntil?: number; // Timestamp until which the player is immune to stun
   isReady?: boolean; // For Play Again synchronization
   deathTime?: number; // Timestamp when HP reached 0
+  team?: 'A' | 'B'; // Team assignment
   // Dash Physics
   isDashing?: boolean;
   dashTimeLeft?: number;
@@ -103,6 +104,7 @@ export interface GameRoom {
   currentRound: number;
   lastUpdate: number;
   maxPlayers: number;
+  isTeamMode?: boolean;
   startTime?: number; // Server timestamp for the start of the match
   lastWinnerName?: string; // Name of the last round winner
   celebrationStartTime?: number; // Timestamp for the sunglasses animation

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -13,6 +14,8 @@ import { useRouter } from 'next/navigation';
 import { GameRoom, WeaponClass } from '@/lib/game-types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -38,6 +41,7 @@ export default function LobbyScreen() {
   const [rooms, setRooms] = useState<Record<string, GameRoom>>({});
   const [newRoomName, setNewRoomName] = useState('');
   const [maxPlayers, setMaxPlayers] = useState(4);
+  const [isTeamMode, setIsTeamMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSearch, setActiveSearch] = useState('');
   const [pulseTrigger, setPulseTrigger] = useState(0);
@@ -82,6 +86,7 @@ export default function LobbyScreen() {
       currentRound: 1,
       lastUpdate: Date.now(),
       maxPlayers: maxPlayers,
+      isTeamMode: isTeamMode,
       players: {}
     };
     await set(newRoomRef, room);
@@ -110,6 +115,7 @@ export default function LobbyScreen() {
         currentRound: 1,
         lastUpdate: Date.now(),
         maxPlayers: 4,
+        isTeamMode: false,
         players: {}
       };
       await set(newRoomRef, room);
@@ -238,7 +244,7 @@ export default function LobbyScreen() {
 
         <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
           <div className="md:col-span-4 h-fit md:sticky md:top-8">
-            <Card className="cartoon-card">
+            <Card className="cartoon-card bg-transparent shadow-none border-dashed border-white/10">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 font-headline text-2xl text-accent"><Plus className="w-6 h-6" /> NEW ARENA</CardTitle>
               </CardHeader>
@@ -247,12 +253,32 @@ export default function LobbyScreen() {
                   <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest">ARENA NAME</label>
                   <Input placeholder="NAME HERE..." value={newRoomName} onChange={(e) => setNewRoomName(e.target.value)} className="bg-black/20 border-4 border-black rounded-[15px] h-12 font-bold" />
                 </div>
+                
+                <div className="flex items-center justify-between bg-black/40 p-4 rounded-xl border-2 border-black">
+                  <div className="flex flex-col">
+                    <Label className="font-headline text-sm text-white">TEAM MODE</Label>
+                    <span className="text-[10px] font-bold text-white/40 uppercase">2v2 or 3v3</span>
+                  </div>
+                  <Switch checked={isTeamMode} onCheckedChange={setIsTeamMode} />
+                </div>
+
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest">MAX PLAYERS</label>
-                    <span className="font-headline text-xl text-primary">{maxPlayers}</span>
+                    <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
+                      {isTeamMode ? 'TEAM SIZE' : 'MAX PLAYERS'}
+                    </label>
+                    <span className="font-headline text-xl text-primary">
+                      {isTeamMode ? (maxPlayers === 4 ? '2 v 2' : '3 v 3') : maxPlayers}
+                    </span>
                   </div>
-                  <Slider value={[maxPlayers]} onValueChange={(v) => setMaxPlayers(v[0])} min={2} max={6} step={1} className="py-4" />
+                  <Slider 
+                    value={[maxPlayers]} 
+                    onValueChange={(v) => setMaxPlayers(v[0])} 
+                    min={isTeamMode ? 4 : 2} 
+                    max={isTeamMode ? 6 : 6} 
+                    step={isTeamMode ? 2 : 1} 
+                    className="py-4" 
+                  />
                 </div>
                 <Button className="cartoon-button bg-primary text-white w-full h-14 text-xl" onClick={createRoom} disabled={!newRoomName.trim() || !db}>CREATE ARENA</Button>
               </CardContent>
@@ -307,6 +333,11 @@ export default function LobbyScreen() {
                             <div className="flex items-center gap-2 bg-black/20 px-3 py-1 rounded-full border-2 border-black text-[10px] font-bold text-white/60 uppercase">
                               <Users className="w-3 h-3" /> {playerCount} / {room.maxPlayers || 4}
                             </div>
+                            {room.isTeamMode && (
+                              <div className="flex items-center gap-2 bg-primary/20 px-3 py-1 rounded-full border-2 border-primary text-[10px] font-bold text-primary uppercase">
+                                TEAM MODE
+                              </div>
+                            )}
                             <span className={cn(
                               "px-4 py-1 rounded-full border-2 border-black text-[10px] font-headline uppercase",
                               isFull ? "bg-black text-destructive" : isLocked ? "bg-orange-500 text-white" : "bg-primary text-white"

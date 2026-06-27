@@ -180,6 +180,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     update(myPlayerRef, { isReady: true });
   }, [roomId]);
 
+  const switchTeam = useCallback(async (team: 'A' | 'B') => {
+    if (!db || !roomId || !profileRef.current || isLocked) return;
+    const myPlayerRef = ref(db, `rooms/${roomId}/players/${profileRef.current.id}`);
+    update(myPlayerRef, { team });
+  }, [roomId, isLocked]);
+
   const isHost = room && profileRef.current && room.players && profileRef.current.id === room.createdBy;
 
   useEffect(() => {
@@ -494,7 +500,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             dashDirY: 0,
             stunnedUntil: 0,
             stunCooldownUntil: 0,
-            isReady: true // JOINING AUTOMATICALLY SETS READY
+            isReady: true, // JOINING AUTOMATICALLY SETS READY
+            team: 'A' // Default team
           };
           
           set(myPlayerRef, initialPlayer);
@@ -1492,13 +1499,19 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.fillStyle = color;
       }
 
-      if (p.noBorderEnabled) {
-        ctx.strokeStyle = 'transparent';
-      } else {
-        ctx.strokeStyle = 'black';
+      let strokeStyle = 'black';
+      let lineWidth = 4;
+      if (currentRoom.isTeamMode) {
+        strokeStyle = p.team === 'B' ? '#3b82f6' : '#f43f5e';
+        if (p.noBorderEnabled) lineWidth = 1.5;
+      } else if (p.noBorderEnabled) {
+        strokeStyle = 'transparent';
+        lineWidth = 0;
       }
       
-      ctx.lineWidth = 4;
+      ctx.strokeStyle = strokeStyle;
+      ctx.lineWidth = lineWidth;
+      
       const radius = 10;
       ctx.beginPath();
       ctx.moveTo(px + radius, py);
@@ -1511,7 +1524,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.lineTo(px, py + radius);
       ctx.quadraticCurveTo(px, py, px + radius, py);
       ctx.fill();
-      if (!p.noBorderEnabled) ctx.stroke();
+      if (lineWidth > 0) ctx.stroke();
 
       if (now < (p.slowUntil || 0)) {
         ctx.fillStyle = 'rgba(100, 100, 255, 0.4)';
@@ -1639,22 +1652,23 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.save();
       ctx.font = 'bold 12px Luckiest Guy'; ctx.textAlign = 'center';
       
-      if (isAura) {
+      const pColorSafe = p.color || '#3b82f6';
+      if (pColorSafe.startsWith?.('aura-')) {
         const t = (now % 3000) / 3000;
         const grad = ctx.createLinearGradient(px, py - 35, px + pw, py - 20);
-        if (color === 'aura-g1') { grad.addColorStop(t, '#8A2387'); grad.addColorStop((t+0.5)%1, '#E94057'); }
-        else if (color === 'aura-g2') { grad.addColorStop(t, '#00F2FE'); grad.addColorStop((t+0.5)%1, '#4FACFE'); }
-        else if (color === 'aura-g3') { grad.addColorStop(t, '#FF416C'); grad.addColorStop((t+0.5)%1, '#FF4B2B'); }
-        else if (color === 'aura-g4') { grad.addColorStop(t, '#11998E'); grad.addColorStop((t+0.5)%1, '#38EF7D'); }
-        else if (color === 'aura-g5') { grad.addColorStop(t, '#1F1C2C'); grad.addColorStop((t+0.5)%1, '#928DAB'); }
-        else if (color === 'aura-g6') { grad.addColorStop(t, '#00C6FF'); grad.addColorStop((t+0.5)%1, '#0072FF'); }
-        else if (color === 'aura-g7') { grad.addColorStop(t, '#7F00FF'); grad.addColorStop((t+0.5)%1, '#E100FF'); }
-        else if (color === 'aura-g8') { grad.addColorStop(t, '#F857A6'); grad.addColorStop((t+0.5)%1, '#FF5858'); }
-        else if (color === 'aura-g9') { grad.addColorStop(t, '#0B132B'); grad.addColorStop((t+0.5)%1, '#1C2541'); }
-        else if (color === 'aura-g10') { grad.addColorStop(t, '#F21B3F'); grad.addColorStop((t+0.5)%1, '#330033'); }
+        if (pColorSafe === 'aura-g1') { grad.addColorStop(t, '#8A2387'); grad.addColorStop((t+0.5)%1, '#E94057'); }
+        else if (pColorSafe === 'aura-g2') { grad.addColorStop(t, '#00F2FE'); grad.addColorStop((t+0.5)%1, '#4FACFE'); }
+        else if (pColorSafe === 'aura-g3') { grad.addColorStop(t, '#FF416C'); grad.addColorStop((t+0.5)%1, '#FF4B2B'); }
+        else if (pColorSafe === 'aura-g4') { grad.addColorStop(t, '#11998E'); grad.addColorStop((t+0.5)%1, '#38EF7D'); }
+        else if (pColorSafe === 'aura-g5') { grad.addColorStop(t, '#1F1C2C'); grad.addColorStop((t+0.5)%1, '#928DAB'); }
+        else if (pColorSafe === 'aura-g6') { grad.addColorStop(t, '#00C6FF'); grad.addColorStop((t+0.5)%1, '#0072FF'); }
+        else if (pColorSafe === 'aura-g7') { grad.addColorStop(t, '#7F00FF'); grad.addColorStop((t+0.5)%1, '#E100FF'); }
+        else if (pColorSafe === 'aura-g8') { grad.addColorStop(t, '#F857A6'); grad.addColorStop((t+0.5)%1, '#FF5858'); }
+        else if (pColorSafe === 'aura-g9') { grad.addColorStop(t, '#0B132B'); grad.addColorStop((t+0.5)%1, '#1C2541'); }
+        else if (pColorSafe === 'aura-g10') { grad.addColorStop(t, '#F21B3F'); grad.addColorStop((t+0.5)%1, '#330033'); }
         ctx.fillStyle = grad;
       } else {
-        ctx.fillStyle = color;
+        ctx.fillStyle = pColorSafe;
       }
 
       ctx.strokeStyle = 'black'; ctx.lineWidth = 3;
@@ -1811,8 +1825,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             {room?.players && Object.values(room.players).map(p => {
               const pColor = p.color || '#3b82f6';
               const isAura = pColor?.startsWith?.('aura-');
+              const teamColor = room.isTeamMode ? (p.team === 'B' ? 'border-blue-500' : 'border-red-500') : 'border-white/20';
               return (
-                <div key={p.id} className="flex items-center gap-3 bg-white/5 border-2 border-white/20 rounded-[15px] p-2 px-4 min-w-[180px]">
+                <div key={p.id} className={cn("flex items-center gap-3 bg-white/5 border-2 rounded-[15px] p-2 px-4 min-w-[180px]", teamColor)}>
                   <div className="flex flex-col items-start gap-0.5 flex-1">
                     <div className="flex items-center gap-2">
                       <WeaponIcon weapon={p.weaponClass as WeaponClass} className="w-7 h-7 text-xl" />
@@ -1876,18 +1891,28 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                     <ArrowLeft className="w-5 h-5 mr-2" /> QUIT
                   </Button>
                 </div>
-                <h2 className="text-7xl font-headline text-white animate-bounce-subtle">{room.name.toUpperCase()}</h2>
+                <div className="flex flex-col items-center gap-2">
+                  <h2 className="text-7xl font-headline text-white animate-bounce-subtle">{room.name.toUpperCase()}</h2>
+                  {room.isTeamMode && (
+                    <div className="flex gap-4">
+                      <Button onClick={() => switchTeam('A')} className={cn("cartoon-button h-10 px-6", myP?.team === 'A' ? "bg-red-500 text-white" : "bg-zinc-800 text-white/40")}>TEAM A</Button>
+                      <Button onClick={() => switchTeam('B')} className={cn("cartoon-button h-10 px-6", myP?.team === 'B' ? "bg-blue-500 text-white" : "bg-zinc-800 text-white/40")}>TEAM B</Button>
+                    </div>
+                  )}
+                </div>
                 <div className="flex gap-8">
                   {(room.players ? Object.values(room.players) : []).map(p => {
                     const pColor = p.color || '#3b82f6';
                     const isAura = pColor?.startsWith?.('aura-');
+                    const teamColor = room.isTeamMode ? (p.team === 'B' ? 'border-blue-500' : 'border-red-500') : 'border-black';
                     return (
                       <div key={p.id} className="flex flex-col items-center gap-3">
                         <div className="relative">
                           <div className={cn(
-                             "w-16 h-16 rounded-2xl",
+                             "w-16 h-16 rounded-2xl border-4",
                              isAura ? pColor : "",
-                             p.noBorderEnabled ? "border-0" : "border-4 border-black"
+                             teamColor,
+                             p.noBorderEnabled && !room.isTeamMode ? "border-0" : ""
                           )} style={{ backgroundColor: isAura ? "" : pColor }} />
                           {p.id === room?.createdBy && <Crown className="absolute -top-6 -right-6 w-10 h-10 text-yellow-500 fill-yellow-500 rotate-12" />}
                           {!p.isReady && (
@@ -1977,8 +2002,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                 const age = nowTick - msg.timestamp;
                 const opacity = age < 7000 ? 1 : Math.max(0, 1 - (age - 7000) / 1000);
                 if (opacity <= 0) return null;
-                const msgColor = msg.senderColor || '#3b82f6';
-                const isAura = msgColor?.startsWith?.('aura-');
+                const msgColorSafe = msg.senderColor || '#3b82f6';
+                const isAura = msgColorSafe?.startsWith?.('aura-');
                 return (
                   <div 
                     key={msg.id} 
@@ -1987,9 +2012,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                   >
                     <div className="text-sm break-words whitespace-pre-wrap leading-tight">
                       <span 
-                        className={cn("font-headline mr-1.5", isAura ? msgColor : "")}
+                        className={cn("font-headline mr-1.5", isAura ? msgColorSafe : "")}
                         style={{ 
-                          color: isAura ? 'transparent' : msgColor, 
+                          color: isAura ? 'transparent' : msgColorSafe, 
                           WebkitTextStroke: '1px black',
                           backgroundClip: isAura ? 'text' : 'none',
                           WebkitBackgroundClip: isAura ? 'text' : 'none',
@@ -2022,14 +2047,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                     </div>
                   ) : (
                     messages.slice(-15).map(msg => {
-                      const msgColor = msg.senderColor || '#3b82f6';
-                      const isAura = msgColor?.startsWith?.('aura-');
+                      const msgColorSafe = msg.senderColor || '#3b82f6';
+                      const isAura = msgColorSafe?.startsWith?.('aura-');
                       return (
                         <div key={msg.id} className="text-sm break-all whitespace-pre-wrap leading-tight">
                           <span 
-                            className={cn("font-headline mr-1.5", isAura ? msgColor : "")}
+                            className={cn("font-headline mr-1.5", isAura ? msgColorSafe : "")}
                             style={{ 
-                              color: isAura ? 'transparent' : msgColor, 
+                              color: isAura ? 'transparent' : msgColorSafe, 
                               WebkitTextStroke: '1px black',
                               backgroundClip: isAura ? 'text' : 'none',
                               WebkitBackgroundClip: isAura ? 'text' : 'none',
@@ -2138,4 +2163,3 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     </div>
   );
 }
-
