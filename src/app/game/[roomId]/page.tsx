@@ -1398,8 +1398,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.lineTo(10, 0);
         ctx.stroke();
         
-        const isMyArrow = proj.ownerId === profileRef.current?.id;
-        const glowColor = isMyArrow ? '#3b82f6' : '#ef4444';
+        const owner = playersData[proj.ownerId];
+        const isLocal = proj.ownerId === profileRef.current?.id;
+        const isTeammate = currentRoom.isTeamMode && !isLocal && owner?.team === myP_ref?.team;
+        
+        let glowColor = '#f43f5e'; // Enemy Red
+        if (isLocal) glowColor = '#4ade80'; // Self Green
+        else if (isTeammate) glowColor = '#3b82f6'; // Teammate Blue
+
         ctx.shadowBlur = 10;
         ctx.shadowColor = glowColor;
         ctx.shadowOffsetX = 0;
@@ -1504,7 +1510,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       if (timeSinceAttack < attackDuration) {
         const isLocal = p.id === profileRef.current?.id;
         const isTeammate = currentRoom.isTeamMode && !isLocal && p.team === myP_ref?.team;
-        const isEnemy = currentRoom.isTeamMode && p.team !== myP_ref?.team;
+        const isEnemy = currentRoom.isTeamMode ? p.team !== myP_ref?.team : !isLocal;
 
         let baseColor = '38, 114, 238'; // Default blue (legacy or fallback)
         if (isLocal) baseColor = '74, 222, 128'; // Green
