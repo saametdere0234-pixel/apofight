@@ -512,7 +512,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             return;
           }
 
-          // Auto-assign team
+          // Auto-assign team based on counts
           let assignedTeam: 'A' | 'B' = 'A';
           if (roomData.isTeamMode) {
             const players = Object.values(roomData.players || {});
@@ -1095,8 +1095,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       y: enemy.y,
       amount: Math.round(damage),
       type: 'damage',
-      timestamp: now
-    } as GameEffect);
+      timestamp: now,
+      team: p.team
+    } as any);
 
     if (p.weaponClass === 'Sword') {
       updates.slowUntil = now + 400;
@@ -1123,7 +1124,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             amount: Math.round(actualHeal),
             type: 'heal',
             timestamp: now
-          } as GameEffect);
+          } as any);
         }
       }
     }
@@ -1792,7 +1793,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
         ctx.globalAlpha = opacity;
         ctx.strokeStyle = 'black';
-        ctx.fillStyle = fx.type === 'damage' ? '#ff4444' : '#4ade80';
+        ctx.fillStyle = fx.type === 'damage' ? (fx.team === 'A' ? '#f43f5e' : fx.team === 'B' ? '#3b82f6' : '#ff4444') : '#4ade80';
         const text = fx.type === 'damage' ? fx.amount.toString() : `+${fx.amount}`;
         ctx.strokeText(text, fxX, fxY);
         ctx.fillText(text, fxX, fxY);
@@ -1825,15 +1826,21 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const allReady = (room?.players && Object.keys(room.players).length > 0) ? Object.values(room.players).every(p => p.isReady) : false;
   
   // Validation for starting in Team Mode
-  let canStart = room && room.players && Object.keys(room.players).length >= 2 && allReady;
   let unfairTeams = false;
+  let canStart = room && room.players && Object.keys(room.players).length >= 2 && allReady;
   if (room?.isTeamMode) {
     const players = Object.values(room.players || {});
-    const hasRed = players.some(p => p.team === 'A');
-    const hasBlue = players.some(p => p.team === 'B');
+    const redCount = players.filter(p => p.team === 'A').length;
+    const blueCount = players.filter(p => p.team === 'B').length;
+    const hasRed = redCount > 0;
+    const hasBlue = blueCount > 0;
+    
     if (!hasRed || !hasBlue) {
-      unfairTeams = true;
       canStart = false;
+    }
+    
+    if (redCount !== blueCount) {
+      unfairTeams = true;
     }
   }
 
@@ -1934,7 +1941,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                         <div key={i} className={cn("w-5 h-5 rounded-full border-2 border-black transition-all duration-300", i <= (room.teamAScore || 0) ? "bg-red-500 shadow-[0_0_12px_#f43f5e]" : "bg-white/5")} />
                       ))}
                     </div>
-                    <span className="font-headline text-red-500 text-[10px] tracking-widest">RED TEAM</span>
                   </div>
                 </div>
 
@@ -1948,7 +1954,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                         <div key={i} className={cn("w-5 h-5 rounded-full border-2 border-black transition-all duration-300", i <= (room.teamBScore || 0) ? "bg-blue-500 shadow-[0_0_12px_#3b82f6]" : "bg-white/5")} />
                       ))}
                     </div>
-                    <span className="font-headline text-blue-500 text-[10px] tracking-widest">BLUE TEAM</span>
                   </div>
                   <div className="flex flex-col items-start gap-0.5 min-w-[120px]">
                     {teamBPlayers.slice(0, 3).map(p => (
@@ -1970,12 +1975,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                           <span 
                             className={cn(
                               "font-headline text-lg truncate max-w-[100px]",
-                              isAura ? pColor : ""
+                              pColor?.startsWith?.('aura-') ? pColor : ""
                             )} 
                             style={{ 
-                              color: isAura ? 'transparent' : pColor, 
-                              backgroundClip: isAura ? 'text' : 'none',
-                              WebkitBackgroundClip: isAura ? 'text' : 'none',
+                              color: pColor?.startsWith?.('aura-') ? 'transparent' : pColor, 
+                              backgroundClip: pColor?.startsWith?.('aura-') ? 'text' : 'none',
+                              WebkitBackgroundClip: pColor?.startsWith?.('aura-') ? 'text' : 'none',
                             }}
                           >
                             {p.name}
@@ -2078,7 +2083,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                       <div key={p.id} className="flex flex-col items-center gap-3">
                         <div className="relative">
                           <div className={cn(
-                             "w-16 h-16 rounded-2xl border-4",
+                             "w-16 h-16 rounded-2xl border-4 transition-all duration-300",
                              isAura ? pColor : "",
                              teamColor,
                              p.noBorderEnabled && !room.isTeamMode ? "border-0" : ""
@@ -2103,7 +2108,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                   </div>
                   {isHost ? (
                     canStart ? (
-                      <Button onClick={startMatch} size="lg" className="cartoon-button bg-primary text-white text-2xl px-12 h-16 transition-transform active:scale-95">
+                      <Button onClick={startMatch} size="lg" className="cartoon-button bg-primary text-white text-xl px-10 h-14 transition-transform active:scale-95">
                         <Play className="w-6 h-6 mr-3 fill-current" /> START!
                       </Button>
                     ) : (

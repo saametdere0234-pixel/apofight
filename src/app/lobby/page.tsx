@@ -260,7 +260,7 @@ export default function LobbyScreen() {
                 
                 <div className="flex items-center justify-between bg-black/40 p-4 rounded-xl border-2 border-black">
                   <div className="flex flex-col">
-                    <Label className="font-headline text-sm text-white">TEAM</Label>
+                    <Label className="font-headline text-sm text-white uppercase tracking-widest">TEAM</Label>
                   </div>
                   <Switch checked={isTeamMode} onCheckedChange={(val) => {
                     setIsTeamMode(val);

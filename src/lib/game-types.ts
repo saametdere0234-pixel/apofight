@@ -89,6 +89,7 @@ export interface GameEffect {
   amount: number;
   type: 'damage' | 'heal';
   timestamp: number;
+  team?: 'A' | 'B'; // Team that caused the effect
 }
 
 export interface GameRoom {
