@@ -1906,9 +1906,26 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
               <div className="flex items-center gap-10">
                 <div className="flex items-center gap-6">
                   <div className="flex flex-col items-end gap-0.5 min-w-[120px]">
-                    {teamAPlayers.slice(0, 3).map(p => (
-                      <span key={p.id} className="font-headline text-sm truncate w-full text-right" style={{ color: '#f43f5e', WebkitTextStroke: '0.5px black' }}>{p.name}</span>
-                    ))}
+                    {teamAPlayers.slice(0, 3).map(p => {
+                      const pColor = p.color || '#f43f5e';
+                      const isAura = pColor?.startsWith?.('aura-');
+                      return (
+                        <div key={p.id} className="flex items-center gap-2 justify-end w-full">
+                          <span 
+                            className={cn("font-headline text-sm truncate", isAura ? pColor : "")} 
+                            style={{ 
+                              color: isAura ? 'transparent' : '#f43f5e', 
+                              WebkitTextStroke: '0.5px black',
+                              backgroundClip: isAura ? 'text' : 'none',
+                              WebkitBackgroundClip: isAura ? 'text' : 'none',
+                            }}
+                          >
+                            {p.name}
+                          </span>
+                          <WeaponIcon weapon={p.weaponClass as WeaponClass} className="w-4 h-4 text-xs" />
+                        </div>
+                      );
+                    })}
                   </div>
                   <div className="flex flex-col items-center gap-2 bg-red-600/30 border-4 border-red-500 rounded-2xl p-2 px-6 shadow-[inset_0_0_20px_rgba(244,63,94,0.3)]">
                     <div className="flex gap-2">
@@ -1930,9 +1947,26 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                     </div>
                   </div>
                   <div className="flex flex-col items-start gap-0.5 min-w-[120px]">
-                    {teamBPlayers.slice(0, 3).map(p => (
-                      <span key={p.id} className="font-headline text-sm truncate w-full text-left" style={{ color: '#3b82f6', WebkitTextStroke: '0.5px black' }}>{p.name}</span>
-                    ))}
+                    {teamBPlayers.slice(0, 3).map(p => {
+                      const pColor = p.color || '#3b82f6';
+                      const isAura = pColor?.startsWith?.('aura-');
+                      return (
+                        <div key={p.id} className="flex items-center gap-2 justify-start w-full">
+                          <WeaponIcon weapon={p.weaponClass as WeaponClass} className="w-4 h-4 text-xs" />
+                          <span 
+                            className={cn("font-headline text-sm truncate", isAura ? pColor : "")} 
+                            style={{ 
+                              color: isAura ? 'transparent' : '#3b82f6', 
+                              WebkitTextStroke: '0.5px black',
+                              backgroundClip: isAura ? 'text' : 'none',
+                              WebkitBackgroundClip: isAura ? 'text' : 'none',
+                            }}
+                          >
+                            {p.name}
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -1949,12 +1983,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                           <span 
                             className={cn(
                               "font-headline text-lg truncate max-w-[100px]",
-                              pColor?.startsWith?.('aura-') ? pColor : ""
+                              isAura ? pColor : ""
                             )} 
                             style={{ 
-                              color: pColor?.startsWith?.('aura-') ? 'transparent' : pColor, 
-                              backgroundClip: pColor?.startsWith?.('aura-') ? 'text' : 'none',
-                              WebkitBackgroundClip: pColor?.startsWith?.('aura-') ? 'text' : 'none',
+                              color: isAura ? 'transparent' : pColor, 
+                              backgroundClip: isAura ? 'text' : 'none',
+                              WebkitBackgroundClip: isAura ? 'text' : 'none',
                             }}
                           >
                             {p.name}
