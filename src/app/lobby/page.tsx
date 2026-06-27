@@ -87,6 +87,8 @@ export default function LobbyScreen() {
       lastUpdate: Date.now(),
       maxPlayers: maxPlayers,
       isTeamMode: isTeamMode,
+      teamAScore: 0,
+      teamBScore: 0,
       players: {}
     };
     await set(newRoomRef, room);
@@ -116,6 +118,8 @@ export default function LobbyScreen() {
         lastUpdate: Date.now(),
         maxPlayers: 4,
         isTeamMode: false,
+        teamAScore: 0,
+        teamBScore: 0,
         players: {}
       };
       await set(newRoomRef, room);
@@ -256,8 +260,8 @@ export default function LobbyScreen() {
                 
                 <div className="flex items-center justify-between bg-black/40 p-4 rounded-xl border-2 border-black">
                   <div className="flex flex-col">
-                    <Label className="font-headline text-sm text-white">TEAM MODE</Label>
-                    <span className="text-[10px] font-bold text-white/40 uppercase">2v2 or 3v3</span>
+                    <Label className="font-headline text-sm text-white">TEAM</Label>
+                    <span className="text-[10px] font-bold text-white/40 uppercase">FRIENDLY FIRE OFF</span>
                   </div>
                   <Switch checked={isTeamMode} onCheckedChange={setIsTeamMode} />
                 </div>
@@ -265,17 +269,17 @@ export default function LobbyScreen() {
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
                     <label className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
-                      {isTeamMode ? 'TEAM SIZE' : 'MAX PLAYERS'}
+                      MAX CAPACITY
                     </label>
                     <span className="font-headline text-xl text-primary">
-                      {isTeamMode ? (maxPlayers === 4 ? '2 v 2' : '3 v 3') : maxPlayers}
+                      {maxPlayers}
                     </span>
                   </div>
                   <Slider 
                     value={[maxPlayers]} 
                     onValueChange={(v) => setMaxPlayers(v[0])} 
-                    min={isTeamMode ? 4 : 2} 
-                    max={isTeamMode ? 6 : 6} 
+                    min={2} 
+                    max={6} 
                     step={isTeamMode ? 2 : 1} 
                     className="py-4" 
                   />
@@ -335,7 +339,7 @@ export default function LobbyScreen() {
                             </div>
                             {room.isTeamMode && (
                               <div className="flex items-center gap-2 bg-primary/20 px-3 py-1 rounded-full border-2 border-primary text-[10px] font-bold text-primary uppercase">
-                                TEAM MODE
+                                TEAM
                               </div>
                             )}
                             <span className={cn(

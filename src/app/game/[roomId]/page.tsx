@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState, use, useCallback } from 'react';
 import { useLocalPlayer } from '@/hooks/use-local-player';
 import { db, auth } from '@/lib/firebase';
-import { ref, onValue, set, update, onDisconnect, remove, get, push, off } from 'firebase/database';
+import { ref, onValue, set, update, onDisconnect, remove, get, push } from 'firebase/database';
 import { signOut } from 'firebase/auth';
 import { 
   GamePlayer, 
@@ -35,7 +35,7 @@ import {
   EMOJI_DURATION
 } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
-import { Trophy, ArrowLeft, Play, Zap, Heart, Users, Crown, RotateCcw, WifiOff, ShieldAlert, LogOut, Wallet, Fingerprint, Swords, CornerDownLeft, MessageCircle, Ghost, Smile } from 'lucide-react';
+import { Trophy, ArrowLeft, Play, Zap, Heart, Users, Crown, RotateCcw, WifiOff, ShieldAlert, LogOut, Wallet, Fingerprint, Swords, CornerDownLeft, MessageCircle, Ghost } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -182,9 +182,25 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   const switchTeam = useCallback(async (team: 'A' | 'B') => {
     if (!db || !roomId || !profileRef.current || isLocked) return;
+    const roomData = roomRef.current;
+    if (!roomData) return;
+
+    const players = Object.values(roomData.players || {});
+    const teamCount = players.filter(p => p.team === team).length;
+    const maxPerTeam = (roomData.maxPlayers || 4) / 2;
+
+    if (teamCount >= maxPerTeam) {
+      toast({
+        variant: "destructive",
+        title: "Team Full",
+        description: `${team === 'A' ? 'Red' : 'Blue'} team is already at max capacity.`
+      });
+      return;
+    }
+
     const myPlayerRef = ref(db, `rooms/${roomId}/players/${profileRef.current.id}`);
     update(myPlayerRef, { team });
-  }, [roomId, isLocked]);
+  }, [roomId, isLocked, toast]);
 
   const isHost = room && profileRef.current && room.players && profileRef.current.id === room.createdBy;
 
@@ -274,11 +290,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   // Rewards logic
   useEffect(() => {
-    if (room?.status === 'finished' && room.lastWinnerName && profile && authUser) {
+    if (room?.status === 'finished' && profile && authUser) {
       if (matchProcessedRef.current === roomId) return;
       matchProcessedRef.current = roomId;
 
-      const isWinner = room.lastWinnerName === profile.name;
+      const winnerTeam = room.lastWinnerTeam;
+      const isWinner = room.isTeamMode ? (profileRef.current?.team === winnerTeam) : (room.lastWinnerName === profile.name);
+      
       let change = isWinner ? 30 : 0; 
       
       if (isWinner) {
@@ -295,7 +313,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     if (room?.status === 'lobby') {
       matchProcessedRef.current = null;
     }
-  }, [room?.status, room?.lastWinnerName, profile?.id, roomId, authUser, toast, updateProfile]);
+  }, [room?.status, room?.lastWinnerName, room?.lastWinnerTeam, room?.isTeamMode, profile?.id, roomId, authUser, toast, updateProfile]);
 
   useEffect(() => {
     if (!db) return;
@@ -346,11 +364,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           const updates: any = {
             status: 'lobby',
             lastWinnerName: null,
+            lastWinnerTeam: null,
             startTime: null,
             projectiles: null,
             effects: null,
             celebrationStartTime: null,
-            currentRound: 1
+            currentRound: 1,
+            teamAScore: 0,
+            teamBScore: 0
           };
           updates[`players/${onlyPlayerId}/roundsWon`] = 0;
           updates[`players/${onlyPlayerId}/isReady`] = true;
@@ -373,11 +394,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           const updates: any = {
             status: 'lobby',
             lastWinnerName: null,
+            lastWinnerTeam: null,
             startTime: null,
             projectiles: null,
             effects: null,
             celebrationStartTime: null,
-            currentRound: 1
+            currentRound: 1,
+            teamAScore: 0,
+            teamBScore: 0
           };
           players.forEach(p => {
             updates[`players/${p.id}/roundsWon`] = 0;
@@ -393,11 +417,20 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         const players = Object.values(room.players);
         const alivePlayers = players.filter(p => p.hp > 0);
         
-        if (players.length >= 2) {
-          if (alivePlayers.length === 1) {
-            handleKill(alivePlayers[0].id);
-          } else if (alivePlayers.length === 0) {
+        if (room.isTeamMode) {
+          const aliveTeams = new Set(alivePlayers.map(p => p.team));
+          if (aliveTeams.size === 1) {
+            handleKill([...aliveTeams][0]!);
+          } else if (aliveTeams.size === 0) {
             handleDraw();
+          }
+        } else {
+          if (players.length >= 2) {
+            if (alivePlayers.length === 1) {
+              handleKill(alivePlayers[0].id);
+            } else if (alivePlayers.length === 0) {
+              handleDraw();
+            }
           }
         }
       }
@@ -423,8 +456,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         const currentData = roomRef.current;
         if (!currentData || currentData.status !== 'celebrating') return;
         
-        const winner = Object.values(currentData.players).find(p => p.name === currentData.lastWinnerName);
-        const isGameFinished = winner && (winner.roundsWon || 0) >= 3;
+        let isGameFinished = false;
+        if (currentData.isTeamMode) {
+          isGameFinished = (currentData.teamAScore || 0) >= 3 || (currentData.teamBScore || 0) >= 3;
+        } else {
+          const winner = Object.values(currentData.players).find(p => p.name === currentData.lastWinnerName);
+          isGameFinished = !!(winner && (winner.roundsWon || 0) >= 3);
+        }
         
         const updates: any = { 
           status: isGameFinished ? 'finished' : 'round_over'
@@ -474,6 +512,15 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             return;
           }
 
+          // Auto-assign team
+          let assignedTeam: 'A' | 'B' = 'A';
+          if (roomData.isTeamMode) {
+            const players = Object.values(roomData.players || {});
+            const redCount = players.filter(p => p.team === 'A').length;
+            const blueCount = players.filter(p => p.team === 'B').length;
+            assignedTeam = redCount <= blueCount ? 'A' : 'B';
+          }
+
           const existingPositions = Object.values(roomData.players || {})
             .filter(p => p.hp > 0)
             .map(p => ({ x: p.x, y: p.y }));
@@ -501,7 +548,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             stunnedUntil: 0,
             stunCooldownUntil: 0,
             isReady: true, // JOINING AUTOMATICALLY SETS READY
-            team: 'A' // Default team
+            team: assignedTeam
           };
           
           set(myPlayerRef, initialPlayer);
@@ -547,6 +594,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           let hitId: string | null = null;
           Object.entries(currentRoom.players || {}).forEach(([eid, enemy]) => {
             if (eid === profileRef.current?.id || enemy.hp <= 0) return;
+            // Disable friendly fire
+            if (currentRoom.isTeamMode && enemy.team === p.team) return;
+
             const buffer = 0.5;
             if (
               projX >= enemy.x - buffer &&
@@ -988,6 +1038,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     Object.entries(currentRoom.players || {}).forEach(([id, enemy]) => {
       if (id === profileRef.current?.id || enemy.hp <= 0) return;
+      // Disable friendly fire
+      if (currentRoom.isTeamMode && enemy.team === p.team) return;
       
       const ex = enemy.x + PLAYER_WIDTH / 2;
       const ey = enemy.y + PLAYER_HEIGHT / 2;
@@ -1084,28 +1136,35 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     setFlash({ type: 'dealt', time: Date.now() });
   };
 
-  const handleKill = (winnerId: string) => {
+  const handleKill = (winnerIdentifier: string) => {
     const currentRoom = roomRef.current;
     if (!currentRoom || !db || !isHost || currentRoom.status !== 'playing' || statusChangingRef.current) return;
     
     statusChangingRef.current = true;
-    const winner = currentRoom.players[winnerId];
-    if (!winner) {
-      statusChangingRef.current = false;
-      return;
-    }
-
-    const winnersRounds = (winner.roundsWon || 0) + 1;
-    const isChampionship = winnersRounds >= 3;
-    
     const updates: any = { 
       status: 'celebrating',
-      lastWinnerName: winner.name,
       celebrationStartTime: Date.now(),
       projectiles: null,
       effects: null
     };
-    updates[`players/${winnerId}/roundsWon`] = winnersRounds;
+
+    if (currentRoom.isTeamMode) {
+      // winnerIdentifier is the team ID ('A' or 'B')
+      const nextScore = winnerIdentifier === 'A' ? (currentRoom.teamAScore || 0) + 1 : (currentRoom.teamBScore || 0) + 1;
+      updates[winnerIdentifier === 'A' ? 'teamAScore' : 'teamBScore'] = nextScore;
+      updates.lastWinnerTeam = winnerIdentifier;
+      updates.lastWinnerName = winnerIdentifier === 'A' ? 'RED TEAM' : 'BLUE TEAM';
+    } else {
+      // winnerIdentifier is the player ID
+      const winner = currentRoom.players[winnerIdentifier];
+      if (!winner) {
+        statusChangingRef.current = false;
+        return;
+      }
+      const winnersRounds = (winner.roundsWon || 0) + 1;
+      updates.lastWinnerName = winner.name;
+      updates[`players/${winnerIdentifier}/roundsWon`] = winnersRounds;
+    }
     
     update(ref(db, `rooms/${roomId}`), updates).finally(() => {
       statusChangingRef.current = false;
@@ -1120,6 +1179,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     update(ref(db, `rooms/${roomId}`), { 
       status: 'round_over', 
       lastWinnerName: 'DRAW',
+      lastWinnerTeam: null,
       projectiles: null,
       effects: null
     }).finally(() => {
@@ -1173,13 +1233,31 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   const startMatch = () => {
     if (!db || !roomId || !room || !isHost) return;
+
+    // Validation: Match cannot start unless at least one player on both teams
+    if (room.isTeamMode) {
+      const players = Object.values(room.players || {});
+      const hasRed = players.some(p => p.team === 'A');
+      const hasBlue = players.some(p => p.team === 'B');
+      if (!hasRed || !hasBlue) {
+        toast({
+          variant: "destructive",
+          title: "Incomplete Teams",
+          description: "Both Red and Blue teams must have at least one player to start."
+        });
+        return;
+      }
+    }
+
     const updates: any = { 
       status: 'starting', 
       startTime: Date.now(),
       effects: null,
       celebrationStartTime: null,
       currentRound: 1,
-      projectiles: null
+      projectiles: null,
+      teamAScore: 0,
+      teamBScore: 0
     };
 
     const assignedSpawns: {x: number, y: number}[] = [];
@@ -1373,8 +1451,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         const pw = PLAYER_WIDTH * PIXELS_PER_METER;
         const ph = PLAYER_HEIGHT * PIXELS_PER_METER;
 
-        const color = p.color || '#3b82f6';
-        const isAura = color?.startsWith?.('aura-');
+        const pColor = p.color || '#3b82f6';
+        const isAura = pColor?.startsWith?.('aura-');
 
         for (let i = 1; i <= ghostCount; i++) {
           const offset = i * 0.04;
@@ -1391,20 +1469,20 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
              const grad = ctx.createLinearGradient(gx, gy, gx + pw, gy + ph);
              const t = (now % 3000) / 3000; 
              
-             if (color === 'aura-g1') { grad.addColorStop(t, '#8A2387'); grad.addColorStop((t+0.5)%1, '#E94057'); }
-             else if (color === 'aura-g2') { grad.addColorStop(t, '#00F2FE'); grad.addColorStop((t+0.5)%1, '#4FACFE'); }
-             else if (color === 'aura-g3') { grad.addColorStop(t, '#FF416C'); grad.addColorStop((t+0.5)%1, '#FF4B2B'); }
-             else if (color === 'aura-g4') { grad.addColorStop(t, '#11998E'); grad.addColorStop((t+0.5)%1, '#38EF7D'); }
-             else if (color === 'aura-g5') { grad.addColorStop(t, '#1F1C2C'); grad.addColorStop((t+0.5)%1, '#928DAB'); }
-             else if (color === 'aura-g6') { grad.addColorStop(t, '#00C6FF'); grad.addColorStop((t+0.5)%1, '#0072FF'); }
-             else if (color === 'aura-g7') { grad.addColorStop(t, '#7F00FF'); grad.addColorStop((t+0.5)%1, '#E100FF'); }
-             else if (color === 'aura-g8') { grad.addColorStop(t, '#F857A6'); grad.addColorStop((t+0.5)%1, '#FF5858'); }
-             else if (color === 'aura-g9') { grad.addColorStop(t, '#0B132B'); grad.addColorStop((t+0.5)%1, '#1C2541'); }
-             else if (color === 'aura-g10') { grad.addColorStop(t, '#F21B3F'); grad.addColorStop((t+0.5)%1, '#330033'); }
+             if (pColor === 'aura-g1') { grad.addColorStop(t, '#8A2387'); grad.addColorStop((t+0.5)%1, '#E94057'); }
+             else if (pColor === 'aura-g2') { grad.addColorStop(t, '#00F2FE'); grad.addColorStop((t+0.5)%1, '#4FACFE'); }
+             else if (pColor === 'aura-g3') { grad.addColorStop(t, '#FF416C'); grad.addColorStop((t+0.5)%1, '#FF4B2B'); }
+             else if (pColor === 'aura-g4') { grad.addColorStop(t, '#11998E'); grad.addColorStop((t+0.5)%1, '#38EF7D'); }
+             else if (pColor === 'aura-g5') { grad.addColorStop(t, '#1F1C2C'); grad.addColorStop((t+0.5)%1, '#928DAB'); }
+             else if (pColor === 'aura-g6') { grad.addColorStop(t, '#00C6FF'); grad.addColorStop((t+0.5)%1, '#0072FF'); }
+             else if (pColor === 'aura-g7') { grad.addColorStop(t, '#7F00FF'); grad.addColorStop((t+0.5)%1, '#E100FF'); }
+             else if (pColor === 'aura-g8') { grad.addColorStop(t, '#F857A6'); grad.addColorStop((t+0.5)%1, '#FF5858'); }
+             else if (pColor === 'aura-g9') { grad.addColorStop(t, '#0B132B'); grad.addColorStop((t+0.5)%1, '#1C2541'); }
+             else if (pColor === 'aura-g10') { grad.addColorStop(t, '#F21B3F'); grad.addColorStop((t+0.5)%1, '#330033'); }
              
              ctx.fillStyle = grad;
           } else {
-             ctx.fillStyle = color;
+             ctx.fillStyle = pColor;
           }
           
           ctx.fillRect(gx, gy, pw, ph);
@@ -1473,9 +1551,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
 
       const isStunned = now < (p.stunnedUntil || 0);
-      const isWinner = p.name === currentRoom.lastWinnerName && (currentRoom.status === 'celebrating' || currentRoom.status === 'round_over' || currentRoom.status === 'finished');
-      const color = p.color || '#3b82f6';
-      const isAura = color?.startsWith?.('aura-');
+      const isWinner = (currentRoom.isTeamMode && p.team === currentRoom.lastWinnerTeam) || (!currentRoom.isTeamMode && p.name === currentRoom.lastWinnerName);
+      const showCelebration = (currentRoom.status === 'celebrating' || currentRoom.status === 'round_over' || currentRoom.status === 'finished');
+      const shouldCelebrate = isWinner && showCelebration;
+
+      const pColor = p.color || '#3b82f6';
+      const isAura = pColor?.startsWith?.('aura-');
 
       ctx.save();
       
@@ -1483,26 +1564,26 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         const grad = ctx.createLinearGradient(px, py, px + pw, py + ph);
         const t = (now % 3000) / 3000; 
         
-        if (color === 'aura-g1') { grad.addColorStop(t, '#8A2387'); grad.addColorStop((t+0.5)%1, '#E94057'); }
-        else if (color === 'aura-g2') { grad.addColorStop(t, '#00F2FE'); grad.addColorStop((t+0.5)%1, '#4FACFE'); }
-        else if (color === 'aura-g3') { grad.addColorStop(t, '#FF416C'); grad.addColorStop((t+0.5)%1, '#FF4B2B'); }
-        else if (color === 'aura-g4') { grad.addColorStop(t, '#11998E'); grad.addColorStop((t+0.5)%1, '#38EF7D'); }
-        else if (color === 'aura-g5') { grad.addColorStop(t, '#1F1C2C'); grad.addColorStop((t+0.5)%1, '#928DAB'); }
-        else if (color === 'aura-g6') { grad.addColorStop(t, '#00C6FF'); grad.addColorStop((t+0.5)%1, '#0072FF'); }
-        else if (color === 'aura-g7') { grad.addColorStop(t, '#7F00FF'); grad.addColorStop((t+0.5)%1, '#E100FF'); }
-        else if (color === 'aura-g8') { grad.addColorStop(t, '#F857A6'); grad.addColorStop((t+0.5)%1, '#FF5858'); }
-        else if (color === 'aura-g9') { grad.addColorStop(t, '#0B132B'); grad.addColorStop((t+0.5)%1, '#1C2541'); }
-        else if (color === 'aura-g10') { grad.addColorStop(t, '#F21B3F'); grad.addColorStop((t+0.5)%1, '#330033'); }
+        if (pColor === 'aura-g1') { grad.addColorStop(t, '#8A2387'); grad.addColorStop((t+0.5)%1, '#E94057'); }
+        else if (pColor === 'aura-g2') { grad.addColorStop(t, '#00F2FE'); grad.addColorStop((t+0.5)%1, '#4FACFE'); }
+        else if (pColor === 'aura-g3') { grad.addColorStop(t, '#FF416C'); grad.addColorStop((t+0.5)%1, '#FF4B2B'); }
+        else if (pColor === 'aura-g4') { grad.addColorStop(t, '#11998E'); grad.addColorStop((t+0.5)%1, '#38EF7D'); }
+        else if (pColor === 'aura-g5') { grad.addColorStop(t, '#1F1C2C'); grad.addColorStop((t+0.5)%1, '#928DAB'); }
+        else if (pColor === 'aura-g6') { grad.addColorStop(t, '#00C6FF'); grad.addColorStop((t+0.5)%1, '#0072FF'); }
+        else if (pColor === 'aura-g7') { grad.addColorStop(t, '#7F00FF'); grad.addColorStop((t+0.5)%1, '#E100FF'); }
+        else if (pColor === 'aura-g8') { grad.addColorStop(t, '#F857A6'); grad.addColorStop((t+0.5)%1, '#FF5858'); }
+        else if (pColor === 'aura-g9') { grad.addColorStop(t, '#0B132B'); grad.addColorStop((t+0.5)%1, '#1C2541'); }
+        else if (pColor === 'aura-g10') { grad.addColorStop(t, '#F21B3F'); grad.addColorStop((t+0.5)%1, '#330033'); }
         
         ctx.fillStyle = grad;
       } else {
-        ctx.fillStyle = color;
+        ctx.fillStyle = pColor;
       }
 
       let strokeStyle = 'black';
       let lineWidth = 4;
       if (currentRoom.isTeamMode) {
-        strokeStyle = p.team === 'B' ? '#3b82f6' : '#f43f5e';
+        strokeStyle = p.team === 'B' ? '#3b82f6' : '#f43f5e'; // B=Blue, A=Red
         if (p.noBorderEnabled) lineWidth = 1.5;
       } else if (p.noBorderEnabled) {
         strokeStyle = 'transparent';
@@ -1605,7 +1686,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
       ctx.restore();
 
-      if (!isWinner) {
+      if (!shouldCelebrate) {
         ctx.save();
         ctx.fillStyle = 'white';
         ctx.strokeStyle = 'black';
@@ -1742,7 +1823,19 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   const playerCount = room?.players ? Object.keys(room.players).length : 0;
   const allReady = (room?.players && Object.keys(room.players).length > 0) ? Object.values(room.players).every(p => p.isReady) : false;
-  const canStart = room && room.players && Object.keys(room.players).length >= 2 && allReady;
+  
+  // Validation for starting in Team Mode
+  let canStart = room && room.players && Object.keys(room.players).length >= 2 && allReady;
+  let unfairTeams = false;
+  if (room?.isTeamMode) {
+    const players = Object.values(room.players || {});
+    const hasRed = players.some(p => p.team === 'A');
+    const hasBlue = players.some(p => p.team === 'B');
+    if (!hasRed || !hasBlue) {
+      unfairTeams = true;
+      canStart = false;
+    }
+  }
 
   let countdownText = '';
   let showCountdown = false;
@@ -1822,39 +1915,66 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             </Button>
           </div>
           <div className="flex items-center gap-4 overflow-x-auto max-w-[70vw] scrollbar-hide px-4">
-            {room?.players && Object.values(room.players).map(p => {
-              const pColor = p.color || '#3b82f6';
-              const isAura = pColor?.startsWith?.('aura-');
-              const teamColor = room.isTeamMode ? (p.team === 'B' ? 'border-blue-500' : 'border-red-500') : 'border-white/20';
-              return (
-                <div key={p.id} className={cn("flex items-center gap-3 bg-white/5 border-2 rounded-[15px] p-2 px-4 min-w-[180px]", teamColor)}>
-                  <div className="flex flex-col items-start gap-0.5 flex-1">
-                    <div className="flex items-center gap-2">
-                      <WeaponIcon weapon={p.weaponClass as WeaponClass} className="w-7 h-7 text-xl" />
-                      <span 
-                        className={cn(
-                          "font-headline text-lg truncate max-w-[100px]",
-                          isAura ? pColor : ""
-                        )} 
-                        style={{ 
-                          color: isAura ? 'transparent' : pColor, 
-                          backgroundClip: isAura ? 'text' : 'none',
-                          WebkitBackgroundClip: isAura ? 'text' : 'none',
-                        }}
-                      >
-                        {p.name}
-                      </span>
-                      {p.id === room?.createdBy && <Crown className="w-5 h-5 text-yellow-500 fill-yellow-500" />}
-                    </div>
-                    <div className="flex gap-1.5 mt-1">
-                      {[1, 2, 3].map(i => (
-                        <div key={i} className={`w-3.5 h-3.5 rounded-full border-2 border-black transition-all duration-300 ${i <= (p.roundsWon || 0) ? 'bg-yellow-500' : 'bg-white/10'}`} />
-                      ))}
+            {room?.isTeamMode ? (
+              <div className="flex items-center gap-10">
+                <div className="flex flex-col items-center">
+                   <span className="font-headline text-red-500 text-sm">RED TEAM</span>
+                   <div className="flex items-center gap-2">
+                     <span className="text-4xl font-headline text-white">{room.teamAScore || 0}</span>
+                     <div className="flex gap-1">
+                       {[1,2,3].map(i => (
+                         <div key={i} className={cn("w-3 h-3 rounded-full border-2 border-black", i <= (room.teamAScore || 0) ? "bg-red-500" : "bg-white/10")} />
+                       ))}
+                     </div>
+                   </div>
+                </div>
+                <div className="text-2xl font-headline text-white/40">VS</div>
+                <div className="flex flex-col items-center">
+                   <span className="font-headline text-blue-500 text-sm">BLUE TEAM</span>
+                   <div className="flex items-center gap-2">
+                     <div className="flex gap-1">
+                       {[1,2,3].map(i => (
+                         <div key={i} className={cn("w-3 h-3 rounded-full border-2 border-black", i <= (room.teamBScore || 0) ? "bg-blue-500" : "bg-white/10")} />
+                       ))}
+                     </div>
+                     <span className="text-4xl font-headline text-white">{room.teamBScore || 0}</span>
+                   </div>
+                </div>
+              </div>
+            ) : (
+              room?.players && Object.values(room.players).map(p => {
+                const pColor = p.color || '#3b82f6';
+                const isAura = pColor?.startsWith?.('aura-');
+                return (
+                  <div key={p.id} className={cn("flex items-center gap-3 bg-white/5 border-2 rounded-[15px] p-2 px-4 min-w-[180px]", "border-white/20")}>
+                    <div className="flex flex-col items-start gap-0.5 flex-1">
+                      <div className="flex items-center gap-2">
+                        <WeaponIcon weapon={p.weaponClass as WeaponClass} className="w-7 h-7 text-xl" />
+                        <span 
+                          className={cn(
+                            "font-headline text-lg truncate max-w-[100px]",
+                            isAura ? pColor : ""
+                          )} 
+                          style={{ 
+                            color: isAura ? 'transparent' : pColor, 
+                            backgroundClip: isAura ? 'text' : 'none',
+                            WebkitBackgroundClip: isAura ? 'text' : 'none',
+                          }}
+                        >
+                          {p.name}
+                        </span>
+                        {p.id === room?.createdBy && <Crown className="w-5 h-5 text-yellow-500 fill-yellow-500" />}
+                      </div>
+                      <div className="flex gap-1.5 mt-1">
+                        {[1, 2, 3].map(i => (
+                          <div key={i} className={`w-3.5 h-3.5 rounded-full border-2 border-black transition-all duration-300 ${i <= (p.roundsWon || 0) ? 'bg-yellow-500' : 'bg-white/10'}`} />
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </header>
       )}
@@ -1895,8 +2015,39 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                   <h2 className="text-7xl font-headline text-white animate-bounce-subtle">{room.name.toUpperCase()}</h2>
                   {room.isTeamMode && (
                     <div className="flex gap-4">
-                      <Button onClick={() => switchTeam('A')} className={cn("cartoon-button h-10 px-6", myP?.team === 'A' ? "bg-red-500 text-white" : "bg-zinc-800 text-white/40")}>TEAM A</Button>
-                      <Button onClick={() => switchTeam('B')} className={cn("cartoon-button h-10 px-6", myP?.team === 'B' ? "bg-blue-500 text-white" : "bg-zinc-800 text-white/40")}>TEAM B</Button>
+                      {(() => {
+                        const players = Object.values(room.players || {});
+                        const redCount = players.filter(p => p.team === 'A').length;
+                        const blueCount = players.filter(p => p.team === 'B').length;
+                        const maxPerTeam = (room.maxPlayers || 4) / 2;
+                        
+                        return (
+                          <>
+                            <Button 
+                              onClick={() => switchTeam('A')} 
+                              disabled={redCount >= maxPerTeam && myP?.team !== 'A'}
+                              className={cn(
+                                "cartoon-button h-10 px-8 transition-all duration-300", 
+                                myP?.team === 'A' ? "bg-red-500 text-white scale-110" : "bg-zinc-800 text-white/40",
+                                redCount >= maxPerTeam && myP?.team !== 'A' && "bg-gray-600 scale-90 grayscale opacity-50 cursor-not-allowed"
+                              )}
+                            >
+                              RED ({redCount}/{maxPerTeam})
+                            </Button>
+                            <Button 
+                              onClick={() => switchTeam('B')} 
+                              disabled={blueCount >= maxPerTeam && myP?.team !== 'B'}
+                              className={cn(
+                                "cartoon-button h-10 px-8 transition-all duration-300", 
+                                myP?.team === 'B' ? "bg-blue-500 text-white scale-110" : "bg-zinc-800 text-white/40",
+                                blueCount >= maxPerTeam && myP?.team !== 'B' && "bg-gray-600 scale-90 grayscale opacity-50 cursor-not-allowed"
+                              )}
+                            >
+                              BLUE ({blueCount}/{maxPerTeam})
+                            </Button>
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
@@ -1939,12 +2090,16 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                       </Button>
                     ) : (
                       <div className="flex flex-col items-center animate-pulse">
-                        <span className="font-headline text-2xl text-white/40 uppercase tracking-widest text-center">WAITING PLAYERS..</span>
+                        <span className="font-headline text-2xl text-white/40 uppercase tracking-widest text-center">
+                          {unfairTeams ? "UNFAIR TEAMS" : "WAITING PLAYERS.."}
+                        </span>
                       </div>
                     )
                   ) : (
                     <div className="flex flex-col items-center animate-pulse">
-                      <span className="font-headline text-2xl text-white/40 uppercase tracking-widest text-center">WAITING FOR HOST...</span>
+                      <span className="font-headline text-2xl text-white/40 uppercase tracking-widest text-center">
+                        {unfairTeams ? "UNFAIR TEAMS" : "WAITING FOR HOST..."}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -1953,7 +2108,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
           {room?.status === 'round_over' && (
             <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center z-50">
-              <h2 className="text-9xl font-headline text-accent animate-bounce">{room.lastWinnerName === 'DRAW' ? 'DRAW!' : 'ROUND!'}</h2>
+              <h2 className={cn(
+                "text-9xl font-headline animate-bounce",
+                room.lastWinnerTeam === 'A' ? "text-red-500" : room.lastWinnerTeam === 'B' ? "text-blue-500" : "text-accent"
+              )}>
+                {room.lastWinnerName === 'DRAW' ? 'DRAW!' : 'ROUND!'}
+              </h2>
               {room.lastWinnerName && room.lastWinnerName !== 'DRAW' && (
                 <span className="text-4xl font-headline text-white mt-4">{room.lastWinnerName.toUpperCase()} WINS</span>
               )}
@@ -1962,7 +2122,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
           {showResults && room && (
              <div className="absolute inset-0 bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center z-50 p-10 text-center space-y-10">
-                <Trophy className="w-32 h-32 text-yellow-500 animate-pulse" />
+                <Trophy className={cn(
+                  "w-32 h-32 animate-pulse",
+                  room.lastWinnerTeam === 'A' ? "text-red-500" : room.lastWinnerTeam === 'B' ? "text-blue-500" : "text-yellow-500"
+                )} />
                 <h2 className="text-8xl font-headline text-white italic">{room.lastWinnerName ? `${room.lastWinnerName.toUpperCase()} IS CHAMPION!` : 'CHAMPION!'}</h2>
                 <div className="flex gap-4">
                   <Button onClick={handlePlayAgain} size="lg" className="cartoon-button bg-accent text-black text-2xl h-16 px-16 flex items-center gap-3"><RotateCcw className="w-6 h-6" /> PLAY AGAIN</Button>
@@ -2004,6 +2167,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                 if (opacity <= 0) return null;
                 const msgColorSafe = msg.senderColor || '#3b82f6';
                 const isAura = msgColorSafe?.startsWith?.('aura-');
+                
+                // Find sender team for message color
+                const senderTeam = room?.players?.[msg.senderId]?.team;
+                const teamTextColor = senderTeam === 'A' ? '#f43f5e' : senderTeam === 'B' ? '#3b82f6' : 'white';
+
                 return (
                   <div 
                     key={msg.id} 
@@ -2022,7 +2190,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                       >
                         {msg.senderName}:
                       </span>
-                      <span className="text-white font-headline uppercase tracking-tight whitespace-pre-wrap" style={{ WebkitTextStroke: '0.5px black' }}>
+                      <span 
+                        className="font-headline uppercase tracking-tight whitespace-pre-wrap" 
+                        style={{ 
+                          WebkitTextStroke: '0.5px black',
+                          color: room?.isTeamMode ? teamTextColor : 'white'
+                        }}
+                      >
                         {formatPreviewText(msg.text)}
                       </span>
                     </div>
@@ -2049,6 +2223,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                     messages.slice(-15).map(msg => {
                       const msgColorSafe = msg.senderColor || '#3b82f6';
                       const isAura = msgColorSafe?.startsWith?.('aura-');
+                      const senderTeam = room?.players?.[msg.senderId]?.team;
+                      const teamTextColor = senderTeam === 'A' ? '#f43f5e' : senderTeam === 'B' ? '#3b82f6' : 'white';
+                      
                       return (
                         <div key={msg.id} className="text-sm break-all whitespace-pre-wrap leading-tight">
                           <span 
@@ -2062,7 +2239,13 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                           >
                             {msg.senderName}:
                           </span>
-                          <span className="text-white font-headline uppercase tracking-tight" style={{ WebkitTextStroke: '0.5px black' }}>
+                          <span 
+                            className="font-headline uppercase tracking-tight" 
+                            style={{ 
+                              WebkitTextStroke: '0.5px black',
+                              color: room?.isTeamMode ? teamTextColor : 'white'
+                            }}
+                          >
                             {msg.text}
                           </span>
                         </div>
