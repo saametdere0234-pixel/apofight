@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useRef, useState, use, useCallback } from 'react';
@@ -115,7 +114,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const hasJoinedRef = useRef(false);
   const statusChangingRef = useRef(false);
   
-  // Chat State
   const [sessionJoinTime] = useState(Date.now());
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
@@ -219,7 +217,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     };
   }, [profile?.id, roomId]);
 
-  // Chat Sync
   useEffect(() => {
     if (!db || !roomId) return;
     const chatRef = ref(db, `rooms/${roomId}/chat`);
@@ -236,7 +233,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     });
   }, [roomId, sessionJoinTime]);
 
-  // Update tick for animations
   useEffect(() => {
     const timer = setInterval(() => {
       const now = Date.now();
@@ -252,14 +248,12 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     return () => clearInterval(timer);
   }, []);
 
-  // Auto scroll chat
   useEffect(() => {
     if (isChatOpen) {
       chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isChatOpen]);
 
-  // Match Entry Fee Logic - Charged once per session (Lobby -> Start)
   useEffect(() => {
     if (room?.status === 'starting' && profile && authUser) {
       if (feeProcessedRef.current === roomId) return;
@@ -282,13 +276,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       }
     }
     
-    // Reset fee processed status ONLY when a champion is crowned (finished state)
     if (room?.status === 'finished') {
       feeProcessedRef.current = null;
     }
   }, [room?.status, profile?.id, roomId, authUser, toast, updateProfile]);
 
-  // Rewards logic
   useEffect(() => {
     if (room?.status === 'finished' && profile && authUser) {
       if (matchProcessedRef.current === roomId) return;
@@ -355,7 +347,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
 
-      // RESET MODE 2: Solitude Reset Mode - Reset rounds and go to lobby if alone
       if (playerCount === 1 && room.status !== 'lobby') {
         const onlyPlayerId = pIds[0];
         if (onlyPlayerId === profileRef.current?.id) {
@@ -385,7 +376,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
 
-      // RESET MODE 1: Championship Reset - Reset back to lobby when everyone signals Play Again
       if (room.status === 'finished') {
         const players = Object.values(room.players);
         const allReady = players.every(p => p.isReady);
@@ -405,7 +395,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           };
           players.forEach(p => {
             updates[`players/${p.id}/roundsWon`] = 0;
-            updates[`players/${p.id}/isReady`] = true; // KEEP READY FOR NEXT LOBBY
+            updates[`players/${p.id}/isReady`] = true; 
           });
           update(ref(db, `rooms/${roomId}`), updates).then(() => {
             statusChangingRef.current = false;
@@ -470,7 +460,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         
         if (isGameFinished) {
           Object.keys(currentData.players).forEach(pid => {
-            updates[`players/${pid}/isReady`] = false; // ASKING FOR PLAY AGAIN
+            updates[`players/${pid}/isReady`] = false; 
           });
         }
         
@@ -512,7 +502,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             return;
           }
 
-          // Auto-assign team based on counts
           let assignedTeam: 'A' | 'B' = 'A';
           if (roomData.isTeamMode) {
             const players = Object.values(roomData.players || {});
@@ -547,7 +536,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
             dashDirY: 0,
             stunnedUntil: 0,
             stunCooldownUntil: 0,
-            isReady: true, // JOINING AUTOMATICALLY SETS READY
+            isReady: true, 
             team: assignedTeam
           };
           
@@ -594,7 +583,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           let hitId: string | null = null;
           Object.entries(currentRoom.players || {}).forEach(([eid, enemy]) => {
             if (eid === profileRef.current?.id || enemy.hp <= 0) return;
-            // Disable friendly fire
             if (currentRoom.isTeamMode && enemy.team === p.team) return;
 
             const buffer = 0.5;
@@ -801,7 +789,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Chat Logic: Enter to open, Enter to send (if text), Enter to close (if empty)
       if (e.code === 'Enter') {
         e.preventDefault();
         if (!isChatOpen) {
@@ -813,7 +800,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         return;
       }
 
-      // If chat is open, ignore game controls
       if (isChatOpen) return;
 
       keys.add(e.code);
@@ -871,7 +857,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     let frameId: number;
 
     const loop = (time: number) => {
-      const dt = Math.min((time - lastTime) / 1000, 0.033); // Cap dt to fix stutters
+      const dt = Math.min((time - lastTime) / 1000, 0.033); 
       lastTime = time;
       const currentRoom = roomRef.current;
       if (profileRef.current && currentRoom?.players?.[profileRef.current.id] && currentRoom.status === 'playing') {
@@ -1038,7 +1024,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     Object.entries(currentRoom.players || {}).forEach(([id, enemy]) => {
       if (id === profileRef.current?.id || enemy.hp <= 0) return;
-      // Disable friendly fire
       if (currentRoom.isTeamMode && enemy.team === p.team) return;
       
       const ex = enemy.x + PLAYER_WIDTH / 2;
@@ -1150,13 +1135,11 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     };
 
     if (currentRoom.isTeamMode) {
-      // winnerIdentifier is the team ID ('A' or 'B')
       const nextScore = winnerIdentifier === 'A' ? (currentRoom.teamAScore || 0) + 1 : (currentRoom.teamBScore || 0) + 1;
       updates[winnerIdentifier === 'A' ? 'teamAScore' : 'teamBScore'] = nextScore;
       updates.lastWinnerTeam = winnerIdentifier;
       updates.lastWinnerName = winnerIdentifier === 'A' ? 'RED TEAM' : 'BLUE TEAM';
     } else {
-      // winnerIdentifier is the player ID
       const winner = currentRoom.players[winnerIdentifier];
       if (!winner) {
         statusChangingRef.current = false;
@@ -1235,7 +1218,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const startMatch = () => {
     if (!db || !roomId || !room || !isHost) return;
 
-    // Validation: Match cannot start unless at least one player on both teams
     if (room.isTeamMode) {
       const players = Object.values(room.players || {});
       const hasRed = players.some(p => p.team === 'A');
@@ -1275,7 +1257,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       updates[`players/${pid}/y`] = bestSpawn.y;
       updates[`players/${pid}/vy`] = 0;
       updates[`players/${pid}/jumpCount`] = 0;
-      updates[`players/${pid}/roundsWon`] = 0; // RESET ROUNDS FOR NEW MATCH
+      updates[`players/${pid}/roundsWon`] = 0; 
       updates[`players/${pid}/isDashing`] = false;
       updates[`players/${pid}/dashTimeLeft`] = 0;
       updates[`players/${pid}/stunnedUntil`] = 0;
@@ -1297,11 +1279,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     const now = Date.now();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Arena background (Inside Arena)
     ctx.fillStyle = 'gray';
     ctx.fillRect(0, 0, canvas.width, GROUND_Y * PIXELS_PER_METER);
 
-    // Ground texture
     ctx.fillStyle = '#bfc3c9'; 
     ctx.fillRect(0, GROUND_Y * PIXELS_PER_METER, canvas.width, (ARENA_HEIGHT - GROUND_Y) * PIXELS_PER_METER);
 
@@ -1319,7 +1299,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           interpPlayersRef.current[p.id] = p;
         } else if (playersData[p.id]) {
           const currentInterp = interpPlayersRef.current[p.id] || p;
-          const lerpFactor = Math.min(1, 25 * dt); // Faster, smoother lerp
+          const lerpFactor = Math.min(1, 25 * dt); 
           interpPlayersRef.current[p.id] = {
             ...p,
             x: currentInterp.x + (p.x - currentInterp.x) * lerpFactor,
@@ -1584,7 +1564,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       let strokeStyle = 'black';
       let lineWidth = 4;
       if (currentRoom.isTeamMode) {
-        strokeStyle = p.team === 'B' ? '#3b82f6' : '#f43f5e'; // B=Blue, A=Red
+        strokeStyle = p.team === 'B' ? '#3b82f6' : '#f43f5e'; 
         if (p.noBorderEnabled) lineWidth = 1.5;
       } else if (p.noBorderEnabled) {
         strokeStyle = 'transparent';
@@ -1758,12 +1738,10 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.fillText(p.name || 'ANON', px + pw/2, py - 25);
       ctx.restore();
 
-      // Emoji Animation - Optimized with translate/scale to avoid string font parsing
       if (p.emojiStartTime && now < (p.emojiUntil || 0)) {
         const emojiElapsed = now - p.emojiStartTime;
         const progress = Math.min(1, emojiElapsed / EMOJI_DURATION);
         
-        // Animations: fade in (20%), scale up (50% to 200%), sway, fade out (20%)
         const fadeAlpha = progress < 0.2 ? progress / 0.2 : progress > 0.8 ? (1 - progress) / 0.2 : 1;
         const scale = 0.5 + progress * 1.5; 
         const sway = Math.sin(emojiElapsed / 200) * 15; 
@@ -1825,7 +1803,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const playerCount = room?.players ? Object.keys(room.players).length : 0;
   const allReady = (room?.players && Object.keys(room.players).length > 0) ? Object.values(room.players).every(p => p.isReady) : false;
   
-  // Validation for starting in Team Mode
   let unfairTeams = false;
   let canStart = room && room.players && Object.keys(room.players).length >= 2 && allReady;
   if (room?.isTeamMode) {
@@ -1839,7 +1816,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       canStart = false;
     }
     
-    if (redCount !== blueCount) {
+    if ((redCount > 1 && blueCount === 0) || (blueCount > 1 && redCount === 0)) {
       unfairTeams = true;
     }
   }
@@ -1871,7 +1848,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     }).join(' ');
   };
 
-  // Emoji Cooldown Logic
   const emojiCooldownProgress = myP ? Math.max(0, Math.min(100, (1 - Math.max(0, (myP.emojiCooldownUntil || 0) - now) / EMOJI_COOLDOWN) * 100)) : 100;
   const isEmojiOnCooldown = myP && now < (myP.emojiCooldownUntil || 0);
 
@@ -1913,7 +1889,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       )}
 
       {!showLobby && (
-        <header className="w-full p-4 flex justify-center items-center bg-black/80 border-b-4 border-black z-50 animate-in slide-in-from-top duration-500">
+        <header className="w-full p-4 flex justify-center items-center bg-transparent border-b-4 border-black z-50 animate-in slide-in-from-top duration-500">
           <div className="absolute left-4">
             <Button 
               variant="ghost" 
@@ -1928,7 +1904,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           <div className="flex items-center justify-center w-full max-w-4xl px-4">
             {room?.isTeamMode ? (
               <div className="flex items-center gap-10">
-                {/* Team Red (Team A) */}
                 <div className="flex items-center gap-6">
                   <div className="flex flex-col items-end gap-0.5 min-w-[120px]">
                     {teamAPlayers.slice(0, 3).map(p => (
@@ -1946,7 +1921,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
                 <div className="text-4xl font-headline text-white/40 italic px-4 select-none">VS</div>
 
-                {/* Team Blue (Team B) */}
                 <div className="flex items-center gap-6">
                   <div className="flex flex-col items-center gap-2 bg-blue-600/30 border-4 border-blue-500 rounded-2xl p-2 px-6 shadow-[inset_0_0_20px_rgba(59,130,246,0.3)]">
                     <div className="flex gap-2">
@@ -2050,7 +2024,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                               onClick={() => switchTeam('A')} 
                               disabled={redCount >= maxPerTeam && myP?.team !== 'A'}
                               className={cn(
-                                "cartoon-button h-10 px-8 transition-all duration-300", 
+                                "cartoon-button h-10 px-8 transition-all duration-300 hover:bg-red-500/20 hover:shadow-[0_0_15px_rgba(239,68,68,0.3)]", 
                                 myP?.team === 'A' ? "bg-red-500 text-white scale-110" : "bg-zinc-800 text-white/40",
                                 redCount >= maxPerTeam && myP?.team !== 'A' && "bg-gray-600 scale-90 grayscale opacity-50 cursor-not-allowed"
                               )}
@@ -2061,7 +2035,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                               onClick={() => switchTeam('B')} 
                               disabled={blueCount >= maxPerTeam && myP?.team !== 'B'}
                               className={cn(
-                                "cartoon-button h-10 px-8 transition-all duration-300", 
+                                "cartoon-button h-10 px-8 transition-all duration-300 hover:bg-blue-500/20 hover:shadow-[0_0_15px_rgba(59,130,246,0.3)]", 
                                 myP?.team === 'B' ? "bg-blue-500 text-white scale-110" : "bg-zinc-800 text-white/40",
                                 blueCount >= maxPerTeam && myP?.team !== 'B' && "bg-gray-600 scale-90 grayscale opacity-50 cursor-not-allowed"
                               )}
@@ -2086,7 +2060,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                              "w-16 h-16 rounded-2xl border-4 transition-all duration-300",
                              isAura ? pColor : "",
                              teamColor,
-                             p.noBorderEnabled && !room.isTeamMode ? "border-0" : ""
+                             p.noBorderEnabled ? (room.isTeamMode ? "border-2" : "border-0") : "border-4"
                           )} style={{ backgroundColor: isAura ? "" : pColor }} />
                           {p.id === room?.createdBy && <Crown className="absolute -top-6 -right-6 w-10 h-10 text-yellow-500 fill-yellow-500 rotate-12" />}
                           {!p.isReady && (
@@ -2108,8 +2082,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                   </div>
                   {isHost ? (
                     canStart ? (
-                      <Button onClick={startMatch} size="lg" className="cartoon-button bg-primary text-white text-xl px-10 h-14 transition-transform active:scale-95">
-                        <Play className="w-6 h-6 mr-3 fill-current" /> START!
+                      <Button onClick={startMatch} size="lg" className="cartoon-button bg-primary text-white text-lg px-8 h-12 transition-transform active:scale-95">
+                        <Play className="w-5 h-5 mr-2 fill-current" /> START!
                       </Button>
                     ) : (
                       <div className="flex flex-col items-center animate-pulse">
@@ -2158,7 +2132,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
           )}
         </div>
 
-        {/* HUD Taunt Button */}
         {!showLobby && (
           <div className="absolute bottom-6 flex flex-col items-center gap-2 z-50">
             <div className={cn(
@@ -2166,7 +2139,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
               feedback.emojiShakeUntil > nowTick && "animate-shake",
               feedback.emojiFlashRed && "border-destructive bg-destructive/40"
             )}>
-              {/* Cooldown Progress Fill - Deplete horizontally right to left */}
               {isEmojiOnCooldown && (
                 <div 
                   className="absolute inset-0 bg-[#e5e7eb]/40" 
@@ -2191,7 +2163,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                 const msgColorSafe = msg.senderColor || '#3b82f6';
                 const isAura = msgColorSafe?.startsWith?.('aura-');
                 
-                // Find sender team for message color
                 const senderTeam = room?.players?.[msg.senderId]?.team;
                 const teamTextColor = senderTeam === 'A' ? '#f43f5e' : senderTeam === 'B' ? '#3b82f6' : 'white';
 
