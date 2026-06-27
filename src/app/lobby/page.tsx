@@ -263,6 +263,11 @@ export default function LobbyScreen() {
                   </div>
                   <Switch checked={isTeamMode} onCheckedChange={(val) => {
                     setIsTeamMode(val);
+                    if (val) {
+                      // Adjust maxPlayers to valid team counts (4 or 6)
+                      if (maxPlayers < 4) setMaxPlayers(4);
+                      else if (maxPlayers === 5) setMaxPlayers(4);
+                    }
                   }} />
                 </div>
 
@@ -272,15 +277,15 @@ export default function LobbyScreen() {
                       MAX CAPACITY
                     </label>
                     <span className="font-headline text-xl text-primary">
-                      {maxPlayers}
+                      {isTeamMode ? (maxPlayers === 4 ? "2v2" : "3v3") : maxPlayers}
                     </span>
                   </div>
                   <Slider 
                     value={[maxPlayers]} 
                     onValueChange={(v) => setMaxPlayers(v[0])} 
-                    min={2} 
+                    min={isTeamMode ? 4 : 2} 
                     max={6} 
-                    step={1} 
+                    step={isTeamMode ? 2 : 1} 
                     className="py-4" 
                   />
                 </div>
