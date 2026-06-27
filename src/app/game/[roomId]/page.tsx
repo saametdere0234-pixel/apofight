@@ -185,7 +185,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
     const players = Object.values(roomData.players || {});
     const teamCount = players.filter(p => p.team === team).length;
-    const maxPerTeam = (roomData.maxPlayers || 4) / 2;
+    const maxPerTeam = Math.ceil((roomData.maxPlayers || 4) / 2);
 
     if (teamCount >= maxPerTeam) {
       toast({
@@ -1286,6 +1286,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
     ctx.fillRect(0, GROUND_Y * PIXELS_PER_METER, canvas.width, (ARENA_HEIGHT - GROUND_Y) * PIXELS_PER_METER);
 
     const playersData = currentRoom.players || {};
+    const myP_ref = playersData[profileRef.current?.id || ''];
 
     if (playersData) {
       Object.keys(interpPlayersRef.current).forEach(id => {
@@ -1502,7 +1503,14 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       const timeSinceAttack = now - (p.lastAttackTime || 0);
       if (timeSinceAttack < attackDuration) {
         const isLocal = p.id === profileRef.current?.id;
-        const baseColor = isLocal ? '38, 114, 238' : '238, 43, 43'; 
+        const isTeammate = currentRoom.isTeamMode && !isLocal && p.team === myP_ref?.team;
+        const isEnemy = currentRoom.isTeamMode && p.team !== myP_ref?.team;
+
+        let baseColor = '38, 114, 238'; // Default blue (legacy or fallback)
+        if (isLocal) baseColor = '74, 222, 128'; // Green
+        else if (isTeammate) baseColor = '59, 130, 246'; // Blue
+        else if (isEnemy) baseColor = '244, 63, 94'; // Red
+
         let opacity = 0.7;
         if (timeSinceAttack > 400) opacity = 0.7 * (1 - (timeSinceAttack - 400) / 100);
         const centerX = px + pw / 2;
@@ -1715,7 +1723,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       ctx.font = 'bold 12px Luckiest Guy'; ctx.textAlign = 'center';
       
       const pColorSafe = p.color || '#3b82f6';
-      if (pColorSafe.startsWith?.('aura-')) {
+      if (pColorSafe?.startsWith?.('aura-')) {
         const t = (now % 3000) / 3000;
         const grad = ctx.createLinearGradient(px, py - 35, px + pw, py - 20);
         if (pColorSafe === 'aura-g1') { grad.addColorStop(t, '#8A2387'); grad.addColorStop((t+0.5)%1, '#E94057'); }
@@ -1816,7 +1824,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       canStart = false;
     }
     
-    if ((redCount > 1 && blueCount === 0) || (blueCount > 1 && redCount === 0)) {
+    // Specifically 2v0 or 3v0 triggers unfair text per request
+    if ((redCount >= 2 && blueCount === 0) || (blueCount >= 2 && redCount === 0)) {
       unfairTeams = true;
     }
   }
@@ -1872,7 +1881,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
       {authUser && <FriendsSidebar currentRoomId={roomId} />}
 
       {playerCount === 1 && (
-        <div className="w-full bg-red-600 py-2 border-b-4 border-black text-center z-[100]">
+        <div className="w-full bg-red-600 py-2 border-b-4 border-black text-center z-[100] animate-in slide-in-from-top duration-500">
           <span className="font-headline text-2xl text-white tracking-widest drop-shadow-[2px_2px_0px_rgba(0,0,0,1)]">YOU&apos;RE ALONE</span>
         </div>
       )}
@@ -2050,7 +2059,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                         const players = Object.values(room.players || {});
                         const redCount = players.filter(p => p.team === 'A').length;
                         const blueCount = players.filter(p => p.team === 'B').length;
-                        const maxPerTeam = (room.maxPlayers || 4) / 2;
+                        const maxPerTeam = Math.ceil((room.maxPlayers || 4) / 2);
                         
                         return (
                           <>
@@ -2116,7 +2125,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                   </div>
                   {isHost ? (
                     canStart ? (
-                      <Button onClick={startMatch} size="lg" className="cartoon-button bg-primary text-white text-lg px-8 h-12 transition-transform active:scale-95">
+                      <Button onClick={startMatch} size="sm" className="cartoon-button bg-primary text-white text-lg px-8 h-10 transition-transform active:scale-95">
                         <Play className="w-5 h-5 mr-2 fill-current" /> START!
                       </Button>
                     ) : (
