@@ -261,9 +261,14 @@ export default function LobbyScreen() {
                 <div className="flex items-center justify-between bg-black/40 p-4 rounded-xl border-2 border-black">
                   <div className="flex flex-col">
                     <Label className="font-headline text-sm text-white">TEAM</Label>
-                    <span className="text-[10px] font-bold text-white/40 uppercase">FRIENDLY FIRE OFF</span>
                   </div>
-                  <Switch checked={isTeamMode} onCheckedChange={setIsTeamMode} />
+                  <Switch checked={isTeamMode} onCheckedChange={(val) => {
+                    setIsTeamMode(val);
+                    if (val) {
+                      if (maxPlayers < 4) setMaxPlayers(4);
+                      else if (maxPlayers === 5) setMaxPlayers(6);
+                    }
+                  }} />
                 </div>
 
                 <div className="space-y-4">
@@ -272,13 +277,13 @@ export default function LobbyScreen() {
                       MAX CAPACITY
                     </label>
                     <span className="font-headline text-xl text-primary">
-                      {maxPlayers}
+                      {isTeamMode ? (maxPlayers === 4 ? '2V2' : '3V3') : maxPlayers}
                     </span>
                   </div>
                   <Slider 
                     value={[maxPlayers]} 
                     onValueChange={(v) => setMaxPlayers(v[0])} 
-                    min={2} 
+                    min={isTeamMode ? 4 : 2} 
                     max={6} 
                     step={isTeamMode ? 2 : 1} 
                     className="py-4" 

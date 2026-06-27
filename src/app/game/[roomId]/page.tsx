@@ -1868,6 +1868,9 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
   const emojiCooldownProgress = myP ? Math.max(0, Math.min(100, (1 - Math.max(0, (myP.emojiCooldownUntil || 0) - now) / EMOJI_COOLDOWN) * 100)) : 100;
   const isEmojiOnCooldown = myP && now < (myP.emojiCooldownUntil || 0);
 
+  const teamAPlayers = room?.players ? Object.values(room.players).filter(p => p.team === 'A') : [];
+  const teamBPlayers = room?.players ? Object.values(room.players).filter(p => p.team === 'B') : [];
+
   return (
     <div className={cn(
       "min-h-screen bg-transparent overflow-hidden flex flex-col items-center select-none transition-all duration-500",
@@ -1914,66 +1917,81 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
               <ArrowLeft className="w-5 h-5 mr-2" /> {isLocked ? 'IN COMBAT' : 'QUIT'}
             </Button>
           </div>
-          <div className="flex items-center gap-4 overflow-x-auto max-w-[70vw] scrollbar-hide px-4">
+          
+          <div className="flex items-center justify-center w-full max-w-4xl px-4">
             {room?.isTeamMode ? (
               <div className="flex items-center gap-10">
-                <div className="flex flex-col items-center">
-                   <span className="font-headline text-red-500 text-sm">RED TEAM</span>
-                   <div className="flex items-center gap-2">
-                     <span className="text-4xl font-headline text-white">{room.teamAScore || 0}</span>
-                     <div className="flex gap-1">
-                       {[1,2,3].map(i => (
-                         <div key={i} className={cn("w-3 h-3 rounded-full border-2 border-black", i <= (room.teamAScore || 0) ? "bg-red-500" : "bg-white/10")} />
-                       ))}
-                     </div>
-                   </div>
+                {/* Team Red (Team A) */}
+                <div className="flex items-center gap-6">
+                  <div className="flex flex-col items-end gap-0.5 min-w-[120px]">
+                    {teamAPlayers.slice(0, 3).map(p => (
+                      <span key={p.id} className="font-headline text-sm truncate w-full text-right" style={{ color: '#f43f5e', WebkitTextStroke: '0.5px black' }}>{p.name}</span>
+                    ))}
+                  </div>
+                  <div className="flex flex-col items-center gap-2 bg-red-600/30 border-4 border-red-500 rounded-2xl p-2 px-6 shadow-[inset_0_0_20px_rgba(244,63,94,0.3)]">
+                    <div className="flex gap-2">
+                      {[1, 2, 3].map(i => (
+                        <div key={i} className={cn("w-5 h-5 rounded-full border-2 border-black transition-all duration-300", i <= (room.teamAScore || 0) ? "bg-red-500 shadow-[0_0_12px_#f43f5e]" : "bg-white/5")} />
+                      ))}
+                    </div>
+                    <span className="font-headline text-red-500 text-[10px] tracking-widest">RED TEAM</span>
+                  </div>
                 </div>
-                <div className="text-2xl font-headline text-white/40">VS</div>
-                <div className="flex flex-col items-center">
-                   <span className="font-headline text-blue-500 text-sm">BLUE TEAM</span>
-                   <div className="flex items-center gap-2">
-                     <div className="flex gap-1">
-                       {[1,2,3].map(i => (
-                         <div key={i} className={cn("w-3 h-3 rounded-full border-2 border-black", i <= (room.teamBScore || 0) ? "bg-blue-500" : "bg-white/10")} />
-                       ))}
-                     </div>
-                     <span className="text-4xl font-headline text-white">{room.teamBScore || 0}</span>
-                   </div>
+
+                <div className="text-4xl font-headline text-white/40 italic px-4 select-none">VS</div>
+
+                {/* Team Blue (Team B) */}
+                <div className="flex items-center gap-6">
+                  <div className="flex flex-col items-center gap-2 bg-blue-600/30 border-4 border-blue-500 rounded-2xl p-2 px-6 shadow-[inset_0_0_20px_rgba(59,130,246,0.3)]">
+                    <div className="flex gap-2">
+                      {[1, 2, 3].map(i => (
+                        <div key={i} className={cn("w-5 h-5 rounded-full border-2 border-black transition-all duration-300", i <= (room.teamBScore || 0) ? "bg-blue-500 shadow-[0_0_12px_#3b82f6]" : "bg-white/5")} />
+                      ))}
+                    </div>
+                    <span className="font-headline text-blue-500 text-[10px] tracking-widest">BLUE TEAM</span>
+                  </div>
+                  <div className="flex flex-col items-start gap-0.5 min-w-[120px]">
+                    {teamBPlayers.slice(0, 3).map(p => (
+                      <span key={p.id} className="font-headline text-sm truncate w-full text-left" style={{ color: '#3b82f6', WebkitTextStroke: '0.5px black' }}>{p.name}</span>
+                    ))}
+                  </div>
                 </div>
               </div>
             ) : (
-              room?.players && Object.values(room.players).map(p => {
-                const pColor = p.color || '#3b82f6';
-                const isAura = pColor?.startsWith?.('aura-');
-                return (
-                  <div key={p.id} className={cn("flex items-center gap-3 bg-white/5 border-2 rounded-[15px] p-2 px-4 min-w-[180px]", "border-white/20")}>
-                    <div className="flex flex-col items-start gap-0.5 flex-1">
-                      <div className="flex items-center gap-2">
-                        <WeaponIcon weapon={p.weaponClass as WeaponClass} className="w-7 h-7 text-xl" />
-                        <span 
-                          className={cn(
-                            "font-headline text-lg truncate max-w-[100px]",
-                            isAura ? pColor : ""
-                          )} 
-                          style={{ 
-                            color: isAura ? 'transparent' : pColor, 
-                            backgroundClip: isAura ? 'text' : 'none',
-                            WebkitBackgroundClip: isAura ? 'text' : 'none',
-                          }}
-                        >
-                          {p.name}
-                        </span>
-                        {p.id === room?.createdBy && <Crown className="w-5 h-5 text-yellow-500 fill-yellow-500" />}
-                      </div>
-                      <div className="flex gap-1.5 mt-1">
-                        {[1, 2, 3].map(i => (
-                          <div key={i} className={`w-3.5 h-3.5 rounded-full border-2 border-black transition-all duration-300 ${i <= (p.roundsWon || 0) ? 'bg-yellow-500' : 'bg-white/10'}`} />
-                        ))}
+              <div className="flex items-center gap-4 overflow-hidden scrollbar-hide px-4">
+                {room?.players && Object.values(room.players).map(p => {
+                  const pColor = p.color || '#3b82f6';
+                  const isAura = pColor?.startsWith?.('aura-');
+                  return (
+                    <div key={p.id} className={cn("flex items-center gap-3 bg-white/5 border-2 rounded-[15px] p-2 px-4 min-w-[180px]", "border-white/20")}>
+                      <div className="flex flex-col items-start gap-0.5 flex-1">
+                        <div className="flex items-center gap-2">
+                          <WeaponIcon weapon={p.weaponClass as WeaponClass} className="w-7 h-7 text-xl" />
+                          <span 
+                            className={cn(
+                              "font-headline text-lg truncate max-w-[100px]",
+                              isAura ? pColor : ""
+                            )} 
+                            style={{ 
+                              color: isAura ? 'transparent' : pColor, 
+                              backgroundClip: isAura ? 'text' : 'none',
+                              WebkitBackgroundClip: isAura ? 'text' : 'none',
+                            }}
+                          >
+                            {p.name}
+                          </span>
+                          {p.id === room?.createdBy && <Crown className="w-5 h-5 text-yellow-500 fill-yellow-500" />}
+                        </div>
+                        <div className="flex gap-1.5 mt-1">
+                          {[1, 2, 3].map(i => (
+                            <div key={i} className={`w-3.5 h-3.5 rounded-full border-2 border-black transition-all duration-300 ${i <= (p.roundsWon || 0) ? 'bg-yellow-500' : 'bg-white/10'}`} />
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })
+                  );
+                })}
+              </div>
             )}
           </div>
         </header>
@@ -2085,8 +2103,8 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
                   </div>
                   {isHost ? (
                     canStart ? (
-                      <Button onClick={startMatch} size="lg" className="cartoon-button bg-primary text-white text-3xl px-20 h-24">
-                        <Play className="w-10 h-10 mr-4 fill-current" /> START!
+                      <Button onClick={startMatch} size="lg" className="cartoon-button bg-primary text-white text-2xl px-12 h-16 transition-transform active:scale-95">
+                        <Play className="w-6 h-6 mr-3 fill-current" /> START!
                       </Button>
                     ) : (
                       <div className="flex flex-col items-center animate-pulse">
