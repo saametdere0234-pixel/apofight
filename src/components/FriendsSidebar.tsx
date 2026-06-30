@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -8,7 +7,7 @@ import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Users, Plus, X, ArrowRight, Bell, ChevronLeft, ChevronRight, Send, Gamepad2, UserX, Info, Check } from 'lucide-react';
+import { Users, Plus, X, ArrowRight, Bell, ChevronLeft, ChevronRight, Send, Gamepad2, UserX, Info, Check, Wallet } from 'lucide-react';
 import { PlayerProfile, GameInvitation } from '@/lib/game-types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -136,7 +135,6 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
       
       setSearchStatus('Request sent');
 
-      // Listen for the response to show a toast
       const listenerRef = ref(db, invitePath);
       onValue(listenerRef, (snapshot) => {
         const data = snapshot.val() as GameInvitation;
@@ -203,7 +201,6 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
         
         await update(ref(db), updates);
       }
-      // Update the invite status so the sender knows it was accepted
       await update(ref(db, `invitations/${profile.id}/${inviteId}`), { status: 'accepted' });
     }
   };
@@ -557,14 +554,24 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
                 )} />
               </div>
               
-              <div className="flex flex-col items-center text-center gap-2">
-                <span className="font-headline text-2xl text-white">{selectedFriend.name}</span>
-                <div className="flex flex-col items-center bg-black/40 px-4 py-2 rounded-xl border border-white/10 w-full">
-                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">PLAYER ID</span>
-                  <span className="font-headline text-lg text-accent">#{selectedFriend.playerId}</span>
+              <div className="flex flex-col items-center text-center gap-2 w-full">
+                <span className="font-headline text-2xl text-white truncate max-w-full">{selectedFriend.name}</span>
+                
+                <div className="grid grid-cols-1 gap-2 w-full mt-2">
+                  <div className="flex flex-col items-center bg-black/40 px-4 py-2 rounded-xl border border-white/10 w-full">
+                    <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">PLAYER ID</span>
+                    <span className="font-headline text-lg text-accent">#{selectedFriend.playerId}</span>
+                  </div>
+
+                  <div className="flex flex-col items-center bg-black/40 px-4 py-2 rounded-xl border border-white/10 w-full">
+                    <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1">
+                      <Wallet className="w-3 h-3" /> GOLD BALANCE
+                    </span>
+                    <span className="font-headline text-lg text-yellow-500">{selectedFriend.gold || 0} G</span>
+                  </div>
                 </div>
                 
-                <div className="flex items-center gap-2 mt-2">
+                <div className="flex items-center gap-2 mt-4">
                   <div className={cn(
                     "w-3 h-3 rounded-full",
                     selectedFriend.isOnline ? "bg-green-500" : "bg-zinc-600"
