@@ -7,11 +7,11 @@ import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Users, Plus, X, ArrowRight, Bell, ChevronLeft, ChevronRight, Send, Gamepad2, UserX, Info, Check, Wallet, Quote } from 'lucide-react';
+import { Users, Plus, X, ArrowRight, Bell, ChevronLeft, ChevronRight, Send, UserX, Wallet } from 'lucide-react';
 import { PlayerProfile, GameInvitation } from '@/lib/game-types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'navigation';
 
 export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
   const { profile, authUser } = useLocalPlayer();
@@ -559,9 +559,7 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
                 
                 {selectedFriend.bio && (
                   <div className="flex flex-col items-center gap-1 w-full bg-black/40 p-3 rounded-xl border border-white/5 italic">
-                    <Quote className="w-3 h-3 text-primary/40 self-start" />
                     <p className="text-xs text-white/80 font-medium break-words w-full">{selectedFriend.bio}</p>
-                    <Quote className="w-3 h-3 text-primary/40 self-end rotate-180" />
                   </div>
                 )}
 

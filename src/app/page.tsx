@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { User, Zap, LogOut, Wallet, Fingerprint, Swords, Quote } from 'lucide-react';
+import { User, Zap, LogOut, Wallet, Fingerprint, Swords } from 'lucide-react';
 import { WeaponClass } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -35,6 +35,7 @@ export default function EntryScreen() {
   const { profile, updateProfile, authUser, loading } = useLocalPlayer();
   const router = useRouter();
   const [bioInput, setBioInput] = useState(profile?.bio || '');
+  const [isEditingBio, setIsEditingBio] = useState(false);
 
   if (loading || !profile) {
     return (
@@ -114,24 +115,39 @@ export default function EntryScreen() {
               <DropdownMenuSeparator className="bg-white/10" />
               <div className="space-y-4 py-2">
                 <div className="flex flex-col gap-2">
-                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1">
-                    <Quote className="w-3 h-3" /> PERSONAL BIO (60 CHARS)
+                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
+                    BIO {bioInput.length}/60
                   </span>
-                  <div className="space-y-2">
+                  <div className="flex items-start gap-2">
                     <Textarea 
                       value={bioInput}
                       onChange={(e) => setBioInput(e.target.value.substring(0, 60))}
-                      placeholder="SET YOUR BIO..."
-                      className="bg-black/40 border-2 border-black rounded-xl text-xs min-h-[60px] resize-none focus-visible:ring-primary h-auto"
+                      placeholder="ENTER TEXT HERE.."
+                      className={cn(
+                        "bg-black/40 border-2 border-black rounded-xl text-xs min-h-[40px] resize-none focus-visible:ring-primary h-auto flex-1 transition-opacity",
+                        !isEditingBio && "opacity-60 cursor-not-allowed"
+                      )}
                       maxLength={60}
+                      disabled={!isEditingBio}
                     />
-                    <Button 
-                      onClick={handleUpdateBio}
-                      size="sm"
-                      className="cartoon-button bg-primary text-white w-full h-8 text-[10px]"
-                    >
-                      SAVE BIO
-                    </Button>
+                    {!isEditingBio ? (
+                      <Button 
+                        onClick={() => setIsEditingBio(true)}
+                        className="cartoon-button bg-primary text-white h-10 px-3 text-[10px]"
+                      >
+                        EDIT
+                      </Button>
+                    ) : (
+                      <Button 
+                        onClick={() => {
+                          handleUpdateBio();
+                          setIsEditingBio(false);
+                        }}
+                        className="cartoon-button bg-green-600 text-white h-10 px-3 text-[10px]"
+                      >
+                        ENTER
+                      </Button>
+                    )}
                   </div>
                 </div>
 

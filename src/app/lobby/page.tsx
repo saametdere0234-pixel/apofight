@@ -6,10 +6,10 @@ import { ref, onValue, push, set, remove } from 'firebase/database';
 import { signOut } from 'firebase/auth';
 import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Users, ArrowRight, Home, LayoutGrid, ShieldAlert, LogOut, Wallet, Fingerprint, Zap, Search, Swords, Quote } from 'lucide-react';
+import { Plus, Users, ArrowRight, Home, LayoutGrid, ShieldAlert, LogOut, Wallet, Fingerprint, Zap, Search, Swords } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { GameRoom, WeaponClass } from '@/lib/game-types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -46,6 +46,7 @@ export default function LobbyScreen() {
   const [activeSearch, setActiveSearch] = useState('');
   const [pulseTrigger, setPulseTrigger] = useState(0);
   const [bioInput, setBioInput] = useState(profile?.bio || '');
+  const [isEditingBio, setIsEditingBio] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -179,7 +180,7 @@ export default function LobbyScreen() {
         <div className="fixed top-6 right-6 z-[100] animate-in slide-in-from-top-4 fade-in duration-500">
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
-              <div id="user-profile" className="relative flex items-center gap-4 bg-black/60 backdrop-blur-md p-2 pl-4 rounded-full border-4 border-black shadow-[4px_4px_0px_rgba(0,0,0,1)] cursor-pointer hover:bg-black/80 transition-colors">
+              <div id="user-profile" className="relative flex items-center gap-4 bg-black/60 backdrop-blur-md p-2 pl-4 rounded-full border-4 border-black shadow-[4px_4px_0_rgba(0,0,0,1)] cursor-pointer hover:bg-black/80 transition-colors">
                 <span id="user-name" className="font-headline text-lg text-white" style={{ WebkitTextStroke: '1px black' }}>{authUser?.displayName}</span>
                 <Avatar className="w-10 h-10 border-2 border-white/20">
                   <AvatarImage id="user-pic" src={authUser?.photoURL || undefined} className="rounded-full" />
@@ -192,24 +193,39 @@ export default function LobbyScreen() {
               <DropdownMenuSeparator className="bg-white/10" />
               <div className="space-y-4 py-2">
                 <div className="flex flex-col gap-2">
-                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1">
-                    <Quote className="w-3 h-3" /> PERSONAL BIO (60 CHARS)
+                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
+                    BIO {bioInput.length}/60
                   </span>
-                  <div className="space-y-2">
+                  <div className="flex items-start gap-2">
                     <Textarea 
                       value={bioInput}
                       onChange={(e) => setBioInput(e.target.value.substring(0, 60))}
-                      placeholder="SET YOUR BIO..."
-                      className="bg-black/40 border-2 border-black rounded-xl text-xs min-h-[60px] resize-none focus-visible:ring-primary h-auto"
+                      placeholder="ENTER TEXT HERE.."
+                      className={cn(
+                        "bg-black/40 border-2 border-black rounded-xl text-xs min-h-[40px] resize-none focus-visible:ring-primary h-auto flex-1 transition-opacity",
+                        !isEditingBio && "opacity-60 cursor-not-allowed"
+                      )}
                       maxLength={60}
+                      disabled={!isEditingBio}
                     />
-                    <Button 
-                      onClick={handleUpdateBio}
-                      size="sm"
-                      className="cartoon-button bg-primary text-white w-full h-8 text-[10px]"
-                    >
-                      SAVE BIO
-                    </Button>
+                    {!isEditingBio ? (
+                      <Button 
+                        onClick={() => setIsEditingBio(true)}
+                        className="cartoon-button bg-primary text-white h-10 px-3 text-[10px]"
+                      >
+                        EDIT
+                      </Button>
+                    ) : (
+                      <Button 
+                        onClick={() => {
+                          handleUpdateBio();
+                          setIsEditingBio(false);
+                        }}
+                        className="cartoon-button bg-green-600 text-white h-10 px-3 text-[10px]"
+                      >
+                        ENTER
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -265,7 +281,7 @@ export default function LobbyScreen() {
           
           {!authUser && (
             <div className="flex items-center gap-6 bg-black/40 backdrop-blur-md p-3 rounded-[25px] border-4 border-black px-8">
-              <div className="p-2 bg-black/40 rounded-xl border-2 border-white/10 shadow-[2px_2px_0px_rgba(0,0,0,1)]">
+              <div className="p-2 bg-black/40 rounded-xl border-2 border-white/10 shadow-[2px_2px_0_rgba(0,0,0,1)]">
                 <WeaponIcon weapon={profile.weaponClass} className="w-10 h-10 text-3xl" />
               </div>
               <div className="flex flex-col items-start">
@@ -298,7 +314,6 @@ export default function LobbyScreen() {
                   <Switch checked={isTeamMode} onCheckedChange={(val) => {
                     setIsTeamMode(val);
                     if (val) {
-                      // Adjust maxPlayers to valid team counts (4 or 6)
                       if (maxPlayers < 4) setMaxPlayers(4);
                       else if (maxPlayers === 5) setMaxPlayers(4);
                     }
