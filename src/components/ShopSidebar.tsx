@@ -19,29 +19,29 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export const BATTLE_AURAS = [
-  { id: '#ef4444', label: 'Crimson' },
-  { id: '#f97316', label: 'Sunset' },
-  { id: '#ec4899', label: 'Barbie' },
-  { id: '#a855f7', label: 'Magic' },
-  { id: '#3b82f6', label: 'Ocean' },
-  { id: '#ffffff', label: 'Pure' },
-  { id: '#78350f', label: 'Earth' },
-  { id: '#22c55e', label: 'Slime' },
+  { id: '#ef4444', label: 'Red' },
+  { id: '#f97316', label: 'Orange' },
+  { id: '#ec4899', label: 'Pink' },
+  { id: '#a855f7', label: 'Purple' },
+  { id: '#3b82f6', label: 'Blue' },
+  { id: '#ffffff', label: 'White' },
+  { id: '#78350f', label: 'Brown' },
+  { id: '#22c55e', label: 'Green' },
 ];
 
 export const PREMIUM_AURAS = [
-  { id: 'aura-g1', label: 'Mystic Berry', class: 'aura-g1' },
-  { id: 'aura-g3', label: 'Flaming Sun', class: 'aura-g3' },
+  { id: 'aura-g1', label: 'Lightrose', class: 'aura-g1' },
+  { id: 'aura-g3', label: 'Fire on me', class: 'aura-g3' },
   { id: 'aura-g4', label: 'Emerald Mint', class: 'aura-g4' },
-  { id: 'aura-g5', label: 'Night Mist', class: 'aura-g5' },
-  { id: 'aura-g6', label: 'Deep Ocean', class: 'aura-g6' },
-  { id: 'aura-g7', label: 'Royal Violet', class: 'aura-g7' },
-  { id: 'aura-g9', label: 'Space Abyss', class: 'aura-g9' },
-  { id: 'aura-g10', label: 'Neon Velvet', class: 'aura-g10' },
+  { id: 'aura-g5', label: 'Graydient', class: 'aura-g5' },
+  { id: 'aura-g6', label: 'Turquoise', class: 'aura-g6' },
+  { id: 'aura-g7', label: 'Gum', class: 'aura-g7' },
+  { id: 'aura-g9', label: 'Nightforce', class: 'aura-g9' },
+  { id: 'aura-g10', label: 'Gradlet', class: 'aura-g10' },
 ];
 
 export const SHOP_TAUNTS = [
-  { id: '😂', label: 'Joy' },
+  { id: '😂', label: 'Mock' },
   { id: '😎', label: 'Cool' },
   { id: '😶‍🌫️', label: 'Haze' },
   { id: '😱', label: 'Shock' },
@@ -142,7 +142,6 @@ export function ShopSidebar() {
           <div 
             className="flex-1 overflow-y-auto pr-2 space-y-8 custom-scrollbar overscroll-contain pb-10"
           >
-            {/* TAUNTS */}
             <section className="space-y-4">
               <div className="flex justify-between items-center">
                 <h4 className="font-headline text-sm text-white/40 uppercase tracking-widest flex items-center gap-2">
@@ -174,7 +173,6 @@ export function ShopSidebar() {
               </div>
             </section>
 
-            {/* COLOURS */}
             <section className="space-y-4">
               <h4 className="font-headline text-sm text-white/40 uppercase tracking-widest flex items-center gap-2">
                 <Palette className="w-4 h-4" /> COLOURS
@@ -205,7 +203,6 @@ export function ShopSidebar() {
                 {PREMIUM_AURAS.map((a, idx) => {
                   const isUnlocked = (profile.unlockedAuras || []).includes(a.id);
                   const isSelected = profile.color === a.id;
-                  // Add a random animation delay to prevent synchronization
                   const randomDelay = (idx * 0.3) % 2; 
                   return (
                     <div key={a.id} className="flex flex-col items-center gap-1">
@@ -228,7 +225,6 @@ export function ShopSidebar() {
               </div>
             </section>
 
-            {/* NO BORDER SECTION */}
             <section className="space-y-4 pt-4 border-t border-white/10">
               <div className="flex items-center justify-between bg-black/40 p-4 rounded-[20px] border-4 border-black group">
                 <div className="flex items-center gap-3">

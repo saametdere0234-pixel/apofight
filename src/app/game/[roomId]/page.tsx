@@ -208,12 +208,25 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
 
   useEffect(() => {
     if (!db || !profile?.id || !roomId) return;
+
+    const handleForcedExit = () => {
+      if (!db || !roomId || !profile?.id) return;
+      remove(ref(db, `rooms/${roomId}/players/${profile.id}`));
+      update(ref(db, `players/${profile.id}`), { currentRoomId: null });
+    };
+
+    window.addEventListener('beforeunload', handleForcedExit);
+
     const profileDbRef = ref(db, `players/${profile.id}`);
     update(profileDbRef, { currentRoomId: roomId });
     onDisconnect(profileDbRef).update({ currentRoomId: null });
     
     return () => {
+      window.removeEventListener('beforeunload', handleForcedExit);
       update(profileDbRef, { currentRoomId: null });
+      if (db && roomId && profile?.id) {
+        remove(ref(db, `rooms/${roomId}/players/${profile.id}`));
+      }
     };
   }, [profile?.id, roomId]);
 
