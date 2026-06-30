@@ -538,7 +538,7 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
                 >
                   <ChevronLeft className="w-6 h-6" />
                 </button>
-                <h3 className="font-headline text-2xl text-primary uppercase">WARRIOR INFO</h3>
+                <h3 className="font-headline text-2xl text-primary uppercase">PROFILE INFO</h3>
               </div>
             </div>
 
@@ -569,16 +569,6 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
                     </span>
                     <span className="font-headline text-lg text-yellow-500">{selectedFriend.gold || 0} G</span>
                   </div>
-                </div>
-                
-                <div className="flex items-center gap-2 mt-4">
-                  <div className={cn(
-                    "w-3 h-3 rounded-full",
-                    selectedFriend.isOnline ? "bg-green-500" : "bg-zinc-600"
-                  )} />
-                  <span className="text-[10px] font-bold text-white uppercase tracking-tighter">
-                    {selectedFriend.isOnline ? (selectedFriend.currentRoomId ? 'IN COMBAT' : 'ONLINE') : 'OFFLINE'}
-                  </span>
                 </div>
               </div>
 

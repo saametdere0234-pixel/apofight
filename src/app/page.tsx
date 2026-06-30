@@ -287,9 +287,9 @@ export default function EntryScreen() {
           </div>
         </div>
 
-        <div className="flex justify-center pt-8">
+        <div className="flex justify-center pt-2">
           <Button 
-            className="cartoon-button bg-primary text-white w-full max-w-[320px] h-16 text-2xl hover:scale-105 active:scale-95 shadow-[0_4px_15px_rgba(59,130,246,0.3)]"
+            className="cartoon-button bg-primary text-white w-full max-w-[280px] h-14 text-xl hover:scale-105 active:scale-95 shadow-[0_4px_15px_rgba(59,130,246,0.3)]"
             onClick={handlePlay}
             disabled={!profile.name.trim()}
           >
