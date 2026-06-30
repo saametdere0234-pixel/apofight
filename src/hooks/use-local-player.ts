@@ -64,7 +64,7 @@ export function useLocalPlayer() {
             needsUpdate = true;
           }
           if (!existingProfile.bio) {
-            updates.bio = "Hi, im a New!";
+            updates.bio = "Hi, im New!";
             needsUpdate = true;
           }
 
@@ -88,7 +88,7 @@ export function useLocalPlayer() {
             isOnline: true,
             unlockedTaunts: ['😂'],
             selectedTaunt: '😂',
-            bio: "Hi, im a New!"
+            bio: "Hi, im New!"
           };
           await set(userRef, newProfile);
           await set(ref(db, `playerIds/${newPlayerId}`), user.uid);
@@ -125,7 +125,7 @@ export function useLocalPlayer() {
             guestProfile.playerId = await generateUniquePlayerId();
           }
           if (!guestProfile.bio) {
-            guestProfile.bio = "Hi, im a New!";
+            guestProfile.bio = "Hi, im New!";
           }
         } else {
           const id = "guest_" + Math.random().toString(36).substring(2, 15);
@@ -140,7 +140,7 @@ export function useLocalPlayer() {
             isOnline: true,
             unlockedTaunts: ['😂'],
             selectedTaunt: '😂',
-            bio: "Hi, im a New!"
+            bio: "Hi, im New!"
           };
         }
 
