@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { User, Zap, LogOut, Wallet, Fingerprint, Swords } from 'lucide-react';
+import { User, Zap, LogOut, Wallet, Fingerprint, Swords, Pencil, CornerDownLeft } from 'lucide-react';
 import { WeaponClass } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -34,8 +34,14 @@ const WeaponIcon = ({ weapon, className = "w-8 h-8" }: { weapon: WeaponClass; cl
 export default function EntryScreen() {
   const { profile, updateProfile, authUser, loading } = useLocalPlayer();
   const router = useRouter();
-  const [bioInput, setBioInput] = useState(profile?.bio || '');
+  const [bioInput, setBioInput] = useState('');
   const [isEditingBio, setIsEditingBio] = useState(false);
+
+  useEffect(() => {
+    if (profile?.bio) {
+      setBioInput(profile.bio);
+    }
+  }, [profile?.bio]);
 
   if (loading || !profile) {
     return (
@@ -67,6 +73,11 @@ export default function EntryScreen() {
     router.push('/lobby');
   };
 
+  const handleUpdateBio = () => {
+    updateProfile({ bio: bioInput.substring(0, 60) });
+    setIsEditingBio(false);
+  };
+
   const weapons: { id: WeaponClass; desc: string }[] = [
     { 
       id: 'Sword', 
@@ -84,10 +95,6 @@ export default function EntryScreen() {
 
   const currentTaunt = SHOP_TAUNTS.find(t => t.id === profile.selectedTaunt) || SHOP_TAUNTS[0];
   const currentColorName = [...BATTLE_AURAS, ...PREMIUM_AURAS].find(a => a.id === profile.color)?.label || "Arena Identity";
-
-  const handleUpdateBio = () => {
-    updateProfile({ bio: bioInput.substring(0, 60) });
-  };
 
   return (
     <div className="min-h-screen bg-[#1a1a2e] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
@@ -115,40 +122,31 @@ export default function EntryScreen() {
               <DropdownMenuSeparator className="bg-white/10" />
               <div className="space-y-4 py-2">
                 <div className="flex flex-col gap-2">
-                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
-                    BIO {bioInput.length}/60
-                  </span>
-                  <div className="flex items-start gap-2">
-                    <Textarea 
-                      value={bioInput}
-                      onChange={(e) => setBioInput(e.target.value.substring(0, 60))}
-                      placeholder="ENTER TEXT HERE.."
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
+                      BIO {bioInput.length}/60
+                    </span>
+                    <Button 
+                      onClick={() => isEditingBio ? handleUpdateBio() : setIsEditingBio(true)}
                       className={cn(
-                        "bg-black/40 border-2 border-black rounded-xl text-xs min-h-[40px] resize-none focus-visible:ring-primary h-auto flex-1 transition-opacity",
-                        !isEditingBio && "opacity-60 cursor-not-allowed"
+                        "cartoon-button w-8 h-8 p-0 min-w-0 rounded-lg",
+                        isEditingBio ? "bg-primary" : "bg-zinc-600"
                       )}
-                      maxLength={60}
-                      disabled={!isEditingBio}
-                    />
-                    {!isEditingBio ? (
-                      <Button 
-                        onClick={() => setIsEditingBio(true)}
-                        className="cartoon-button bg-primary text-white h-10 px-3 text-[10px]"
-                      >
-                        EDIT
-                      </Button>
-                    ) : (
-                      <Button 
-                        onClick={() => {
-                          handleUpdateBio();
-                          setIsEditingBio(false);
-                        }}
-                        className="cartoon-button bg-green-600 text-white h-10 px-3 text-[10px]"
-                      >
-                        ENTER
-                      </Button>
-                    )}
+                    >
+                      {isEditingBio ? <CornerDownLeft className="w-4 h-4 text-white" /> : <Pencil className="w-4 h-4 text-white" />}
+                    </Button>
                   </div>
+                  <Textarea 
+                    value={bioInput}
+                    onChange={(e) => setBioInput(e.target.value.substring(0, 60))}
+                    placeholder="ENTER TEXT HERE.."
+                    className={cn(
+                      "transition-all duration-300 rounded-xl text-xs min-h-[40px] resize-none focus-visible:ring-primary h-auto flex-1",
+                      !isEditingBio ? "bg-zinc-800/60 opacity-60 scale-95 cursor-not-allowed border-black/40" : "bg-black/40 border-2 border-black opacity-100 scale-100"
+                    )}
+                    maxLength={60}
+                    disabled={!isEditingBio}
+                  />
                 </div>
 
                 <div className="flex flex-col gap-1">

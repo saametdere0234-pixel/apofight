@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Users, ArrowRight, Home, LayoutGrid, ShieldAlert, LogOut, Wallet, Fingerprint, Zap, Search, Swords } from 'lucide-react';
+import { Plus, Users, ArrowRight, Home, LayoutGrid, ShieldAlert, LogOut, Wallet, Fingerprint, Zap, Search, Swords, Pencil, CornerDownLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { GameRoom, WeaponClass } from '@/lib/game-types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -45,7 +45,7 @@ export default function LobbyScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSearch, setActiveSearch] = useState('');
   const [pulseTrigger, setPulseTrigger] = useState(0);
-  const [bioInput, setBioInput] = useState(profile?.bio || '');
+  const [bioInput, setBioInput] = useState('');
   const [isEditingBio, setIsEditingBio] = useState(false);
   const router = useRouter();
 
@@ -149,6 +149,7 @@ export default function LobbyScreen() {
 
   const handleUpdateBio = () => {
     updateProfile({ bio: bioInput.substring(0, 60) });
+    setIsEditingBio(false);
   };
 
   if (profileLoading || !profile) {
@@ -193,40 +194,31 @@ export default function LobbyScreen() {
               <DropdownMenuSeparator className="bg-white/10" />
               <div className="space-y-4 py-2">
                 <div className="flex flex-col gap-2">
-                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
-                    BIO {bioInput.length}/60
-                  </span>
-                  <div className="flex items-start gap-2">
-                    <Textarea 
-                      value={bioInput}
-                      onChange={(e) => setBioInput(e.target.value.substring(0, 60))}
-                      placeholder="ENTER TEXT HERE.."
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
+                      BIO {bioInput.length}/60
+                    </span>
+                    <Button 
+                      onClick={() => isEditingBio ? handleUpdateBio() : setIsEditingBio(true)}
                       className={cn(
-                        "bg-black/40 border-2 border-black rounded-xl text-xs min-h-[40px] resize-none focus-visible:ring-primary h-auto flex-1 transition-opacity",
-                        !isEditingBio && "opacity-60 cursor-not-allowed"
+                        "cartoon-button w-8 h-8 p-0 min-w-0 rounded-lg",
+                        isEditingBio ? "bg-primary" : "bg-zinc-600"
                       )}
-                      maxLength={60}
-                      disabled={!isEditingBio}
-                    />
-                    {!isEditingBio ? (
-                      <Button 
-                        onClick={() => setIsEditingBio(true)}
-                        className="cartoon-button bg-primary text-white h-10 px-3 text-[10px]"
-                      >
-                        EDIT
-                      </Button>
-                    ) : (
-                      <Button 
-                        onClick={() => {
-                          handleUpdateBio();
-                          setIsEditingBio(false);
-                        }}
-                        className="cartoon-button bg-green-600 text-white h-10 px-3 text-[10px]"
-                      >
-                        ENTER
-                      </Button>
-                    )}
+                    >
+                      {isEditingBio ? <CornerDownLeft className="w-4 h-4 text-white" /> : <Pencil className="w-4 h-4 text-white" />}
+                    </Button>
                   </div>
+                  <Textarea 
+                    value={bioInput}
+                    onChange={(e) => setBioInput(e.target.value.substring(0, 60))}
+                    placeholder="ENTER TEXT HERE.."
+                    className={cn(
+                      "transition-all duration-300 rounded-xl text-xs min-h-[40px] resize-none focus-visible:ring-primary h-auto flex-1",
+                      !isEditingBio ? "bg-zinc-800/60 opacity-60 scale-95 cursor-not-allowed border-black/40" : "bg-black/40 border-2 border-black opacity-100 scale-100"
+                    )}
+                    maxLength={60}
+                    disabled={!isEditingBio}
+                  />
                 </div>
 
                 <div className="flex flex-col gap-1">

@@ -55,13 +55,26 @@ export function useLocalPlayer() {
         
         if (snap.exists()) {
           const existingProfile = snap.val() as PlayerProfile;
+          let needsUpdate = false;
+          const updates: any = {};
+
           if (!existingProfile.unlockedTaunts) {
-            existingProfile.unlockedTaunts = ['😂'];
-            existingProfile.selectedTaunt = '😂';
-            await update(userRef, { unlockedTaunts: ['😂'], selectedTaunt: '😂' });
+            updates.unlockedTaunts = ['😂'];
+            updates.selectedTaunt = '😂';
+            needsUpdate = true;
           }
-          setProfile(existingProfile);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(existingProfile));
+          if (!existingProfile.bio) {
+            updates.bio = "Hi, im a New!";
+            needsUpdate = true;
+          }
+
+          if (needsUpdate) {
+            await update(userRef, updates);
+            setProfile({ ...existingProfile, ...updates });
+          } else {
+            setProfile(existingProfile);
+          }
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...existingProfile, ...updates }));
         } else {
           const newPlayerId = await generateUniquePlayerId();
           const newProfile: PlayerProfile = {
@@ -74,7 +87,8 @@ export function useLocalPlayer() {
             gold: 0,
             isOnline: true,
             unlockedTaunts: ['😂'],
-            selectedTaunt: '😂'
+            selectedTaunt: '😂',
+            bio: "Hi, im a New!"
           };
           await set(userRef, newProfile);
           await set(ref(db, `playerIds/${newPlayerId}`), user.uid);
@@ -110,6 +124,9 @@ export function useLocalPlayer() {
           if (!guestProfile.playerId) {
             guestProfile.playerId = await generateUniquePlayerId();
           }
+          if (!guestProfile.bio) {
+            guestProfile.bio = "Hi, im a New!";
+          }
         } else {
           const id = "guest_" + Math.random().toString(36).substring(2, 15);
           const guestId = await generateUniquePlayerId();
@@ -122,7 +139,8 @@ export function useLocalPlayer() {
             gold: 0,
             isOnline: true,
             unlockedTaunts: ['😂'],
-            selectedTaunt: '😂'
+            selectedTaunt: '😂',
+            bio: "Hi, im a New!"
           };
         }
 

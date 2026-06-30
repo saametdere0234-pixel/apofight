@@ -7,7 +7,7 @@ import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Users, Plus, X, ArrowRight, Bell, ChevronLeft, ChevronRight, Send, UserX, Wallet } from 'lucide-react';
+import { Users, Plus, X, ArrowRight, Bell, ChevronLeft, ChevronRight, Send, UserX, Wallet, Quote } from 'lucide-react';
 import { PlayerProfile, GameInvitation } from '@/lib/game-types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -558,8 +558,9 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
                 <span className="font-headline text-2xl text-white truncate max-w-full">{selectedFriend.name}</span>
                 
                 {selectedFriend.bio && (
-                  <div className="flex flex-col items-center gap-1 w-full bg-black/40 p-3 rounded-xl border border-white/5">
-                    <p className="text-xs text-white/80 font-medium break-words w-full">{selectedFriend.bio}</p>
+                  <div className="flex items-center gap-2 bg-black/40 p-3 rounded-xl border border-white/5 w-full">
+                    <Quote className="w-4 h-4 text-white/20 shrink-0" />
+                    <p className="text-xs text-white/80 font-medium italic break-words">{selectedFriend.bio}</p>
                   </div>
                 )}
 
