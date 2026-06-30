@@ -5,9 +5,8 @@ import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { User, Zap, LogOut, Wallet, Fingerprint, Swords, Sparkles, Lock, ShieldCheck } from 'lucide-react';
-import { WeaponClass, WEAPON_STATS } from '@/lib/game-types';
+import { User, Zap, LogOut, Wallet, Fingerprint, Swords } from 'lucide-react';
+import { WeaponClass } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { auth, googleProvider } from '@/lib/firebase';
@@ -21,17 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useToast } from '@/hooks/use-toast';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { ShopSidebar } from '@/components/ShopSidebar';
 
 const WeaponIcon = ({ weapon, className = "w-8 h-8" }: { weapon: WeaponClass; className?: string }) => {
   const baseClasses = "font-headline flex items-center justify-center select-none leading-none";
@@ -41,38 +30,9 @@ const WeaponIcon = ({ weapon, className = "w-8 h-8" }: { weapon: WeaponClass; cl
   return null;
 };
 
-const BATTLE_AURAS = [
-  { id: '#ef4444', label: 'Red' },
-  { id: '#f97316', label: 'Orange' },
-  { id: '#ec4899', label: 'Pink' },
-  { id: '#a855f7', label: 'Purple' },
-  { id: '#3b82f6', label: 'Blue' },
-  { id: '#ffffff', label: 'White' },
-  { id: '#78350f', label: 'Brown' },
-  { id: '#22c55e', label: 'Green' },
-];
-
-const PREMIUM_AURAS = [
-  { id: 'aura-g1', label: 'Mystic Berry', class: 'aura-g1' },
-  { id: 'aura-g2', label: 'Cyan Sky', class: 'aura-g2' },
-  { id: 'aura-g3', label: 'Flaming Sun', class: 'aura-g3' },
-  { id: 'aura-g4', label: 'Emerald Mint', class: 'aura-g4' },
-  { id: 'aura-g5', label: 'Night Mist', class: 'aura-g5' },
-  { id: 'aura-g6', label: 'Deep Ocean', class: 'aura-g6' },
-  { id: 'aura-g7', label: 'Royal Violet', class: 'aura-g7' },
-  { id: 'aura-g8', label: 'Candy Rush', class: 'aura-g8' },
-  { id: 'aura-g9', label: 'Space Abyss', class: 'aura-g9' },
-  { id: 'aura-g10', label: 'Neon Velvet', class: 'aura-g10' },
-];
-
-const PREMIUM_PRICE = 200;
-
 export default function EntryScreen() {
   const { profile, updateProfile, authUser, loading } = useLocalPlayer();
   const router = useRouter();
-  const { toast } = useToast();
-  const [auraToPurchase, setAuraToPurchase] = useState<{id: string, label: string} | null>(null);
-  const [purchaseType, setPurchaseType] = useState<'aura' | 'no-border'>('aura');
 
   if (loading || !profile) {
     return (
@@ -104,64 +64,6 @@ export default function EntryScreen() {
     router.push('/lobby');
   };
 
-  const selectAura = (auraId: string, isPremium: boolean) => {
-    if (isPremium) {
-      const unlocked = profile.unlockedAuras || [];
-      if (unlocked.includes(auraId)) {
-        updateProfile({ color: auraId });
-      } else {
-        const aura = PREMIUM_AURAS.find(a => a.id === auraId);
-        if (aura) {
-          setPurchaseType('aura');
-          setAuraToPurchase({ id: aura.id, label: aura.label });
-        }
-      }
-    } else {
-      updateProfile({ color: auraId });
-    }
-  };
-
-  const handleNoBorderToggle = (enabled: boolean) => {
-    if (profile.noBorderOwned) {
-      updateProfile({ noBorderEnabled: enabled });
-    } else {
-      setPurchaseType('no-border');
-      setAuraToPurchase({ id: 'no-border', label: 'NO BORDER' });
-    }
-  };
-
-  const confirmPurchase = () => {
-    if (!auraToPurchase) return;
-    const gold = profile.gold || 0;
-    
-    if (gold >= PREMIUM_PRICE) {
-      if (purchaseType === 'aura') {
-        const unlocked = profile.unlockedAuras || [];
-        updateProfile({
-          gold: gold - PREMIUM_PRICE,
-          unlockedAuras: [...unlocked, auraToPurchase.id],
-          color: auraToPurchase.id
-        });
-      } else {
-        updateProfile({
-          gold: gold - PREMIUM_PRICE,
-          noBorderOwned: true,
-          noBorderEnabled: true
-        });
-      }
-      toast({
-        title: "Purchase successful!",
-        description: `-200 Gold`,
-      });
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Insufficient funds!",
-      });
-    }
-    setAuraToPurchase(null);
-  };
-
   const weapons: { id: WeaponClass; desc: string }[] = [
     { 
       id: 'Sword', 
@@ -181,6 +83,8 @@ export default function EntryScreen() {
     <div className="min-h-screen bg-[#1a1a2e] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
       <div className="scanline"></div>
       
+      {authUser && <ShopSidebar />}
+
       {authUser && (
         <div className="fixed top-6 right-6 z-[100] animate-in slide-in-from-top-4 fade-in duration-500">
           <DropdownMenu modal={false}>
@@ -305,81 +209,32 @@ export default function EntryScreen() {
               </div>
 
               <div className="space-y-3">
-                <Label className="font-bold text-sm uppercase">COLOUR</Label>
-                <div className="flex gap-3 flex-wrap items-center">
-                  {BATTLE_AURAS.map(a => (
-                    <button
-                      key={a.id}
-                      title={a.label}
-                      onClick={() => selectAura(a.id, false)}
-                      className={`w-10 h-10 rounded-full border-4 transition-transform ${profile.color === a.id ? 'scale-125 border-white shadow-[0_0_15px_rgba(255,255,255,0.5)]' : 'border-black hover:scale-110'}`}
-                      style={{ backgroundColor: a.id }}
-                    />
-                  ))}
+                <Label className="font-bold text-sm uppercase">SELECTED TAUNT</Label>
+                <div className="flex items-center gap-3 bg-black/40 p-4 rounded-2xl border-2 border-black">
+                  <span className="text-4xl">{profile.selectedTaunt || '😂'}</span>
+                  <div className="flex flex-col">
+                    <span className="font-headline text-sm text-white uppercase tracking-widest">Active Emoji</span>
+                    <span className="text-[10px] font-bold text-white/40 uppercase">Press SPACE in-game</span>
+                  </div>
                 </div>
               </div>
-
-              {authUser && (
-                <div className="space-y-4 pt-4 border-t border-white/10">
-                  <div className="flex items-center justify-between bg-black/40 p-4 rounded-[20px] border-4 border-black shadow-[4px_4px_0_rgba(0,0,0,1)] group">
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "p-2 rounded-lg border-2 border-black transition-colors",
-                        profile.noBorderOwned ? "bg-accent" : "bg-zinc-800"
-                      )}>
-                        {profile.noBorderOwned ? <ShieldCheck className="w-5 h-5 text-black" /> : <Lock className="w-5 h-5 text-white/40" />}
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="font-headline text-lg text-white leading-none">NO BORDER</span>
-                        <span className="text-[10px] font-bold text-white/40 uppercase">REMOVES BLACK OUTLINES</span>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-4">
-                      {!profile.noBorderOwned && (
-                         <span className="font-headline text-xs text-accent">200G</span>
-                      )}
-                      <Switch 
-                        checked={profile.noBorderOwned ? !!profile.noBorderEnabled : false} 
-                        onCheckedChange={handleNoBorderToggle}
-                        className="data-[state=checked]:bg-accent"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-3 pt-2">
-                    <div className="flex justify-between items-center">
-                      <Label className="font-bold text-sm uppercase flex items-center gap-2 text-primary">
-                        <Sparkles className="w-4 h-4" /> PRO COLOURS
-                      </Label>
-                      <span className="font-headline text-xs text-accent bg-black/40 px-3 py-1 rounded-full border border-accent/20">
-                        COST: {PREMIUM_PRICE}G
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-5 gap-3">
-                      {PREMIUM_AURAS.map(a => {
-                        const isUnlocked = (profile.unlockedAuras || []).includes(a.id);
-                        const isSelected = profile.color === a.id;
-                        return (
-                          <button
-                            key={a.id}
-                            title={a.label}
-                            onClick={() => selectAura(a.id, true)}
-                            className={cn(
-                              "w-full aspect-square rounded-full border-4 transition-all relative flex items-center justify-center overflow-hidden",
-                              isSelected ? "scale-110 border-white shadow-[0_0_15px_rgba(255,255,255,0.8)]" : "border-black hover:scale-105",
-                              !isUnlocked && "opacity-50 brightness-50",
-                              a.class
-                            )}
-                          >
-                            {!isUnlocked && <Lock className="w-5 h-5 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]" />}
-                          </button>
-                        );
-                      })}
-                    </div>
+              
+              <div className="space-y-3">
+                <Label className="font-bold text-sm uppercase">CURRENT COLOUR</Label>
+                <div className="flex items-center gap-3 bg-black/40 p-3 rounded-2xl border-2 border-black">
+                  <div 
+                    className={cn(
+                      "w-10 h-10 rounded-full border-4 border-black",
+                      profile.color.startsWith('aura-') ? profile.color : ""
+                    )} 
+                    style={{ backgroundColor: profile.color.startsWith('aura-') ? "" : profile.color }}
+                  />
+                  <div className="flex flex-col">
+                    <span className="font-headline text-sm text-white uppercase tracking-widest">Arena Identity</span>
+                    <span className="text-[10px] font-bold text-white/40 uppercase">Change in Shop</span>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
           </div>
 
@@ -421,26 +276,6 @@ export default function EntryScreen() {
           </Button>
         </div>
       </div>
-
-      <AlertDialog open={!!auraToPurchase} onOpenChange={(open) => !open && setAuraToPurchase(null)}>
-        <AlertDialogContent className="cartoon-card bg-black/90 border-4 border-black p-8 text-white max-w-sm">
-          <AlertDialogHeader className="space-y-4">
-            <div className="mx-auto w-16 h-16 rounded-full border-4 border-accent flex items-center justify-center bg-accent/20">
-              <Sparkles className="w-8 h-8 text-accent" />
-            </div>
-            <AlertDialogTitle className="font-headline text-2xl text-center uppercase tracking-tight">Unlock {purchaseType === 'no-border' ? 'Feature' : 'Colour'}?</AlertDialogTitle>
-            <AlertDialogDescription className="text-white/80 font-bold text-center uppercase text-xs">
-              {purchaseType === 'no-border' 
-                ? `Unlock NO BORDER setting for ${PREMIUM_PRICE} Gold?`
-                : `Unlock the ${auraToPurchase?.label} colour for ${PREMIUM_PRICE} Gold?`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="mt-8 flex gap-4">
-            <AlertDialogCancel className="cartoon-button bg-destructive text-white flex-1 h-12">CANCEL</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmPurchase} className="cartoon-button bg-accent text-black flex-1 h-12">ACCEPT</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

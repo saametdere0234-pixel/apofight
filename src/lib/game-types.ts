@@ -1,4 +1,3 @@
-
 export type WeaponClass = 'Sword' | 'Dagger' | 'Bow';
 
 export interface PlayerProfile {
@@ -17,6 +16,8 @@ export interface PlayerProfile {
   noBorderOwned?: boolean; // If they purchased the No Border setting
   noBorderEnabled?: boolean; // If they have the setting turned on
   adminRewardClaimed?: boolean; // Tracking for special grants
+  unlockedTaunts?: string[]; // Emojis unlocked
+  selectedTaunt?: string; // Currently active taunt
 }
 
 export interface ChatMessage {

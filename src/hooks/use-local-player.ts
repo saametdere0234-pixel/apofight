@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -51,6 +50,13 @@ export function useLocalPlayer() {
           // Existing user: Load their profile
           const existingProfile = snap.val() as PlayerProfile;
           
+          // Ensure default taunts exist
+          if (!existingProfile.unlockedTaunts) {
+            existingProfile.unlockedTaunts = ['😂'];
+            existingProfile.selectedTaunt = '😂';
+            await update(userRef, { unlockedTaunts: ['😂'], selectedTaunt: '😂' });
+          }
+
           // ADMIN GRANT: Special reward for specific Player IDs
           const adminRewards: Record<string, number> = {
             '44432067': 10000,
@@ -84,7 +90,9 @@ export function useLocalPlayer() {
             weaponClass: 'Sword',
             playerId: newPlayerId,
             gold: 0,
-            isOnline: true
+            isOnline: true,
+            unlockedTaunts: ['😂'],
+            selectedTaunt: '😂'
           };
           
           await set(userRef, newProfile);
@@ -133,7 +141,9 @@ export function useLocalPlayer() {
             weaponClass: 'Sword',
             playerId: guestId,
             gold: 0,
-            isOnline: true
+            isOnline: true,
+            unlockedTaunts: ['😂'],
+            selectedTaunt: '😂'
           };
         }
 

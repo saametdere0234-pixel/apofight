@@ -347,53 +347,6 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         }
       }
 
-      // Handle Team Mode empty team logic
-      if (room.isTeamMode && room.status !== 'lobby' && isHost && !statusChangingRef.current) {
-        const players = Object.values(room.players);
-        const redCount = players.filter(p => p.team === 'A').length;
-        const blueCount = players.filter(p => p.team === 'B').length;
-
-        if (redCount === 0 || blueCount === 0) {
-          statusChangingRef.current = true;
-          const updates: any = {
-            status: 'lobby',
-            lastWinnerName: null,
-            lastWinnerTeam: null,
-            startTime: null,
-            projectiles: null,
-            effects: null,
-            celebrationStartTime: null,
-            currentRound: 1,
-            teamAScore: 0,
-            teamBScore: 0
-          };
-
-          // Automatically transfer one player to the empty team if there are at least 2 players in the room
-          if (players.length >= 2) {
-            const emptyTeam = redCount === 0 ? 'A' : 'B';
-            const nonEmptyTeam = emptyTeam === 'A' ? 'B' : 'A';
-            const sourcePlayers = players.filter(p => p.team === nonEmptyTeam);
-            
-            if (sourcePlayers.length > 0) {
-              const playerToMove = sourcePlayers[0];
-              updates[`players/${playerToMove.id}/team`] = emptyTeam;
-            }
-          }
-
-          players.forEach(p => {
-            const weaponStats = WEAPON_STATS[p.weaponClass as WeaponClass] || WEAPON_STATS.Sword;
-            updates[`players/${p.id}/roundsWon`] = 0;
-            updates[`players/${p.id}/isReady`] = true;
-            updates[`players/${p.id}/hp`] = weaponStats.maxHp;
-            updates[`players/${p.id}/stamina`] = weaponStats.maxStamina;
-          });
-
-          update(ref(db, `rooms/${roomId}`), updates).finally(() => {
-            statusChangingRef.current = false;
-          });
-        }
-      }
-
       if (playerCount === 1 && room.status !== 'lobby') {
         const onlyPlayerId = pIds[0];
         if (onlyPlayerId === profileRef.current?.id) {
@@ -1813,7 +1766,7 @@ export default function GamePage({ params }: { params: Promise<{ roomId: string 
         ctx.globalAlpha = fadeAlpha;
         ctx.font = '24px serif';
         ctx.textAlign = 'center';
-        ctx.fillText('😂', 0, 0);
+        ctx.fillText(p.selectedTaunt || '😂', 0, 0);
         ctx.restore();
       }
     });
