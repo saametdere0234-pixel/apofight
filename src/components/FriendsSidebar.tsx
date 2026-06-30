@@ -11,7 +11,7 @@ import { Users, Plus, X, ArrowRight, Bell, ChevronLeft, ChevronRight, Send, User
 import { PlayerProfile, GameInvitation } from '@/lib/game-types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'navigation';
+import { useRouter } from 'next/navigation';
 
 export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
   const { profile, authUser } = useLocalPlayer();
@@ -558,7 +558,7 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
                 <span className="font-headline text-2xl text-white truncate max-w-full">{selectedFriend.name}</span>
                 
                 {selectedFriend.bio && (
-                  <div className="flex flex-col items-center gap-1 w-full bg-black/40 p-3 rounded-xl border border-white/5 italic">
+                  <div className="flex flex-col items-center gap-1 w-full bg-black/40 p-3 rounded-xl border border-white/5">
                     <p className="text-xs text-white/80 font-medium break-words w-full">{selectedFriend.bio}</p>
                   </div>
                 )}
