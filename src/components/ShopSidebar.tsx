@@ -90,7 +90,6 @@ export function ShopSidebar() {
     updateProfile(updates);
     toast({ title: "PURCHASE SUCCESSFUL!", description: `-${price} GOLD` });
     setPurchaseItem(null);
-    // Explicitly do NOT close sidebar here to allow continued browsing
   };
 
   const selectColor = (id: string, isPremium: boolean) => {
@@ -181,7 +180,7 @@ export function ShopSidebar() {
             {/* COLOURS */}
             <section className="space-y-4">
               <h4 className="font-headline text-sm text-white/40 uppercase tracking-widest flex items-center gap-2">
-                <Palette className="w-4 h-4" /> BATTLE COLOURS
+                <Palette className="w-4 h-4" /> COLOURS
               </h4>
               <div className="grid grid-cols-4 gap-4 p-1">
                 {BATTLE_AURAS.map(a => (
@@ -195,7 +194,6 @@ export function ShopSidebar() {
                       )}
                       style={{ backgroundColor: a.id }}
                     />
-                    <span className="text-[8px] font-bold text-white/40 uppercase text-center">{a.label}</span>
                   </div>
                 ))}
               </div>
@@ -224,7 +222,6 @@ export function ShopSidebar() {
                         {!isUnlocked && <Lock className="w-4 h-4 text-white drop-shadow-md" />}
                         {isUnlocked && isSelected && <Check className="w-4 h-4 text-white drop-shadow-md" />}
                       </button>
-                      <span className="text-[8px] font-bold text-white/40 uppercase text-center leading-tight">{a.label}</span>
                     </div>
                   );
                 })}
@@ -243,7 +240,7 @@ export function ShopSidebar() {
                   </div>
                   <div className="flex flex-col text-left">
                     <span className="font-headline text-sm text-white leading-none uppercase">NO BORDER</span>
-                    {!profile.noBorderOwned && <span className="text-[10px] font-bold text-accent uppercase mt-1">200 GOLD</span>}
+                    {!profile.noBorderOwned && <span className="text-[10px] font-bold text-accent uppercase mt-1">200G</span>}
                   </div>
                 </div>
                 {profile.noBorderOwned ? (
@@ -267,7 +264,7 @@ export function ShopSidebar() {
         <button 
           onClick={() => setIsOpen(!isOpen)}
           className={cn(
-            "w-12 h-20 my-auto -ml-1 flex items-center justify-center transition-all duration-300 cartoon-button",
+            "w-12 h-20 my-auto -ml-1 flex items-center justify-center transition-all duration-300 cartoon-button border-black",
             isOpen ? "bg-destructive" : "bg-primary"
           )}
           style={{ 

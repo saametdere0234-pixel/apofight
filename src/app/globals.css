@@ -74,7 +74,7 @@
 
 .scanline {
   @apply fixed inset-0 pointer-events-none z-50;
-  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 255, 0, 0.06));
   background-size: 100% 2px, 3px 100%;
 }
 
@@ -109,29 +109,28 @@
   animation: pulse-once 0.8s ease-out forwards;
 }
 
-/* Premium Aura Animations */
+/* Premium Aura Animations - More Intense */
 @keyframes aura-gradient {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  0% { background-position: 0% 50%; filter: brightness(1); }
+  50% { background-position: 100% 50%; filter: brightness(1.4); }
+  100% { background-position: 0% 50%; filter: brightness(1); }
 }
 
 .animate-aura-gradient {
-  background-size: 200% 200%;
-  animation: aura-gradient 3s ease infinite;
+  background-size: 300% 300%;
+  animation: aura-gradient 1.5s ease-in-out infinite;
 }
 
-.aura-g1 { background: linear-gradient(45deg, #8A2387, #E94057); @apply animate-aura-gradient; }
-.aura-g2 { background: linear-gradient(45deg, #00F2FE, #4FACFE); @apply animate-aura-gradient; }
-.aura-g3 { background: linear-gradient(45deg, #FF416C, #FF4B2B); @apply animate-aura-gradient; }
-.aura-g4 { background: linear-gradient(45deg, #11998E, #38EF7D); @apply animate-aura-gradient; }
-.aura-g5 { background: linear-gradient(45deg, #1F1C2C, #928DAB); @apply animate-aura-gradient; }
-.aura-g6 { background: linear-gradient(45deg, #00C6FF, #0072FF); @apply animate-aura-gradient; }
-.aura-g7 { background: linear-gradient(45deg, #7F00FF, #E100FF); @apply animate-aura-gradient; }
-.aura-g8 { background: linear-gradient(45deg, #F857A6, #FF5858); @apply animate-aura-gradient; }
-.aura-g9 { background: linear-gradient(45deg, #0B132B, #1C2541); @apply animate-aura-gradient; }
-.aura-g10 { background: linear-gradient(45deg, #F21B3F, #330033); @apply animate-aura-gradient; }
-.aura-white-no-border { background: #ffffff; }
+.aura-g1 { background: linear-gradient(45deg, #8A2387, #E94057, #8A2387); @apply animate-aura-gradient; }
+.aura-g2 { background: linear-gradient(45deg, #00F2FE, #4FACFE, #00F2FE); @apply animate-aura-gradient; }
+.aura-g3 { background: linear-gradient(45deg, #FF416C, #FF4B2B, #FF416C); @apply animate-aura-gradient; }
+.aura-g4 { background: linear-gradient(45deg, #11998E, #38EF7D, #11998E); @apply animate-aura-gradient; }
+.aura-g5 { background: linear-gradient(45deg, #1F1C2C, #928DAB, #1F1C2C); @apply animate-aura-gradient; }
+.aura-g6 { background: linear-gradient(45deg, #00C6FF, #0072FF, #00C6FF); @apply animate-aura-gradient; }
+.aura-g7 { background: linear-gradient(45deg, #7F00FF, #E100FF, #7F00FF); @apply animate-aura-gradient; }
+.aura-g8 { background: linear-gradient(45deg, #F857A6, #FF5858, #F857A6); @apply animate-aura-gradient; }
+.aura-g9 { background: linear-gradient(45deg, #0B132B, #1C2541, #0B132B); @apply animate-aura-gradient; }
+.aura-g10 { background: linear-gradient(45deg, #F21B3F, #330033, #F21B3F); @apply animate-aura-gradient; }
 
 /* Custom Scrollbar Styles */
 .custom-scrollbar::-webkit-scrollbar {

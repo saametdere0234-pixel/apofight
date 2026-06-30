@@ -20,7 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ShopSidebar, BATTLE_AURAS, SHOP_TAUNTS } from '@/components/ShopSidebar';
+import { ShopSidebar, BATTLE_AURAS, PREMIUM_AURAS, SHOP_TAUNTS } from '@/components/ShopSidebar';
 
 const WeaponIcon = ({ weapon, className = "w-8 h-8" }: { weapon: WeaponClass; className?: string }) => {
   const baseClasses = "font-headline flex items-center justify-center select-none leading-none";
@@ -80,6 +80,7 @@ export default function EntryScreen() {
   ];
 
   const currentTaunt = SHOP_TAUNTS.find(t => t.id === profile.selectedTaunt) || SHOP_TAUNTS[0];
+  const currentColorName = [...BATTLE_AURAS, ...PREMIUM_AURAS].find(a => a.id === profile.color)?.label || "Arena Identity";
 
   return (
     <div className="min-h-screen bg-[#1a1a2e] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
@@ -233,7 +234,7 @@ export default function EntryScreen() {
                     />
                     <div className="flex flex-col">
                       <span className="font-headline text-sm text-white uppercase tracking-widest">
-                        {BATTLE_AURAS.find(a => a.id === profile.color)?.label || "Arena Identity"}
+                        {currentColorName}
                       </span>
                     </div>
                   </div>
