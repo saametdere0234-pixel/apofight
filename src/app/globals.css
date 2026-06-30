@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -133,3 +132,22 @@
 .aura-g9 { background: linear-gradient(45deg, #0B132B, #1C2541); @apply animate-aura-gradient; }
 .aura-g10 { background: linear-gradient(45deg, #F21B3F, #330033); @apply animate-aura-gradient; }
 .aura-white-no-border { background: #ffffff; }
+
+/* Custom Scrollbar Styles */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: black;
+  border-radius: 20px;
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: black transparent;
+}

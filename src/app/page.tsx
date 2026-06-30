@@ -20,7 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ShopSidebar, BATTLE_AURAS } from '@/components/ShopSidebar';
+import { ShopSidebar, BATTLE_AURAS, SHOP_TAUNTS } from '@/components/ShopSidebar';
 
 const WeaponIcon = ({ weapon, className = "w-8 h-8" }: { weapon: WeaponClass; className?: string }) => {
   const baseClasses = "font-headline flex items-center justify-center select-none leading-none";
@@ -79,9 +79,11 @@ export default function EntryScreen() {
     },
   ];
 
+  const currentTaunt = SHOP_TAUNTS.find(t => t.id === profile.selectedTaunt) || SHOP_TAUNTS[0];
+
   return (
     <div className="min-h-screen bg-[#1a1a2e] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
-      <div className="scanline"></div>
+      <div className="scanline" />
       
       {authUser && <ShopSidebar />}
 
@@ -211,9 +213,9 @@ export default function EntryScreen() {
               <div className="space-y-3">
                 <Label className="font-bold text-sm uppercase">CURRENT TAUNT</Label>
                 <div className="flex items-center gap-3 bg-black/40 p-4 rounded-2xl border-2 border-black">
-                  <span className="text-4xl">{profile.selectedTaunt || '😂'}</span>
+                  <span className="text-4xl">{currentTaunt.id}</span>
                   <div className="flex flex-col">
-                    <span className="font-headline text-sm text-white uppercase tracking-widest">Active Emoji</span>
+                    <span className="font-headline text-sm text-white uppercase tracking-widest">{currentTaunt.label}</span>
                   </div>
                 </div>
               </div>
@@ -225,12 +227,14 @@ export default function EntryScreen() {
                     <div 
                       className={cn(
                         "w-10 h-10 rounded-full border-4 border-black",
-                        profile.color.startsWith('aura-') ? profile.color : ""
+                        profile.color?.startsWith?.('aura-') ? profile.color : ""
                       )} 
-                      style={{ backgroundColor: profile.color.startsWith('aura-') ? "" : profile.color }}
+                      style={{ backgroundColor: profile.color?.startsWith?.('aura-') ? "" : profile.color }}
                     />
                     <div className="flex flex-col">
-                      <span className="font-headline text-sm text-white uppercase tracking-widest">Arena Identity</span>
+                      <span className="font-headline text-sm text-white uppercase tracking-widest">
+                        {BATTLE_AURAS.find(a => a.id === profile.color)?.label || "Arena Identity"}
+                      </span>
                     </div>
                   </div>
 

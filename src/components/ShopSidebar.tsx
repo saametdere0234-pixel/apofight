@@ -19,17 +19,17 @@ import {
 } from "@/components/ui/alert-dialog";
 
 export const BATTLE_AURAS = [
-  { id: '#ef4444', label: 'Red' },
-  { id: '#f97316', label: 'Orange' },
-  { id: '#ec4899', label: 'Pink' },
-  { id: '#a855f7', label: 'Purple' },
-  { id: '#3b82f6', label: 'Blue' },
-  { id: '#ffffff', label: 'White' },
-  { id: '#78350f', label: 'Brown' },
-  { id: '#22c55e', label: 'Green' },
+  { id: '#ef4444', label: 'Crimson' },
+  { id: '#f97316', label: 'Sunset' },
+  { id: '#ec4899', label: 'Barbie' },
+  { id: '#a855f7', label: 'Magic' },
+  { id: '#3b82f6', label: 'Ocean' },
+  { id: '#ffffff', label: 'Pure' },
+  { id: '#78350f', label: 'Earth' },
+  { id: '#22c55e', label: 'Slime' },
 ];
 
-const PREMIUM_AURAS = [
+export const PREMIUM_AURAS = [
   { id: 'aura-g1', label: 'Mystic Berry', class: 'aura-g1' },
   { id: 'aura-g2', label: 'Cyan Sky', class: 'aura-g2' },
   { id: 'aura-g3', label: 'Flaming Sun', class: 'aura-g3' },
@@ -42,7 +42,16 @@ const PREMIUM_AURAS = [
   { id: 'aura-g10', label: 'Neon Velvet', class: 'aura-g10' },
 ];
 
-const SHOP_TAUNTS = ['😂', '😎', '😶‍🌫️', '😱', '🤢', '🤡', '💩'];
+export const SHOP_TAUNTS = [
+  { id: '😂', label: 'Joy' },
+  { id: '😎', label: 'Cool' },
+  { id: '😶‍🌫️', label: 'Haze' },
+  { id: '😱', label: 'Shock' },
+  { id: '🤢', label: 'Sick' },
+  { id: '🤡', label: 'Clown' },
+  { id: '💩', label: 'Poo' },
+];
+
 const PREMIUM_PRICE = 200;
 const TAUNT_PRICE = 100;
 
@@ -81,6 +90,7 @@ export function ShopSidebar() {
     updateProfile(updates);
     toast({ title: "PURCHASE SUCCESSFUL!", description: `-${price} GOLD` });
     setPurchaseItem(null);
+    // Explicitly do NOT close sidebar here to allow continued browsing
   };
 
   const selectColor = (id: string, isPremium: boolean) => {
@@ -97,12 +107,13 @@ export function ShopSidebar() {
     }
   };
 
-  const selectTaunt = (taunt: string) => {
+  const selectTaunt = (tauntId: string) => {
     const unlocked = profile.unlockedTaunts || ['😂'];
-    if (unlocked.includes(taunt)) {
-      updateProfile({ selectedTaunt: taunt });
+    if (unlocked.includes(tauntId)) {
+      updateProfile({ selectedTaunt: tauntId });
     } else {
-      setPurchaseItem({ id: taunt, label: taunt, type: 'taunt' });
+      const taunt = SHOP_TAUNTS.find(t => t.id === tauntId);
+      if (taunt) setPurchaseItem({ id: taunt.id, label: taunt.label, type: 'taunt' });
     }
   };
 
@@ -131,7 +142,9 @@ export function ShopSidebar() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto pr-2 space-y-8 scrollbar-hide">
+          <div 
+            className="flex-1 overflow-y-auto pr-2 space-y-8 custom-scrollbar overscroll-contain pb-10"
+          >
             {/* TAUNTS */}
             <section className="space-y-4">
               <div className="flex justify-between items-center">
@@ -140,24 +153,26 @@ export function ShopSidebar() {
                 </h4>
                 <span className="text-[10px] font-bold text-accent tracking-widest">100G</span>
               </div>
-              <div className="grid grid-cols-4 gap-3">
+              <div className="grid grid-cols-4 gap-4 p-1">
                 {SHOP_TAUNTS.map(t => {
-                  const isUnlocked = (profile.unlockedTaunts || ['😂']).includes(t);
-                  const isSelected = profile.selectedTaunt === t;
+                  const isUnlocked = (profile.unlockedTaunts || ['😂']).includes(t.id);
+                  const isSelected = profile.selectedTaunt === t.id;
                   return (
-                    <button
-                      key={t}
-                      onClick={() => selectTaunt(t)}
-                      className={cn(
-                        "w-full aspect-square rounded-2xl border-4 transition-all flex items-center justify-center text-2xl relative",
-                        isSelected ? "border-white bg-white/10 scale-110 shadow-[0_0_15px_rgba(255,255,255,0.3)]" : "border-black bg-black/40 hover:scale-105",
-                        !isUnlocked && "opacity-60"
-                      )}
-                    >
-                      {t}
-                      {!isUnlocked && <Lock className="absolute -top-1 -right-1 w-4 h-4 text-white drop-shadow-md" />}
-                      {isUnlocked && isSelected && <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-black flex items-center justify-center"><Check className="w-2 h-2 text-white" /></div>}
-                    </button>
+                    <div key={t.id} className="flex flex-col items-center gap-1">
+                      <button
+                        onClick={() => selectTaunt(t.id)}
+                        className={cn(
+                          "w-full aspect-square rounded-2xl border-4 transition-all flex items-center justify-center text-2xl relative",
+                          isSelected ? "border-white bg-white/10 scale-110 shadow-[0_0_15px_rgba(255,255,255,0.3)]" : "border-black bg-black/40 hover:scale-105",
+                          !isUnlocked && "opacity-60"
+                        )}
+                      >
+                        {t.id}
+                        {!isUnlocked && <Lock className="absolute -top-1 -right-1 w-4 h-4 text-white drop-shadow-md" />}
+                        {isUnlocked && isSelected && <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-black flex items-center justify-center"><Check className="w-2 h-2 text-white" /></div>}
+                      </button>
+                      <span className="text-[8px] font-bold text-white/40 uppercase text-center">{t.label}</span>
+                    </div>
                   );
                 })}
               </div>
@@ -168,18 +183,20 @@ export function ShopSidebar() {
               <h4 className="font-headline text-sm text-white/40 uppercase tracking-widest flex items-center gap-2">
                 <Palette className="w-4 h-4" /> BATTLE COLOURS
               </h4>
-              <div className="flex gap-2 flex-wrap">
+              <div className="grid grid-cols-4 gap-4 p-1">
                 {BATTLE_AURAS.map(a => (
-                  <button
-                    key={a.id}
-                    title={a.label}
-                    onClick={() => selectColor(a.id, false)}
-                    className={cn(
-                      "w-8 h-8 rounded-full border-4 transition-all",
-                      profile.color === a.id ? "scale-125 border-white shadow-lg" : "border-black hover:scale-110"
-                    )}
-                    style={{ backgroundColor: a.id }}
-                  />
+                  <div key={a.id} className="flex flex-col items-center gap-1">
+                    <button
+                      title={a.label}
+                      onClick={() => selectColor(a.id, false)}
+                      className={cn(
+                        "w-10 h-10 rounded-full border-4 transition-all",
+                        profile.color === a.id ? "scale-125 border-white shadow-lg" : "border-black hover:scale-110"
+                      )}
+                      style={{ backgroundColor: a.id }}
+                    />
+                    <span className="text-[8px] font-bold text-white/40 uppercase text-center">{a.label}</span>
+                  </div>
                 ))}
               </div>
 
@@ -189,24 +206,26 @@ export function ShopSidebar() {
                 </h4>
                 <span className="text-[10px] font-bold text-accent tracking-widest">200G</span>
               </div>
-              <div className="grid grid-cols-5 gap-3">
+              <div className="grid grid-cols-4 gap-4 p-1">
                 {PREMIUM_AURAS.map(a => {
                   const isUnlocked = (profile.unlockedAuras || []).includes(a.id);
                   const isSelected = profile.color === a.id;
                   return (
-                    <button
-                      key={a.id}
-                      onClick={() => selectColor(a.id, true)}
-                      className={cn(
-                        "w-full aspect-square rounded-full border-4 transition-all relative flex items-center justify-center overflow-hidden",
-                        isSelected ? "scale-110 border-white shadow-md" : "border-black hover:scale-105",
-                        !isUnlocked && "opacity-60",
-                        a.class
-                      )}
-                    >
-                      {!isUnlocked && <Lock className="w-4 h-4 text-white drop-shadow-md" />}
-                      {isUnlocked && isSelected && <Check className="w-4 h-4 text-white drop-shadow-md" />}
-                    </button>
+                    <div key={a.id} className="flex flex-col items-center gap-1">
+                      <button
+                        onClick={() => selectColor(a.id, true)}
+                        className={cn(
+                          "w-10 h-10 rounded-full border-4 transition-all relative flex items-center justify-center overflow-hidden",
+                          isSelected ? "scale-125 border-white shadow-md" : "border-black hover:scale-110",
+                          !isUnlocked && "opacity-60",
+                          a.class
+                        )}
+                      >
+                        {!isUnlocked && <Lock className="w-4 h-4 text-white drop-shadow-md" />}
+                        {isUnlocked && isSelected && <Check className="w-4 h-4 text-white drop-shadow-md" />}
+                      </button>
+                      <span className="text-[8px] font-bold text-white/40 uppercase text-center leading-tight">{a.label}</span>
+                    </div>
                   );
                 })}
               </div>
@@ -260,7 +279,12 @@ export function ShopSidebar() {
         </button>
       </div>
 
-      <AlertDialog open={!!purchaseItem} onOpenChange={() => setPurchaseItem(null)}>
+      <AlertDialog 
+        open={!!purchaseItem} 
+        onOpenChange={(open) => {
+          if (!open) setPurchaseItem(null);
+        }}
+      >
         <AlertDialogContent className="cartoon-card bg-black/90 border-4 border-black p-8 text-white max-w-sm">
           <AlertDialogHeader className="space-y-4">
             <div className="mx-auto w-16 h-16 rounded-full border-4 border-accent flex items-center justify-center bg-accent/20">
