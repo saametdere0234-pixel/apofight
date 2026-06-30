@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { ChevronLeft, ChevronRight, ShoppingBag, Palette, Ghost, Lock, Check, ShieldCheck, Sparkles, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -17,7 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-const BATTLE_AURAS = [
+export const BATTLE_AURAS = [
   { id: '#ef4444', label: 'Red' },
   { id: '#f97316', label: 'Orange' },
   { id: '#ec4899', label: 'Pink' },
@@ -119,7 +120,7 @@ export function ShopSidebar() {
         "fixed left-4 top-24 bottom-4 z-[1001] transition-transform duration-300 flex",
         isOpen ? "translate-x-0" : "translate-x-[calc(-100%+12px)]"
       )}>
-        <div className="w-80 bg-black/90 backdrop-blur-xl border-4 border-black p-6 flex flex-col gap-6 shadow-[10px_0_30px_rgba(0,0,0,0.5)] rounded-[30px] overflow-hidden">
+        <div className="w-96 bg-black/90 backdrop-blur-xl border-4 border-black p-6 flex flex-col gap-6 shadow-[10px_0_30px_rgba(0,0,0,0.5)] rounded-[30px] overflow-hidden">
           <div className="flex justify-between items-center border-b-4 border-black pb-4">
             <h3 className="font-headline text-2xl text-primary uppercase flex items-center gap-2">
               <ShoppingBag className="w-6 h-6" /> SHOP
@@ -137,7 +138,7 @@ export function ShopSidebar() {
                 <h4 className="font-headline text-sm text-white/40 uppercase tracking-widest flex items-center gap-2">
                   <Ghost className="w-4 h-4" /> TAUNTS
                 </h4>
-                <span className="text-[10px] font-bold text-accent">100G EACH</span>
+                <span className="text-[10px] font-bold text-accent tracking-widest">100G</span>
               </div>
               <div className="grid grid-cols-4 gap-3">
                 {SHOP_TAUNTS.map(t => {
@@ -159,33 +160,6 @@ export function ShopSidebar() {
                     </button>
                   );
                 })}
-              </div>
-            </section>
-
-            {/* BORDER MOD */}
-            <section className="space-y-4">
-              <div className="flex items-center justify-between bg-black/40 p-4 rounded-[20px] border-4 border-black group">
-                <div className="flex items-center gap-3">
-                  <div className={cn(
-                    "p-2 rounded-lg border-2 border-black transition-colors",
-                    profile.noBorderOwned ? "bg-accent" : "bg-zinc-800"
-                  )}>
-                    {profile.noBorderOwned ? <ShieldCheck className="w-5 h-5 text-black" /> : <Lock className="w-5 h-5 text-white/40" />}
-                  </div>
-                  <div className="flex flex-col text-left">
-                    <span className="font-headline text-sm text-white leading-none">NO BORDER</span>
-                    <span className="text-[10px] font-bold text-white/40 uppercase">200 GOLD</span>
-                  </div>
-                </div>
-                <Button 
-                  onClick={() => toggleNoBorder(!profile.noBorderEnabled)}
-                  className={cn(
-                    "h-8 px-3 cartoon-button text-[10px]",
-                    profile.noBorderOwned ? (profile.noBorderEnabled ? "bg-accent text-black" : "bg-white/10 text-white") : "bg-primary text-white"
-                  )}
-                >
-                  {profile.noBorderOwned ? (profile.noBorderEnabled ? 'ON' : 'OFF') : 'BUY'}
-                </Button>
               </div>
             </section>
 
@@ -213,7 +187,7 @@ export function ShopSidebar() {
                 <h4 className="font-headline text-sm text-primary uppercase tracking-widest flex items-center gap-2">
                   <Sparkles className="w-4 h-4" /> PRO COLOURS
                 </h4>
-                <span className="text-[10px] font-bold text-accent">200G EACH</span>
+                <span className="text-[10px] font-bold text-accent tracking-widest">200G</span>
               </div>
               <div className="grid grid-cols-5 gap-3">
                 {PREMIUM_AURAS.map(a => {
@@ -237,14 +211,52 @@ export function ShopSidebar() {
                 })}
               </div>
             </section>
+
+            {/* BORDER MOD */}
+            <section className="space-y-4 pt-4 border-t border-white/10">
+              <div className="flex items-center justify-between bg-black/40 p-4 rounded-[20px] border-4 border-black group">
+                <div className="flex items-center gap-3">
+                  <div className={cn(
+                    "p-2 rounded-lg border-2 border-black transition-colors",
+                    profile.noBorderOwned ? "bg-accent" : "bg-zinc-800"
+                  )}>
+                    {profile.noBorderOwned ? <ShieldCheck className="w-5 h-5 text-black" /> : <Lock className="w-5 h-5 text-white/40" />}
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <span className="font-headline text-sm text-white leading-none uppercase">NO BORDER</span>
+                    {!profile.noBorderOwned && <span className="text-[10px] font-bold text-accent uppercase mt-1">200 GOLD</span>}
+                  </div>
+                </div>
+                {profile.noBorderOwned ? (
+                  <Switch 
+                    checked={profile.noBorderEnabled} 
+                    onCheckedChange={(val) => updateProfile({ noBorderEnabled: val })}
+                  />
+                ) : (
+                  <Button 
+                    onClick={() => toggleNoBorder(true)}
+                    className="h-8 px-4 cartoon-button bg-primary text-white text-[10px]"
+                  >
+                    BUY
+                  </Button>
+                )}
+              </div>
+            </section>
           </div>
         </div>
         
         <button 
           onClick={() => setIsOpen(!isOpen)}
-          className="w-10 h-16 my-auto bg-black/80 backdrop-blur-md border-4 border-l-0 border-black rounded-r-[20px] flex items-center justify-center hover:bg-black transition-colors shadow-[4px_0_10px_rgba(0,0,0,0.3)]"
+          className={cn(
+            "w-12 h-20 my-auto -ml-1 flex items-center justify-center transition-all duration-300 cartoon-button",
+            isOpen ? "bg-destructive" : "bg-primary"
+          )}
+          style={{ 
+            borderRadius: '0 20px 20px 0',
+            borderLeft: 'none'
+          }}
         >
-          {isOpen ? <ChevronLeft className="text-white" /> : <ChevronRight className="text-white" />}
+          {isOpen ? <ChevronLeft className="text-white w-8 h-8" /> : <ChevronRight className="text-white w-8 h-8" />}
         </button>
       </div>
 

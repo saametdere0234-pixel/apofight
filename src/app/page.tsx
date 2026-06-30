@@ -20,7 +20,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ShopSidebar } from '@/components/ShopSidebar';
+import { ShopSidebar, BATTLE_AURAS } from '@/components/ShopSidebar';
 
 const WeaponIcon = ({ weapon, className = "w-8 h-8" }: { weapon: WeaponClass; className?: string }) => {
   const baseClasses = "font-headline flex items-center justify-center select-none leading-none";
@@ -209,30 +209,47 @@ export default function EntryScreen() {
               </div>
 
               <div className="space-y-3">
-                <Label className="font-bold text-sm uppercase">SELECTED TAUNT</Label>
+                <Label className="font-bold text-sm uppercase">CURRENT TAUNT</Label>
                 <div className="flex items-center gap-3 bg-black/40 p-4 rounded-2xl border-2 border-black">
                   <span className="text-4xl">{profile.selectedTaunt || '😂'}</span>
                   <div className="flex flex-col">
                     <span className="font-headline text-sm text-white uppercase tracking-widest">Active Emoji</span>
-                    <span className="text-[10px] font-bold text-white/40 uppercase">Press SPACE in-game</span>
                   </div>
                 </div>
               </div>
               
               <div className="space-y-3">
                 <Label className="font-bold text-sm uppercase">CURRENT COLOUR</Label>
-                <div className="flex items-center gap-3 bg-black/40 p-3 rounded-2xl border-2 border-black">
-                  <div 
-                    className={cn(
-                      "w-10 h-10 rounded-full border-4 border-black",
-                      profile.color.startsWith('aura-') ? profile.color : ""
-                    )} 
-                    style={{ backgroundColor: profile.color.startsWith('aura-') ? "" : profile.color }}
-                  />
-                  <div className="flex flex-col">
-                    <span className="font-headline text-sm text-white uppercase tracking-widest">Arena Identity</span>
-                    <span className="text-[10px] font-bold text-white/40 uppercase">Change in Shop</span>
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center gap-3 bg-black/40 p-3 rounded-2xl border-2 border-black">
+                    <div 
+                      className={cn(
+                        "w-10 h-10 rounded-full border-4 border-black",
+                        profile.color.startsWith('aura-') ? profile.color : ""
+                      )} 
+                      style={{ backgroundColor: profile.color.startsWith('aura-') ? "" : profile.color }}
+                    />
+                    <div className="flex flex-col">
+                      <span className="font-headline text-sm text-white uppercase tracking-widest">Arena Identity</span>
+                    </div>
                   </div>
+
+                  {!authUser && (
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      {BATTLE_AURAS.map((a) => (
+                        <button
+                          key={a.id}
+                          onClick={() => updateProfile({ color: a.id })}
+                          className={cn(
+                            "w-8 h-8 rounded-full border-4 transition-all",
+                            profile.color === a.id ? "scale-125 border-white shadow-lg" : "border-black hover:scale-110"
+                          )}
+                          style={{ backgroundColor: a.id }}
+                          title={a.label}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
