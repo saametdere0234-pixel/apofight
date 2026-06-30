@@ -109,7 +109,7 @@
   animation: pulse-once 0.8s ease-out forwards;
 }
 
-/* Premium Aura Animations - More Intense */
+/* Premium Aura Animations - More Intense but Slower */
 @keyframes aura-gradient {
   0% { background-position: 0% 50%; filter: brightness(1); }
   50% { background-position: 100% 50%; filter: brightness(1.4); }
@@ -118,7 +118,7 @@
 
 .animate-aura-gradient {
   background-size: 300% 300%;
-  animation: aura-gradient 1.5s ease-in-out infinite;
+  animation: aura-gradient 3s ease-in-out infinite;
 }
 
 .aura-g1 { background: linear-gradient(45deg, #8A2387, #E94057, #8A2387); @apply animate-aura-gradient; }

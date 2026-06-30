@@ -31,13 +31,11 @@ export const BATTLE_AURAS = [
 
 export const PREMIUM_AURAS = [
   { id: 'aura-g1', label: 'Mystic Berry', class: 'aura-g1' },
-  { id: 'aura-g2', label: 'Cyan Sky', class: 'aura-g2' },
   { id: 'aura-g3', label: 'Flaming Sun', class: 'aura-g3' },
   { id: 'aura-g4', label: 'Emerald Mint', class: 'aura-g4' },
   { id: 'aura-g5', label: 'Night Mist', class: 'aura-g5' },
   { id: 'aura-g6', label: 'Deep Ocean', class: 'aura-g6' },
   { id: 'aura-g7', label: 'Royal Violet', class: 'aura-g7' },
-  { id: 'aura-g8', label: 'Candy Rush', class: 'aura-g8' },
   { id: 'aura-g9', label: 'Space Abyss', class: 'aura-g9' },
   { id: 'aura-g10', label: 'Neon Velvet', class: 'aura-g10' },
 ];
@@ -170,7 +168,6 @@ export function ShopSidebar() {
                         {!isUnlocked && <Lock className="absolute -top-1 -right-1 w-4 h-4 text-white drop-shadow-md" />}
                         {isUnlocked && isSelected && <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-black flex items-center justify-center"><Check className="w-2 h-2 text-white" /></div>}
                       </button>
-                      <span className="text-[8px] font-bold text-white/40 uppercase text-center">{t.label}</span>
                     </div>
                   );
                 })}
@@ -205,9 +202,11 @@ export function ShopSidebar() {
                 <span className="text-[10px] font-bold text-accent tracking-widest">200G</span>
               </div>
               <div className="grid grid-cols-4 gap-4 p-1">
-                {PREMIUM_AURAS.map(a => {
+                {PREMIUM_AURAS.map((a, idx) => {
                   const isUnlocked = (profile.unlockedAuras || []).includes(a.id);
                   const isSelected = profile.color === a.id;
+                  // Add a random animation delay to prevent synchronization
+                  const randomDelay = (idx * 0.3) % 2; 
                   return (
                     <div key={a.id} className="flex flex-col items-center gap-1">
                       <button
@@ -218,6 +217,7 @@ export function ShopSidebar() {
                           !isUnlocked && "opacity-60",
                           a.class
                         )}
+                        style={{ animationDelay: `${randomDelay}s` }}
                       >
                         {!isUnlocked && <Lock className="w-4 h-4 text-white drop-shadow-md" />}
                         {isUnlocked && isSelected && <Check className="w-4 h-4 text-white drop-shadow-md" />}
@@ -228,7 +228,7 @@ export function ShopSidebar() {
               </div>
             </section>
 
-            {/* BORDER MOD */}
+            {/* NO BORDER SECTION */}
             <section className="space-y-4 pt-4 border-t border-white/10">
               <div className="flex items-center justify-between bg-black/40 p-4 rounded-[20px] border-4 border-black group">
                 <div className="flex items-center gap-3">
@@ -263,10 +263,7 @@ export function ShopSidebar() {
         
         <button 
           onClick={() => setIsOpen(!isOpen)}
-          className={cn(
-            "w-12 h-20 my-auto -ml-1 flex items-center justify-center transition-all duration-300 cartoon-button border-black",
-            isOpen ? "bg-destructive" : "bg-primary"
-          )}
+          className="w-12 h-20 my-auto -ml-1 flex items-center justify-center transition-all duration-300 cartoon-button border-black bg-black"
           style={{ 
             borderRadius: '0 20px 20px 0',
             borderLeft: 'none'
