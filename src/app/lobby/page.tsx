@@ -8,7 +8,8 @@ import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Plus, Users, ArrowRight, Home, LayoutGrid, ShieldAlert, LogOut, Wallet, Fingerprint, Zap, Search, Swords } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { Plus, Users, ArrowRight, Home, LayoutGrid, ShieldAlert, LogOut, Wallet, Fingerprint, Zap, Search, Swords, Quote } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { GameRoom, WeaponClass } from '@/lib/game-types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -36,7 +37,7 @@ const WeaponIcon = ({ weapon, className = "w-8 h-8" }: { weapon: WeaponClass; cl
 };
 
 export default function LobbyScreen() {
-  const { profile, authUser, loading: profileLoading } = useLocalPlayer();
+  const { profile, updateProfile, authUser, loading: profileLoading } = useLocalPlayer();
   const [rooms, setRooms] = useState<Record<string, GameRoom>>({});
   const [newRoomName, setNewRoomName] = useState('');
   const [maxPlayers, setMaxPlayers] = useState(4);
@@ -44,7 +45,14 @@ export default function LobbyScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeSearch, setActiveSearch] = useState('');
   const [pulseTrigger, setPulseTrigger] = useState(0);
+  const [bioInput, setBioInput] = useState(profile?.bio || '');
   const router = useRouter();
+
+  useEffect(() => {
+    if (profile?.bio) {
+      setBioInput(profile.bio);
+    }
+  }, [profile?.bio]);
 
   useEffect(() => {
     if (!db) return;
@@ -138,6 +146,10 @@ export default function LobbyScreen() {
     setPulseTrigger(prev => prev + 1);
   };
 
+  const handleUpdateBio = () => {
+    updateProfile({ bio: bioInput.substring(0, 60) });
+  };
+
   if (profileLoading || !profile) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -175,10 +187,32 @@ export default function LobbyScreen() {
                 </Avatar>
               </div>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="cartoon-card bg-black/90 border-4 border-black p-4 min-w-[240px] text-white">
-              <DropdownMenuLabel className="font-headline text-xl text-primary mb-2">WARRIOR INFO</DropdownMenuLabel>
+            <DropdownMenuContent align="end" className="cartoon-card bg-black/90 border-4 border-black p-4 min-w-[280px] text-white">
+              <DropdownMenuLabel className="font-headline text-xl text-primary mb-2 uppercase">Profile Info</DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-white/10" />
               <div className="space-y-4 py-2">
+                <div className="flex flex-col gap-2">
+                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1">
+                    <Quote className="w-3 h-3" /> PERSONAL BIO (60 CHARS)
+                  </span>
+                  <div className="space-y-2">
+                    <Textarea 
+                      value={bioInput}
+                      onChange={(e) => setBioInput(e.target.value.substring(0, 60))}
+                      placeholder="SET YOUR BIO..."
+                      className="bg-black/40 border-2 border-black rounded-xl text-xs min-h-[60px] resize-none focus-visible:ring-primary h-auto"
+                      maxLength={60}
+                    />
+                    <Button 
+                      onClick={handleUpdateBio}
+                      size="sm"
+                      className="cartoon-button bg-primary text-white w-full h-8 text-[10px]"
+                    >
+                      SAVE BIO
+                    </Button>
+                  </div>
+                </div>
+
                 <div className="flex flex-col gap-1">
                   <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1">
                     <Swords className="w-3 h-3" /> CURRENT WEAPON

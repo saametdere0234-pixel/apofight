@@ -5,7 +5,8 @@ import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { User, Zap, LogOut, Wallet, Fingerprint, Swords } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { User, Zap, LogOut, Wallet, Fingerprint, Swords, Quote } from 'lucide-react';
 import { WeaponClass } from '@/lib/game-types';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -33,6 +34,7 @@ const WeaponIcon = ({ weapon, className = "w-8 h-8" }: { weapon: WeaponClass; cl
 export default function EntryScreen() {
   const { profile, updateProfile, authUser, loading } = useLocalPlayer();
   const router = useRouter();
+  const [bioInput, setBioInput] = useState(profile?.bio || '');
 
   if (loading || !profile) {
     return (
@@ -82,6 +84,10 @@ export default function EntryScreen() {
   const currentTaunt = SHOP_TAUNTS.find(t => t.id === profile.selectedTaunt) || SHOP_TAUNTS[0];
   const currentColorName = [...BATTLE_AURAS, ...PREMIUM_AURAS].find(a => a.id === profile.color)?.label || "Arena Identity";
 
+  const handleUpdateBio = () => {
+    updateProfile({ bio: bioInput.substring(0, 60) });
+  };
+
   return (
     <div className="min-h-screen bg-[#1a1a2e] text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
       <div className="scanline" />
@@ -103,10 +109,32 @@ export default function EntryScreen() {
                 </Avatar>
               </div>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="cartoon-card bg-black/90 border-4 border-black p-4 min-w-[240px] text-white">
-              <DropdownMenuLabel className="font-headline text-xl text-primary mb-2">WARRIOR INFO</DropdownMenuLabel>
+            <DropdownMenuContent align="end" className="cartoon-card bg-black/90 border-4 border-black p-4 min-w-[280px] text-white">
+              <DropdownMenuLabel className="font-headline text-xl text-primary mb-2 uppercase">Profile Info</DropdownMenuLabel>
               <DropdownMenuSeparator className="bg-white/10" />
               <div className="space-y-4 py-2">
+                <div className="flex flex-col gap-2">
+                  <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1">
+                    <Quote className="w-3 h-3" /> PERSONAL BIO (60 CHARS)
+                  </span>
+                  <div className="space-y-2">
+                    <Textarea 
+                      value={bioInput}
+                      onChange={(e) => setBioInput(e.target.value.substring(0, 60))}
+                      placeholder="SET YOUR BIO..."
+                      className="bg-black/40 border-2 border-black rounded-xl text-xs min-h-[60px] resize-none focus-visible:ring-primary h-auto"
+                      maxLength={60}
+                    />
+                    <Button 
+                      onClick={handleUpdateBio}
+                      size="sm"
+                      className="cartoon-button bg-primary text-white w-full h-8 text-[10px]"
+                    >
+                      SAVE BIO
+                    </Button>
+                  </div>
+                </div>
+
                 <div className="flex flex-col gap-1">
                   <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest flex items-center gap-1">
                     <Swords className="w-3 h-3" /> CURRENT WEAPON

@@ -18,6 +18,7 @@ export interface PlayerProfile {
   adminRewardClaimed?: boolean; // Tracking for special grants
   unlockedTaunts?: string[]; // Emojis unlocked
   selectedTaunt?: string; // Currently active taunt
+  bio?: string; // Personal bio (max 60 chars)
 }
 
 export interface ChatMessage {

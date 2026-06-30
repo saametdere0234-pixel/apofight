@@ -7,7 +7,7 @@ import { useLocalPlayer } from '@/hooks/use-local-player';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { Users, Plus, X, ArrowRight, Bell, ChevronLeft, ChevronRight, Send, Gamepad2, UserX, Info, Check, Wallet } from 'lucide-react';
+import { Users, Plus, X, ArrowRight, Bell, ChevronLeft, ChevronRight, Send, Gamepad2, UserX, Info, Check, Wallet, Quote } from 'lucide-react';
 import { PlayerProfile, GameInvitation } from '@/lib/game-types';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -557,6 +557,14 @@ export function FriendsSidebar({ currentRoomId }: { currentRoomId?: string }) {
               <div className="flex flex-col items-center text-center gap-2 w-full">
                 <span className="font-headline text-2xl text-white truncate max-w-full">{selectedFriend.name}</span>
                 
+                {selectedFriend.bio && (
+                  <div className="flex flex-col items-center gap-1 w-full bg-black/40 p-3 rounded-xl border border-white/5 italic">
+                    <Quote className="w-3 h-3 text-primary/40 self-start" />
+                    <p className="text-xs text-white/80 font-medium break-words w-full">{selectedFriend.bio}</p>
+                    <Quote className="w-3 h-3 text-primary/40 self-end rotate-180" />
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 gap-2 w-full mt-2">
                   <div className="flex flex-col items-center bg-black/40 px-4 py-2 rounded-xl border border-white/10 w-full">
                     <span className="text-[10px] font-bold text-white/40 uppercase tracking-widest">PLAYER ID</span>
